@@ -1,0 +1,25 @@
+{
+  "name": "kovo-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "KOVO: migración a Vite (Fase 0, reproducción exacta del original)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "extract": "python3 scripts/extract-legacy.py",
+    "pw:install": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright install chromium",
+    "test:baseline": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test tests/visual --project=original --project=original-movil --update-snapshots",
+    "test:visual": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test tests/visual --project=vite --project=vite-movil",
+    "test:smoke": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test tests/smoke --project=vite",
+    "test": "npm run test:smoke && npm run test:visual"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.0",
+    "vite": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
