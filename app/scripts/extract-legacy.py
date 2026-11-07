@@ -11,6 +11,11 @@ APP = pathlib.Path(__file__).resolve().parent.parent
 SRC = APP.parent / 'source' / 'dist' / 'Sesiona.html'
 EXPECTED_SHA256 = 'dede0565eac4aeb6d35c188b6fa839578d3b52bd39655c704bd6e69b75b1ec21'
 
+LEGACY = APP / 'src' / 'legacy.js'
+if LEGACY.exists() and '--force' not in sys.argv:
+    sys.exit('src/legacy.js ya existe y es el código fuente editado (capa de datos). '
+             'Regenerarlo borraría esos cambios. Usa --force solo si de verdad quieres empezar de cero.')
+
 raw = SRC.read_bytes()
 sha = hashlib.sha256(raw).hexdigest()
 if sha != EXPECTED_SHA256:

@@ -11,6 +11,18 @@ Sin Supabase. Con los datos de demostración de siempre (se guardan en el navega
   se carga como módulo: `<script type="module" src="/src/legacy.js">`.
 - `src/legacy.js` es el código original, sin tocar.
 
+## Capa de datos
+
+`src/legacy.js` ya no lee ni escribe el navegador directamente: carga, guarda, crea ids,
+restablece y sube archivos a través de `src/data/` (`data.load`, `persist`, `newId`, `reset`, `uploadFile`).
+Desde este paso `legacy.js` es el código fuente (no se regenera con `extract-legacy.py`).
+
+- `src/data/demo.js`: modo **demo**, el comportamiento original (misma clave de localStorage,
+  así que los datos que ya había se siguen cargando).
+- `src/data/supabase.js`: modo **supabase**, **desactivado**: no conecta y nunca ejecuta `seed()`.
+- `src/data/sync.js`: calcula altas, modificaciones y bajas entre dos estados. No envía nada.
+- Modo con `VITE_DATA_MODE` (ver `.env.example`). Por defecto, `demo`.
+
 ## Requisitos
 
 Node.js 20.19 o superior (`node -v`).

@@ -1,5 +1,7 @@
-// Código original de KOVO extraído sin cambios de source/dist/Sesiona.html.
-// Fase 0: se carga tal cual como módulo. En la Fase 1 se separará en módulos.
+// Código de KOVO (extraído de source/dist/Sesiona.html). Desde la capa de datos, este archivo
+// es el código fuente: ya no se regenera con extract-legacy.py.
+// Los datos se cargan y guardan a través de ./data (modo demo por defecto).
+import { data } from './data/index.js';
 /* ===== utilidades ===== */
 const pad=n=>String(n).padStart(2,'0');
 const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -223,14 +225,12 @@ function numberAll(S){
 function tot(inv){let base=0,iva=0;inv.lines.forEach(l=>{const b=Math.round(l.qty*l.price);base+=b;if(!l.exempt)iva+=Math.round(b*.21)});const ret=Math.round(base*(inv.ret||0)/100);const total=base+iva-ret;const paid=inv.payments.reduce((a,p)=>a+p.amount,0);return{base,iva,ret,total,paid,pending:total-paid}}
 
 /* ===== estado ===== */
-const KEY='sesiona-prototipo-v7';
 let S;
-try{const raw=localStorage.getItem(KEY);S=raw?JSON.parse(raw):null;if(S&&S.builtFor!==TODAY.slice(0,7))S=null}catch(e){S=null}
-if(!S){S=seed();S.builtFor=TODAY.slice(0,7)}
+try{S=await data.load({seed,today:TODAY})}catch(e){document.getElementById('view').textContent=e.message;throw e}
 S.avail=S.avail||JSON.parse(JSON.stringify(DEF_AVAIL));AVAIL=S.avail;S.settings=Object.assign({accent:'azul',h0:9,h1:21},S.settings);S.pro.loc=S.pro.loc||'Despacho Málaga Centro';
 let REVEAL={};
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('El almacenamiento del navegador está lleno; las últimas fotos no se guardarán')}}
-const nid=p=>p+(S.seq++);
+function save(){try{data.persist(S)}catch(e){toast('El almacenamiento del navegador está lleno; las últimas fotos no se guardarán')}}
+const nid=p=>data.newId(p,S);
 const P=id=>S.patients.find(p=>p.id===id);
 const SV=id=>S.services.find(s=>s.id===id);
 const ME={psicologa:'Psicóloga',recepcion:'Recepción',gestoria:'Gestoría externa'};
@@ -1023,9 +1023,7 @@ async function compress(file,max=1400,q=.72){
 }
 const toDataURL=b=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=()=>r(null);fr.readAsDataURL(b)});
 async function store(blob){
-  if(ASSETS){try{const a=await ASSETS.upload(blob);return a.url}catch(e){}}
-  if(blob.size>900000)return null;
-  return await toDataURL(blob);
+  return await data.uploadFile(blob,{assets:ASSETS,toDataURL});
 }
 let SCAN=null;
 async function startScan(file){
@@ -1274,7 +1272,7 @@ const ACT={
   iper:d=>{S.sel.iper=d.p;render()},
   gsub:d=>{S.sel.gsub=d.t;render()},
   reset:()=>{modal('Restablecer datos',`<p style="margin:0">Se borrarán los cambios hechos en este navegador y se cargarán de nuevo los datos de ejemplo.</p>`,`<button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="doReset">Restablecer</button>`)},
-  doReset:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();S.builtFor=TODAY.slice(0,7);AVAIL=S.avail;REVEAL={};closeModal();render();toast('Datos de ejemplo restablecidos')}
+  doReset:async()=>{S=await data.reset({seed,today:TODAY});AVAIL=S.avail;REVEAL={};closeModal();render();toast('Datos de ejemplo restablecidos')}
 };
 function readLines(i){document.querySelectorAll('[data-ld]').forEach(t=>i.lines[t.dataset.ld].desc=t.value);document.querySelectorAll('[data-lp]').forEach(t=>i.lines[t.dataset.lp].price=Math.round(Number(t.value)*100))}
 
