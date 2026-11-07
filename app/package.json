@@ -10,10 +10,7 @@
     "preview": "vite preview",
     "extract": "python3 scripts/extract-legacy.py",
     "pw:install": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright install chromium",
-    "test:baseline": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test tests/visual --project=original --project=original-movil --update-snapshots",
-    "test:visual": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test tests/visual --project=vite --project=vite-movil",
-    "test:smoke": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright test tests/smoke --project=vite",
-    "test": "npm run test:smoke && npm run test:visual"
+    "test": "echo 'Las pruebas se lanzan sin npm: sh scripts/pw.sh smoke|visual|baseline|all (ver README)' && exit 1"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.0",
