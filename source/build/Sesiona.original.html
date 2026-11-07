@@ -1,0 +1,1214 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Sesiona</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: barra lateral blanca + área de trabajo blanca; en móvil la navegación es una franja superior. Diseño claro deliberado (un solo tema). */
+:root{
+  color-scheme:light;
+  --bg:#ffffff; --surface:#ffffff; --tint:#f5f9fc; --line:#e4ebf1; --line-2:#d3dee7;
+  --fg:#0e1b29; --muted:#5f7184; --faint:#93a3b3;
+  --sky:#38bdf8; --sky-ink:#0272a8; --sky-soft:#e8f7ff; --sky-mid:#bfe9fd; --on-sky:#04263b;
+  --ok:#15803d; --ok-soft:#e9f8ef; --warn:#b45309; --warn-soft:#fff5e6; --bad:#c62828; --bad-soft:#fdeeee;
+  --clin:#6d4fd1; --clin-soft:#f1edfd;
+  --c1:#38bdf8; --c2:#0272a8; --c3:#f59e0b;
+  --f:"Plus Jakarta Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:12px;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--sky-ink)}
+h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.02em}
+h1{font-size:1.75rem;font-weight:800} h2{font-size:1.05rem;font-weight:700} h3{font-size:.95rem;font-weight:700}
+.num{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--f-mono);font-size:.85em}
+.muted{color:var(--muted)} .small{font-size:.82rem}
+.app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100%}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px}
+.brand-mark{width:32px;height:32px;border-radius:10px;background:var(--sky);display:grid;place-items:center;color:var(--on-sky)}
+.brand b{font-size:1.2rem;font-weight:800;letter-spacing:-.03em}
+nav.nav{display:flex;flex-direction:column;gap:3px}
+.nav button{display:flex;align-items:center;gap:11px;padding:9px 12px;border:0;background:none;border-radius:10px;cursor:pointer;text-align:left;color:var(--muted);font-weight:600}
+.nav button:hover{background:var(--tint);color:var(--fg)}
+.nav button[aria-current="page"]{background:var(--sky-soft);color:var(--sky-ink)}
+.nav svg{width:19px;height:19px;flex:none}
+.nav .badge{margin-left:auto;background:var(--sky);color:var(--on-sky);font-size:.7rem;font-weight:800;padding:1px 7px;border-radius:99px}
+.role{margin-top:auto;border-top:1px solid var(--line);padding:14px 8px 0;display:grid;gap:6px}
+.role label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.proto{font-size:.74rem;color:var(--faint);padding:0 8px;margin:0}
+main{min-width:0;padding-block:26px 70px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1200px;margin:0 auto;display:grid;gap:20px}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.head p{margin:4px 0 0;color:var(--muted)}
+.eyebrow{font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;font-weight:800;color:var(--sky-ink);margin-bottom:4px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line-2);background:var(--surface);padding:8px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:.86rem;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;color:var(--fg)}
+.btn:hover{border-color:var(--sky);background:var(--sky-soft)}
+.btn.primary{background:var(--sky);border-color:var(--sky);color:var(--on-sky)}
+.btn.primary:hover{background:#22b0ef}
+.btn.ghost{border-color:transparent;background:none}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:5px 10px;font-size:.8rem;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn svg{width:16px;height:16px}
+:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0}
+.panel.flush{padding:0}
+.panel>header,.ph{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.panel.flush>header{padding:16px 18px 0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.grid3{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px;align-items:start}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--tint);border-radius:var(--r);padding:14px 16px;min-width:0}
+.kpi .l{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.kpi .v{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .s{font-size:.78rem;color:var(--muted)}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--tint)}
+td.r,th.r{text-align:right}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap;background:var(--tint);color:var(--muted)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.info,.chip.acc{background:var(--sky-soft);color:var(--sky-ink)} .chip.clin{background:var(--clin-soft);color:var(--clin)}
+.pc{font-family:var(--f-mono);font-weight:600;font-size:.82rem;background:var(--sky-soft);color:var(--sky-ink);padding:2px 7px;border-radius:6px;white-space:nowrap;letter-spacing:.04em}
+.pc.big{font-size:1.1rem;padding:4px 10px}
+.list{display:grid}
+.row{display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);min-width:0}
+.row:last-child{border-bottom:0}
+.row .t{font-variant-numeric:tabular-nums;font-weight:800;width:50px;flex:none}
+.row .m{min-width:0;flex:1}
+.row .m b{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .m span{font-size:.8rem;color:var(--muted)}
+.todo{display:flex;gap:12px;align-items:center;padding:11px 12px;border-radius:10px;cursor:pointer;border:0;width:100%;text-align:left;background:none}
+.todo:hover{background:var(--tint)}
+.todo .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none;background:var(--sky-soft);color:var(--sky-ink)}
+.todo .ic svg{width:18px;height:18px}
+.todo.clin .ic{background:var(--clin-soft);color:var(--clin)} .todo.warn .ic{background:var(--warn-soft);color:var(--warn)} .todo.bad .ic{background:var(--bad-soft);color:var(--bad)}
+.todo .tx{flex:1;min-width:0} .todo .tx b{display:block;font-weight:700} .todo .tx span{font-size:.8rem;color:var(--muted)}
+.todo .n{font-weight:800;font-size:.85rem;background:var(--tint);border-radius:99px;padding:2px 9px;font-variant-numeric:tabular-nums}
+.stack{display:grid;gap:8px}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:var(--surface);flex-wrap:wrap}
+.seg button{border:0;background:none;padding:7px 12px;cursor:pointer;font-weight:700;font-size:.82rem;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--sky-soft);color:var(--sky-ink)}
+input[type=text],input[type=email],input[type=tel],input[type=date],input[type=time],input[type=number],input[type=search],select,textarea{border:1px solid var(--line-2);background:var(--surface);border-radius:10px;padding:8px 10px;width:100%;min-width:0}
+textarea{min-height:80px;resize:vertical;line-height:1.5}
+.field{display:grid;gap:5px}
+.field>span{font-size:.76rem;font-weight:700;color:var(--muted)}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.form .full{grid-column:1/-1}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolbar input[type=search]{width:260px;max-width:100%}
+.box{padding:11px 14px;border-radius:10px;font-size:.85rem;background:var(--sky-soft);color:#11405a}
+.box.clin{background:var(--clin-soft);color:#3c2a7a} .box.warn{background:var(--warn-soft);color:#6b3a06} .box.ok{background:var(--ok-soft);color:#14532d}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:0;background:none;padding:10px 13px;cursor:pointer;font-weight:700;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;display:flex;gap:7px;align-items:center}
+.tabs button[aria-selected="true"]{color:var(--sky-ink);border-color:var(--sky)}
+.tabs .k{font-family:var(--f-mono);font-size:.7rem;color:var(--faint)}
+.tabs button[aria-selected="true"] .k{color:var(--sky-ink)}
+/* calendario */
+.cal-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.cal{display:grid;min-width:620px}
+.cal.day{min-width:0}
+.cal-h{display:contents}
+.cal-h div{padding:9px 6px;border-bottom:1px solid var(--line);font-weight:700;font-size:.78rem;text-align:center;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.cal-h div small{display:block;font-size:1.15rem;color:var(--fg);letter-spacing:0;text-transform:none;font-weight:800}
+.cal-h div.today small{background:var(--sky);color:var(--on-sky);border-radius:99px;width:32px;height:32px;display:grid;place-items:center;margin:2px auto 0}
+.times{position:relative;border-right:1px solid var(--line)}
+.times span{position:absolute;right:6px;font-size:.7rem;color:var(--faint);transform:translateY(-50%);font-variant-numeric:tabular-nums}
+.col{position:relative;border-right:1px solid var(--line);cursor:copy;background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% var(--px)}
+.col:last-child{border-right:0}
+.col .off{position:absolute;left:0;right:0;background:var(--tint);pointer-events:none}
+.col .now{position:absolute;left:0;right:0;height:2px;background:var(--bad);z-index:3;pointer-events:none}
+.col .now::before{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--bad)}
+.ap{position:absolute;left:3px;right:3px;border-radius:8px;padding:4px 7px;font-size:.74rem;line-height:1.25;cursor:pointer;overflow:hidden;border:0;text-align:left;z-index:2;background:var(--sky-mid);color:var(--on-sky)}
+.ap .sl{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ap b{display:block;font-family:var(--f-mono);font-weight:600;letter-spacing:.03em}
+.ap.pendiente{background:var(--warn-soft);color:#6b3a06;box-shadow:inset 0 0 0 1.5px #f5c27a}
+.ap.realizada{background:var(--ok-soft);color:#14532d}
+.ap.cancelada{background:var(--tint);color:var(--faint);text-decoration:line-through}
+.ap.ausencia{background:var(--bad-soft);color:#7f1d1d}
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--line);gap:1px}
+.month .dh{background:var(--surface);padding:7px;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);text-align:center;font-weight:700}
+.month .dc{background:var(--surface);min-height:94px;padding:6px;display:grid;align-content:start;gap:3px;cursor:pointer;min-width:0}
+.month .dc.out{background:var(--tint);color:var(--faint)}
+.month .dc .d{font-weight:800;font-size:.82rem}
+.month .dc.today .d{color:var(--sky-ink)}
+.month .mi{font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:4px;padding:1px 4px;background:var(--sky-soft);font-family:var(--f-mono)}
+.month .mi.realizada{background:var(--ok-soft)} .month .mi.pendiente{background:var(--warn-soft)} .month .mi.cancelada,.month .mi.ausencia{background:var(--tint);color:var(--faint)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.daystrip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:6px}
+.daystrip button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 4px;cursor:pointer;display:grid;justify-items:center;gap:1px;font-size:.72rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.daystrip button b{font-size:1.05rem;color:var(--fg);letter-spacing:0}
+.daystrip button i{font-style:normal;font-size:.68rem;text-transform:none;letter-spacing:0}
+.daystrip button[aria-pressed="true"]{background:var(--sky);border-color:var(--sky);color:var(--on-sky)}
+.daystrip button[aria-pressed="true"] b{color:var(--on-sky)}
+/* ficha */
+.timeline{display:grid}
+.ev{display:grid;grid-template-columns:96px 12px minmax(0,1fr);gap:10px;padding:6px 0;align-items:start}
+.ev .dt{font-size:.76rem;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;padding-top:1px}
+.ev .dot{width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--sky)}
+.ev .dot.clin{background:var(--clin)} .ev .dot.fac{background:var(--c3)} .ev .dot.mail{background:var(--faint)} .ev .dot.bad{background:var(--bad)}
+.ev .tx{font-size:.86rem;min-width:0}
+.dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:7px 16px;font-size:.88rem;margin:0}
+.dl dt{color:var(--muted)} .dl dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.masked{letter-spacing:.12em;color:var(--faint)}
+.lock{display:grid;place-items:center;text-align:center;gap:6px;padding:34px;color:var(--muted)}
+.drop{border:2px dashed var(--line-2);border-radius:var(--r);padding:22px;text-align:center;display:grid;gap:8px;justify-items:center;background:var(--tint)}
+.drop svg{width:30px;height:30px;color:var(--sky-ink)}
+.thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--tint);border:1px solid var(--line);flex:none;display:grid;place-items:center;color:var(--faint)}
+.thumb svg{width:20px;height:20px}
+.preview{max-height:300px;width:100%;object-fit:contain;border-radius:10px;background:var(--tint);border:1px solid var(--line)}
+.scanbar{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--sky-soft);border-radius:var(--r);padding:16px 18px}
+.scanbar b{font-size:1rem}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--sky-mid);border-top-color:var(--sky-ink);animation:sp 1s linear infinite;display:inline-block;vertical-align:-3px}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* factura */
+.inv{border:1px solid var(--line);border-radius:var(--r);padding:22px;background:var(--surface);display:grid;gap:16px}
+.inv .top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.inv .numb{font-family:var(--f-mono);font-size:1rem;font-weight:600}
+.inv .tot{display:grid;grid-template-columns:1fr auto;gap:4px 24px;justify-self:end;font-variant-numeric:tabular-nums;min-width:240px}
+.inv .tot .g{font-weight:800;font-size:1.05rem;border-top:1px solid var(--line);padding-top:6px}
+.vf{display:flex;gap:10px;align-items:center;font-size:.74rem;color:var(--muted);border:1px dashed var(--line-2);border-radius:10px;padding:8px 10px;flex-wrap:wrap}
+.vf .mono{overflow-wrap:anywhere}
+/* gráficas */
+.chart svg{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font-size:11px;font-family:var(--f)}
+.hbar{display:grid;grid-template-columns:minmax(0,160px) minmax(0,1fr) auto;gap:9px 12px;align-items:center;font-size:.85rem}
+.hbar .b{height:10px;border-radius:99px;background:var(--tint);overflow:hidden}
+.hbar .b i{display:block;height:100%;background:var(--c1);border-radius:99px}
+.prog{height:8px;border-radius:99px;background:var(--tint);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--ok);border-radius:99px}
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(14,27,41,.38);display:grid;place-items:center;z-index:50;padding:16px}
+.mod{background:var(--surface);border-radius:16px;width:min(720px,100%);max-height:calc(100% - 20px);display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(14,27,41,.22)}
+.mod.wide{width:min(900px,100%)}
+.mod>header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center}
+.mod>.bd{padding:20px;overflow:auto;display:grid;gap:14px}
+.mod>footer{padding:12px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.x{border:0;background:none;font-size:1.4rem;cursor:pointer;color:var(--muted);line-height:1}
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--fg);color:#fff;padding:10px 18px;border-radius:12px;font-weight:600;z-index:60;font-size:.86rem;max-width:calc(100% - 32px)}
+.toggle{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.toggle:last-child{border-bottom:0}
+.toggle small{display:block;color:var(--muted)}
+.sw{appearance:none;width:40px;height:23px;border-radius:99px;background:var(--line-2);position:relative;cursor:pointer;flex:none;transition:background .15s;margin:0}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.sw:checked{background:var(--sky)} .sw:checked::after{left:20px}
+.roleban{background:var(--sky-soft);color:var(--sky-ink);padding:9px 14px;border-radius:10px;font-size:.84rem;font-weight:700}
+.empty{padding:26px;text-align:center;color:var(--muted)}
+.bell{position:relative}
+.bell .dotn{position:absolute;top:-6px;right:-6px;background:var(--bad);color:#fff;font-size:.66rem;font-weight:800;border-radius:99px;padding:1px 6px}
+@media (max-width:1050px){.grid3,.grid2{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:sticky;top:0;height:auto;flex-direction:row;align-items:center;padding:calc(8px + env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));border-right:0;border-bottom:1px solid var(--line);z-index:20;gap:10px;overflow:visible}
+  .brand b,.proto{display:none}
+  nav.nav{flex-direction:row;overflow-x:auto;flex:1;min-width:0}
+  .nav button{padding:8px 10px;white-space:nowrap}
+  .nav button span.lb{display:none}
+  .nav button[aria-current="page"] span.lb{display:inline}
+  .role{margin:0;border:0;padding:0}
+  .role label{display:none}
+  .role select{width:auto;max-width:118px;padding:6px}
+  .form{grid-template-columns:minmax(0,1fr)}
+  h1{font-size:1.4rem}
+  .inv .tot{min-width:0;justify-self:stretch}
+  .daystrip{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="brand-mark" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12c0-4 3-7 7-7s7 3 7 7"/><path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4"/><path d="M12 12v7"/></svg></div><b>Sesiona</b></div>
+    <nav class="nav" id="nav" aria-label="Secciones"></nav>
+    <div class="role"><label for="role">Ver como</label>
+      <select id="role">
+        <option value="psicologa">Psicóloga</option>
+        <option value="recepcion">Recepción</option>
+        <option value="gestoria">Gestoría</option>
+      </select>
+    </div>
+    <p class="proto">Prototipo con datos ficticios. Los cambios se guardan en este navegador.</p>
+  </aside>
+  <main><div class="wrap" id="view"></div></main>
+</div>
+<div id="modal"></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+/* ===== utilidades ===== */
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return iso(d)};
+const TODAY=iso(new Date());
+const YEAR=Number(TODAY.slice(0,4));
+const dow=s=>(parse(s).getDay()+6)%7;
+const mondayOf=s=>addDays(s,-dow(s));
+const eur=c=>(c/100).toLocaleString('es-ES',{style:'currency',currency:'EUR'});
+const eur0=c=>(c/100).toLocaleString('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0});
+const fD=s=>s?parse(s).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'}):'—';
+const fDs=s=>parse(s).toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});
+const fDl=s=>{const t=parse(s).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});return t[0].toUpperCase()+t.slice(1)};
+const hm=m=>`${pad(Math.floor(m/60))}:${pad(m%60)}`;
+const toMin=t=>{const[h,m]=t.split(':').map(Number);return h*60+m};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ym=s=>s.slice(0,7);
+const monthName=k=>{const[y,m]=k.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'short'}).replace('.','')};
+const monthLong=k=>{const[y,m]=k.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('es-ES',{month:'long',year:'numeric'})};
+const nowMin=()=>{const d=new Date();return d.getHours()*60+d.getMinutes()};
+const qOf=s=>Math.floor((Number(s.slice(5,7))-1)/3)+1;
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function fnv(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193)}let h2=0x12345;for(let i=str.length-1;i>=0;i--){h2^=str.charCodeAt(i);h2=Math.imul(h2,0x01000193)}return((h>>>0).toString(16).padStart(8,'0')+(h2>>>0).toString(16).padStart(8,'0')).toUpperCase()}
+const maskEmail=e=>{const[a,b]=String(e).split('@');return b?a[0]+'•••@'+b:'•••'};
+const SVG=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const IC={
+  cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  pen:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+  doc:'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  bank:'<path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>',
+  tax:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  upload:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
+  bell:'<path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+  eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  sign:'<path d="M3 17c3-1 4-6 6-6s1 5 3 5 2-3 4-3 3 2 5 2"/><path d="M3 21h18"/>',
+  img:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>'
+};
+
+/* ===== capacidades del visor (IA para leer facturas, almacenamiento de fotos, descargas) ===== */
+let SAMPLE=null,ASSETS=null,DL=null;
+if(window.claude&&typeof window.claude.use==='function'){
+  window.claude.use('sample').then(s=>SAMPLE=s).catch(()=>{});
+  window.claude.use('assets').then(s=>ASSETS=s).catch(()=>{});
+  window.claude.use('downloads').then(s=>DL=s).catch(()=>{});
+}
+
+/* ===== catálogos ===== */
+const AVAIL={0:[[960,1200]],1:[[600,840],[960,1200]],2:[[960,1200]],3:[[600,840],[960,1200]],4:[[600,840]]};
+const DAYN=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const FIELDS={
+  sesion:[['objetivos','Objetivos abordados'],['resumen','Resumen profesional de la sesión'],['intervenciones','Técnicas o intervenciones realizadas'],['observaciones','Observaciones y evolución'],['acuerdos','Acuerdos y tareas para el paciente'],['plan','Plan para la siguiente sesión']],
+  inicial:[['motivo','Motivo de consulta'],['antecedentes','Antecedentes relevantes'],['evaluacion','Evaluación'],['formulacion','Hipótesis o formulación clínica'],['objetivos','Objetivos terapéuticos'],['plan','Plan de intervención']],
+  evolucion:[['objetivos','Objetivos revisados'],['cambios','Cambios observados'],['valoracion','Valoración profesional'],['plan','Próximos pasos']],
+  cierre:[['motivo','Motivo de cierre'],['trabajo','Trabajo realizado'],['logros','Objetivos alcanzados y pendientes'],['recomendaciones','Recomendaciones']]
+};
+const NOTE_T={sesion:'Nota de sesión',inicial:'Evaluación inicial',evolucion:'Informe de evolución',cierre:'Informe de cierre'};
+const CATS=['Alquiler','Suministros','Seguros','Material','Gestoría y asesoría','Tecnología y software','Cuotas e impuestos','Personal','Formación','Otros'];
+const RULES=[[/alquiler|inmobiliari|arrend|local|despacho/i,'Alquiler'],[/luz|el[eé]ctric|endesa|iberdrola|naturgy|agua|emasa|gas|fibra|telef|movistar|vodafone|orange|digi|internet|telecom/i,'Suministros'],[/seguro|asegurad|mapfre|mutua|axa|allianz|responsabilidad civil/i,'Seguros'],[/papeler|material|tinta|folios|test|amazon|oficina/i,'Material'],[/gestor|asesor|abogad|notar|contable/i,'Gestoría y asesoría'],[/software|licencia|saas|google|microsoft|apple|zoom|hosting|dominio|web/i,'Tecnología y software'],[/aut[oó]nomo|tesorer|seguridad social|hacienda|aeat|colegio|ayuntamiento|tasa|impuesto/i,'Cuotas e impuestos'],[/n[oó]mina|salario|personal/i,'Personal'],[/curso|formaci|congreso|master|máster|jornada/i,'Formación']];
+const guessCat=t=>{for(const[re,c]of RULES)if(re.test(t||''))return c;return'Otros'};
+
+/* ===== datos de ejemplo ===== */
+function payroll(bruto){const ssT=Math.round(bruto*.0648),irpf=Math.round(bruto*.02),ssE=Math.round(bruto*.319);return{bruto,ssT,irpf,neto:bruto-ssT-irpf,ssE,coste:bruto+ssE}}
+function seed(){
+  const r=rng(42);
+  const pick=a=>a[Math.floor(r()*a.length)];
+  const S={seq:1,role:'psicologa',view:'inicio',cal:{mode:'semana',date:TODAY},sel:{homeDay:TODAY},
+    pro:{name:'Laura Benítez Ortega',col:'AN-09999 (ficticio)',nif:'00000000T (ficticio)',addr:'C/ Ejemplo 12, 2º B · 29001 Málaga',email:'consulta@ejemplo.es',sanitaria:true},
+    settings:{confirmEmail:true,reminder:true,reminderH:24,noteTask:true,invoiceMode:'auto',sendInvoice:true,overdue:true,dueDays:15,aiScan:true},
+    services:[
+      {id:'s1',name:'Sesión individual',dur:60,price:5500,exempt:true},
+      {id:'s2',name:'Terapia de pareja',dur:75,price:7500,exempt:true},
+      {id:'s3',name:'Evaluación inicial',dur:75,price:7000,exempt:true},
+      {id:'s4',name:'Sesión online',dur:50,price:5000,exempt:true},
+      {id:'s5',name:'Taller o formación (no sanitario)',dur:120,price:15000,exempt:false}
+    ],
+    patients:[],appts:[],notes:[],invoices:[],expenses:[],bank:[],employees:[],payrolls:[],oblPaid:{},audit:[],outbox:[]};
+  const id=p=>p+(S.seq++);
+  const used=new Set();const code=()=>{let c;do{c=String(1000+Math.floor(r()*9000))}while(used.has(c));used.add(c);return c};
+  const names=['Lucía Romero Vega','Javier Ortega Ruiz','Marta Gil Navarro','Pablo Herrera y Nuria Sanz','Carmen Delgado Ríos','Sergio Molina Paz','Elena Castro Prieto','Andrés Vidal Ramos','Nerea Fuentes Lara','Daniel Cano Aguilar','Rocío Márquez León','Hugo Serrano Bravo','Paula Iglesias Mora','Tomás Reyes Cabello'];
+  const slots=[[0,960],[0,1080],[1,600],[1,720],[1,1020],[2,960],[2,1080],[3,600],[3,660],[3,1020],[4,720],[4,780],[2,1140],[1,1140]];
+  const altas=[-178,-170,-150,-140,-120,-95,-88,-80,-66,-52,-40,-30,-18,-9];
+  names.forEach((n,i)=>{
+    const first=n.split(' ')[0].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    S.patients.push({id:id('p'),code:code(),name:n,email:`${first}.${i+3}@correo-ejemplo.es`,phone:'6'+String(10000000+Math.floor(r()*89999999)),alta:addDays(TODAY,altas[i]),status:'activo',
+      slot:slots[i],service:i===3?'s2':(i%5===4?'s4':'s1'),modal:i%5===4?'online':'presencial',bi:i===2||i===10,
+      billing:i===7?{type:'empresa',name:'Grupo Alameda Logística SL',nif:'B00000000 (ficticio)',addr:'Polígono Ejemplo, nave 4 · Málaga',ret:15}:{type:'particular',name:n,nif:'',addr:''},
+      consent:(i===12||i===13)?null:{at:addDays(TODAY,altas[i]),file:'consentimiento-firmado.pdf',url:null},docs:[],reminders:true});
+  });
+  S.patients[1].status='alta terapéutica';
+  const irene={id:id('p'),code:code(),name:'Irene Lozano Mena',email:'irene.lozano@correo-ejemplo.es',phone:'612000111',alta:TODAY,status:'nuevo',slot:[4,600],service:'s3',modal:'presencial',billing:{type:'particular',name:'Irene Lozano Mena',nif:'',addr:''},consent:null,docs:[],reminders:true};
+  S.patients.push(irene);
+  const OBJ=['Regulación emocional ante situaciones de estrés laboral','Reducción de pensamientos anticipatorios','Mejora de la higiene del sueño','Comunicación asertiva en el ámbito familiar','Afrontamiento de la toma de decisiones','Exposición gradual a situaciones evitadas','Revisión de expectativas y autoexigencia'];
+  const INT=['Reestructuración cognitiva','Entrenamiento en respiración diafragmática','Psicoeducación','Registro de pensamientos','Ensayo conductual','Resolución de problemas','Trabajo con valores'];
+  const EVO=['Refiere menor intensidad del malestar respecto a la sesión anterior.','Mantiene la adherencia a las tareas acordadas.','Avances parciales; conviene consolidar.','Semana con mayor carga externa; estabilidad general.','Aplica de forma autónoma las estrategias trabajadas.'];
+  const end=addDays(TODAY,21);
+  S.patients.forEach(p=>{
+    const start=p.alta<addDays(TODAY,-182)?addDays(TODAY,-182):p.alta;let first=true,wk=0;
+    for(let d=start;d<=end;d=addDays(d,1)){
+      if(dow(d)!==p.slot[0])continue;
+      wk++;if(p.bi&&wk%2===0)continue;
+      if(p.status==='alta terapéutica'&&d>addDays(TODAY,-20))break;
+      if(p.id===irene.id&&!first)break;
+      const svc=first?'s3':p.service;const sv=S.services.find(s=>s.id===svc);
+      let st;
+      if(d<TODAY){const x=r();st=x<.045?'ausencia':x<.09?'cancelada':'realizada'}
+      else if(d===TODAY)st=p.id===irene.id?'pendiente':'confirmada';
+      else st=d<=addDays(TODAY,7)?(r()<.25?'pendiente':'confirmada'):'confirmada';
+      S.appts.push({id:id('a'),patientId:p.id,date:d,start:p.slot[1],dur:sv.dur,service:svc,modal:p.modal,loc:p.modal==='online'?'Videollamada':'Despacho Málaga Centro',status:st,price:sv.price,
+        log:[{at:addDays(d,-7),who:'Psicóloga',what:'Cita creada'}].concat(st==='realizada'?[{at:d,who:'Psicóloga',what:'Marcada como realizada'}]:[]),cancelReason:st==='cancelada'?pick(['Enfermedad','Motivo laboral','Viaje']):''});
+      first=false;
+    }
+  });
+  S.appts.filter(a=>a.status==='realizada').forEach(a=>{
+    const recent=a.date>=addDays(TODAY,-6);
+    if(recent&&r()<.6)return;
+    const type=a.service==='s3'?'inicial':'sesion';const f={};
+    if(type==='inicial'){f.motivo='Malestar sostenido asociado a sobrecarga laboral y dificultades de descanso.';f.antecedentes='Sin intervenciones psicológicas previas relevantes.';f.evaluacion='Entrevista semiestructurada y cuestionarios de cribado.';f.formulacion='Patrón de autoexigencia elevado con escasas estrategias de recuperación.';f.objetivos=pick(OBJ);f.plan='Intervención semanal de 10 a 12 sesiones con revisión a la sexta.'}
+    else{f.objetivos=pick(OBJ);f.resumen='Se revisan las tareas de la semana y se trabaja sobre situaciones concretas aportadas.';f.intervenciones=pick(INT)+', '+pick(INT).toLowerCase();f.observaciones=pick(EVO);f.acuerdos='Continuar con el registro diario y practicar la técnica trabajada.';f.plan='Profundizar en '+pick(OBJ).toLowerCase()+'.'}
+    const st=recent?'borrador':'firmada';
+    S.notes.push({id:id('n'),patientId:a.patientId,apptId:a.id,type,fields:f,status:st,author:'Laura Benítez',created:a.date,signedAt:st==='firmada'?a.date:null,versions:[]});
+  });
+  // facturas emitidas
+  const methods=['Tarjeta','Bizum','Transferencia','Efectivo'];
+  const done=S.appts.filter(a=>a.status==='realizada').sort((x,y)=>x.date.localeCompare(y.date)||x.start-y.start);
+  const empresa=S.patients[7];
+  done.forEach(a=>{
+    if(a.patientId===empresa.id)return;
+    const p=S.patients.find(q=>q.id===a.patientId);const sv=S.services.find(s=>s.id===a.service);
+    const age=(parse(TODAY)-parse(a.date))/864e5;
+    const inv=mkInv(S,p,a.date,[{desc:`${sv.name} · ${fD(a.date)}`,qty:1,price:a.price,exempt:sv.exempt}],[a.id]);
+    inv.status='emitida';inv.sent={at:a.date,to:p.email,ok:true};
+    const unpaid=age>12?r()<.05:r()<.4;
+    if(!unpaid)inv.payments.push({id:id('pay'),date:a.date,amount:tot(inv).total,method:pick(methods),ref:''});
+    S.invoices.push(inv);a.invoiceId=inv.id;
+  });
+  const byM={};done.filter(a=>a.patientId===empresa.id).forEach(a=>{(byM[ym(a.date)]=byM[ym(a.date)]||[]).push(a)});
+  Object.keys(byM).sort().forEach(k=>{
+    if(k===ym(TODAY))return;
+    const list=byM[k];const[y,m]=k.split('-').map(Number);const last=iso(new Date(y,m,0));
+    const inv=mkInv(S,empresa,last,list.map(a=>({desc:`Sesión individual · ${fD(a.date)}`,qty:1,price:a.price,exempt:true})),list.map(a=>a.id));
+    inv.status='emitida';inv.sent={at:last,to:'administracion@grupoalameda-ejemplo.es',ok:true};
+    const payD=addDays(last,20);if(payD<=TODAY)inv.payments.push({id:id('pay'),date:payD,amount:tot(inv).total,method:'Transferencia',ref:'TRF-'+k});
+    S.invoices.push(inv);list.forEach(a=>a.invoiceId=inv.id);
+  });
+  const tdate=addDays(TODAY,-34);
+  const tall=mkInv(S,{id:null,billing:{type:'empresa',name:'Asociación Cultural Ejemplo',nif:'G00000000 (ficticio)',addr:'Málaga',ret:15}},tdate,[{desc:'Taller de gestión del estrés (4 h)',qty:2,price:15000,exempt:false}],[]);
+  tall.status='emitida';tall.sent={at:tdate,to:'info@asociacion-ejemplo.es',ok:true};tall.payments.push({id:id('pay'),date:addDays(tdate,12),amount:Math.round(tot(tall).total/2),method:'Transferencia',ref:'Pago a cuenta'});
+  S.invoices.push(tall);
+  numberAll(S);
+  // gastos (facturas recibidas)
+  const months=[];for(let i=5;i>=0;i--){const d=parse(TODAY);d.setDate(1);d.setMonth(d.getMonth()-i);months.push(iso(d))}
+  const exp=(date,supplier,cat,concept,base,ivaPct,method,num,ret)=>{const iva=Math.round(base*ivaPct/100),rt=ret?Math.round(base*ret/100):0;S.expenses.push({id:id('g'),date,supplier,nif:'',cat,concept,base,iva,ret:rt,total:base+iva-rt,method,num,status:'revisado',source:num?'importada':'domiciliación',photo:null})};
+  months.forEach((m,i)=>{
+    const d=n=>{const x=addDays(m,n-1);return x>TODAY?null:x};
+    if(d(1))exp(d(1),'Inmobiliaria Ejemplo SL','Alquiler','Alquiler despacho',45000,21,'Transferencia','ALQ-'+m.slice(0,7),19);
+    if(d(5))exp(d(5),'Compañía Eléctrica Ejemplo','Suministros','Electricidad',3200+Math.round(r()*1500),21,'Domiciliación','LUZ-'+m.slice(0,7));
+    if(d(8))exp(d(8),'Operador Telecom Ejemplo','Suministros','Fibra y móvil',3300,21,'Domiciliación','TEL-'+m.slice(0,7));
+    if(d(10))exp(d(10),'Gestoría Ejemplo','Gestoría y asesoría','Asesoría fiscal y contable',6000,21,'Domiciliación','GES-'+m.slice(0,7));
+    if(d(12))exp(d(12),'Software Ejemplo SaaS','Tecnología y software','Licencia software',2400,21,'Tarjeta','SW-'+m.slice(0,7));
+    if(d(28))exp(d(28),'Tesorería General de la Seguridad Social','Cuotas e impuestos','Cuota de autónomos',29400,0,'Domiciliación','');
+    if(i%3===0&&d(15))exp(d(15),'Colegio Oficial de Psicología','Cuotas e impuestos','Cuota colegial trimestral',3300,0,'Domiciliación','COP-'+m.slice(0,7));
+    if(i===1&&d(18))exp(d(18),'Aseguradora Ejemplo','Seguros','Seguro de responsabilidad civil',16800,0,'Tarjeta','RC-'+YEAR);
+    if(i===3&&d(20))exp(d(20),'Centro de Formación Ejemplo','Formación','Curso de actualización clínica',24000,0,'Tarjeta','FOR-001');
+    if(i%2===0&&d(22))exp(d(22),'Papelería Ejemplo','Material','Material de oficina',1500+Math.round(r()*2000),21,'Tarjeta','PAP-'+m.slice(0,7));
+  });
+  // personal
+  const emp={id:id('e'),name:'Ana Ruiz Prieto (ficticia)',role:'Recepcionista',contract:'Indefinido · tiempo parcial 20 h/semana',start:addDays(TODAY,-140),bruto:85000,docs:[{name:'Contrato de trabajo firmado',at:addDays(TODAY,-140)},{name:'Alta en la Seguridad Social (IDC)',at:addDays(TODAY,-141)},{name:'Protección de datos y confidencialidad',at:addDays(TODAY,-140)}]};
+  S.employees.push(emp);
+  months.forEach(m=>{const k=m.slice(0,7);const last=iso(new Date(Number(k.slice(0,4)),Number(k.slice(5,7)),0));if(last>TODAY||last<emp.start)return;S.payrolls.push({id:id('n'),emp:emp.id,month:k,date:last,...payroll(emp.bruto),paid:true})});
+  // banco
+  const lastDays=addDays(TODAY,-10);
+  S.invoices.forEach(inv=>inv.payments.forEach(p=>{if(p.method==='Efectivo')return;const c=p.method==='Tarjeta'?'LIQUIDACION TPV':p.method==='Bizum'?'BIZUM RECIBIDO':'TRANSFERENCIA RECIBIDA '+inv.to.name.toUpperCase().slice(0,22);S.bank.push({id:id('b'),date:p.date,concept:c,amount:p.amount,match:p.date<lastDays?{t:'pay',inv:inv.id,pay:p.id}:null})}));
+  S.expenses.forEach(e=>{if(e.method==='Efectivo')return;S.bank.push({id:id('b'),date:addDays(e.date,e.method==='Domiciliación'?1:0),concept:(e.method==='Domiciliación'?'RECIBO ':'PAGO ')+e.supplier.toUpperCase().slice(0,26),amount:-e.total,match:e.date<lastDays?{t:'exp',id:e.id}:null})});
+  S.payrolls.forEach(n=>{S.bank.push({id:id('b'),date:n.date,concept:'TRANSFERENCIA NOMINA',amount:-n.neto,match:n.date<lastDays?{t:'nom',id:n.id,part:'neto'}:null});const d2=addDays(n.date,30)>TODAY?null:addDays(n.date,30);if(d2)S.bank.push({id:id('b'),date:d2,concept:'TGSS SEGUROS SOCIALES',amount:-(n.ssE+n.ssT),match:d2<lastDays?{t:'nom',id:n.id,part:'ss'}:null})});
+  // cobros que llegaron al banco pero no se han registrado aún
+  S.invoices.filter(i=>invStatus(i)!=='cobrada'&&i.patientId&&i.date>=addDays(TODAY,-9)).slice(0,3).forEach(i=>S.bank.push({id:id('b'),date:addDays(i.date,1)>TODAY?TODAY:addDays(i.date,1),concept:'BIZUM RECIBIDO',amount:tot(i).pending,match:null}));
+  S.bank.push({id:id('b'),date:addDays(TODAY,-4),concept:'COMISION MANTENIMIENTO CUENTA',amount:-600,match:null});
+  S.bank.push({id:id('b'),date:addDays(TODAY,-2),concept:'COMPRA TARJETA LIBRERIA CENTRO',amount:-2890,match:null});
+  // obligaciones ya pagadas (trimestres anteriores)
+  [1,2,3].forEach(q=>['130','115','111','303'].forEach(m=>S.oblPaid[`${m}-${YEAR}-${q}`]=`${YEAR}-${pad(q*3+1)}-18`));
+  months.forEach(m=>{const k=m.slice(0,7);if(k<ym(TODAY))S.oblPaid[`rlc-${k}`]=addDays(iso(new Date(Number(k.slice(0,4)),Number(k.slice(5,7))+1,0)),-1)});
+  S.audit.push({at:new Date().toISOString(),who:'Sistema',what:'Datos de ejemplo cargados'});
+  return S;
+}
+function mkInv(S,p,date,lines,appts){
+  const ret=p.billing.type==='empresa'?(p.billing.ret||15):0;
+  return {id:'f'+(S.seq++),serie:'A',num:null,patientId:p.id,to:{...p.billing},date,due:addDays(date,S.settings.dueDays),lines,ret,appts,payments:[],sent:null,status:'borrador',hash:null,prevHash:null,kind:'F'};
+}
+function numberAll(S){
+  const em=S.invoices.filter(i=>i.status!=='borrador').sort((a,b)=>a.date.localeCompare(b.date));
+  let prev='0000000000000000';const cnt={};
+  em.forEach(i=>{const yr=i.date.slice(0,4);const k=i.serie+yr;cnt[k]=(cnt[k]||0)+1;i.num=`${i.serie}${yr}/${String(cnt[k]).padStart(4,'0')}`;i.prevHash=prev;i.hash=fnv(prev+i.num+i.date+tot(i).total);prev=i.hash});
+  S.lastHash=prev;
+}
+function tot(inv){let base=0,iva=0;inv.lines.forEach(l=>{const b=Math.round(l.qty*l.price);base+=b;if(!l.exempt)iva+=Math.round(b*.21)});const ret=Math.round(base*(inv.ret||0)/100);const total=base+iva-ret;const paid=inv.payments.reduce((a,p)=>a+p.amount,0);return{base,iva,ret,total,paid,pending:total-paid}}
+
+/* ===== estado ===== */
+const KEY='sesiona-prototipo-v2';
+let S;
+try{const raw=localStorage.getItem(KEY);S=raw?JSON.parse(raw):null;if(S&&S.builtFor!==TODAY.slice(0,7))S=null}catch(e){S=null}
+if(!S){S=seed();S.builtFor=TODAY.slice(0,7)}
+let REVEAL={};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('El almacenamiento del navegador está lleno; las últimas fotos no se guardarán')}}
+const nid=p=>p+(S.seq++);
+const P=id=>S.patients.find(p=>p.id===id);
+const SV=id=>S.services.find(s=>s.id===id);
+const ME={psicologa:'Psicóloga',recepcion:'Recepción',gestoria:'Gestoría externa'};
+const pc=p=>p?`<span class="pc">#${p.code}</span>`:'';
+function audit(what){S.audit.unshift({at:new Date().toISOString(),who:ME[S.role],what});if(S.audit.length>300)S.audit.length=300}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2800)}
+function mail(to,subject,body,kind,status){S.outbox.unshift({id:nid('m'),at:new Date().toISOString(),to,subject,body,kind,status:status||'enviado'})}
+function invStatus(i){if(i.kind==='R')return'rectificativa';if(i.status==='borrador'||i.status==='rectificada')return i.status;const t=tot(i);if(t.pending<=0)return'cobrada';if(t.paid>0)return i.due<TODAY?'vencida':'parcial';if(i.due<TODAY)return'vencida';return i.sent?'enviada':'emitida'}
+const CHIP={confirmada:'acc',pendiente:'warn',realizada:'ok',cancelada:'',ausencia:'bad',borrador:'warn',emitida:'info',enviada:'info',parcial:'warn',cobrada:'ok',vencida:'bad',rectificada:'',rectificativa:'clin',firmada:'ok',activo:'ok',nuevo:'info','alta terapéutica':'','por revisar':'warn',revisado:'ok',pagado:'ok',presentado:'ok',vencido:'bad',enviado:'ok','pendiente de aprobación':'warn',conciliado:'ok','sin conciliar':'warn',pagada:'ok'};
+const chip=s=>`<span class="chip ${CHIP[s]??''}">${esc(s[0].toUpperCase()+s.slice(1))}</span>`;
+const toLabel=i=>i.patientId&&P(i.patientId)?`#${P(i.patientId).code}`:i.to.name;
+
+function apptsOn(d){return S.appts.filter(a=>a.date===d).sort((a,b)=>a.start-b.start)}
+function noteFor(a){return S.notes.find(n=>n.apptId===a.id)}
+function pendingNotes(){return S.appts.filter(a=>a.status==='realizada'&&(!noteFor(a)||noteFor(a).status==='borrador')&&a.date>=addDays(TODAY,-30)).sort((a,b)=>b.date.localeCompare(a.date))}
+function unbilled(){return S.appts.filter(a=>a.status==='realizada'&&!a.invoiceId)}
+function unmatched(){return S.bank.filter(b=>!b.match)}
+function occupancy(mon){let avail=0,booked=0;for(let i=0;i<5;i++){(AVAIL[i]||[]).forEach(([a,b])=>avail+=b-a);booked+=apptsOn(addDays(mon,i)).filter(a=>a.status!=='cancelada').reduce((s,a)=>s+a.dur,0)}return{avail:Math.round(avail/60),booked:Math.round(booked/60*10)/10,pct:avail?Math.round(booked/avail*100):0}}
+
+/* ===== impuestos (estimación orientativa) ===== */
+const lastDay=(y,m)=>iso(new Date(y,m,0));
+function quarterRange(y,q){return[`${y}-${pad(q*3-2)}-01`,lastDay(y,q*3)]}
+function taxes(){
+  const out=[];const y=YEAR;
+  const firstData=[...S.invoices.map(i=>i.date),...S.expenses.map(e=>e.date)].sort()[0]||TODAY;
+  let prev130=0;
+  for(let q=1;q<=4;q++){
+    const[qs,qe]=quarterRange(y,q);if(qe<firstData)continue;if(qs>addDays(TODAY,100))continue;
+    const inYTD=d=>d>=`${y}-01-01`&&d<=qe,inQ=d=>d>=qs&&d<=qe;
+    const em=S.invoices.filter(i=>i.num);
+    const ing=em.filter(i=>inYTD(i.date)).reduce((a,i)=>a+tot(i).base,0);
+    const ret=em.filter(i=>inYTD(i.date)).reduce((a,i)=>a+tot(i).ret,0);
+    const gas=S.expenses.filter(e=>inYTD(e.date)).reduce((a,e)=>a+e.base+e.iva,0)+S.payrolls.filter(n=>inYTD(n.date)).reduce((a,n)=>a+n.coste,0);
+    const m130=Math.max(0,Math.round((ing-gas)*.2)-ret-prev130);prev130+=m130;
+    const m115=S.expenses.filter(e=>e.cat==='Alquiler'&&inQ(e.date)).reduce((a,e)=>a+e.ret,0);
+    const m111=S.payrolls.filter(n=>inQ(n.date)).reduce((a,n)=>a+n.irpf,0);
+    const m303=em.filter(i=>inQ(i.date)).reduce((a,i)=>a+tot(i).iva,0);
+    const due4=q===4?`${y+1}-01-30`:`${y}-${pad(q*3+1)}-20`;const due4b=q===4?`${y+1}-01-20`:due4;
+    const partial=qs<firstData;
+    out.push({key:`130-${y}-${q}`,model:'Modelo 130',name:'Pago fraccionado IRPF',period:`${q}T ${y}`,due:due4,amount:m130,calc:`20 % de (ingresos ${eur(ing)} − gastos ${eur(gas)}) − retenciones ${eur(ret)} − pagos anteriores`,partial});
+    if(m115||q<=qOf(TODAY))out.push({key:`115-${y}-${q}`,model:'Modelo 115',name:'Retenciones del alquiler',period:`${q}T ${y}`,due:due4b,amount:m115,calc:'19 % de la base del alquiler del trimestre'});
+    if(m111||S.payrolls.length)out.push({key:`111-${y}-${q}`,model:'Modelo 111',name:'Retenciones de nóminas',period:`${q}T ${y}`,due:due4b,amount:m111,calc:'IRPF retenido en las nóminas del trimestre'});
+    if(m303)out.push({key:`303-${y}-${q}`,model:'Modelo 303',name:'IVA trimestral',period:`${q}T ${y}`,due:due4,amount:m303,calc:'IVA repercutido de servicios no sanitarios (prorrata a validar)'});
+  }
+  S.payrolls.forEach(n=>out.push({key:`rlc-${n.month}`,model:'Seguros sociales',name:'Cotización de personal (RLC)',period:monthLong(n.month),due:lastDay(Number(n.month.slice(0,4)),Number(n.month.slice(5,7))+1),amount:n.ssE+n.ssT,calc:'Cuota empresa + cuota trabajador'}));
+  out.push({key:`180-${y}`,model:'Modelo 180',name:'Resumen anual retenciones alquiler',period:`Anual ${y}`,due:`${y+1}-01-31`,amount:0,calc:'Informativo'});
+  out.push({key:`190-${y}`,model:'Modelo 190',name:'Resumen anual retenciones trabajo',period:`Anual ${y}`,due:`${y+1}-01-31`,amount:0,calc:'Informativo'});
+  out.push({key:`347-${y}`,model:'Modelo 347',name:'Operaciones con terceros',period:`Anual ${y}`,due:`${y+1}-02-28`,amount:0,calc:'Informativo'});
+  return out.map(o=>({...o,paid:S.oblPaid[o.key]||null,state:S.oblPaid[o.key]?(o.amount?'pagado':'presentado'):o.due<TODAY?'vencido':'pendiente'})).sort((a,b)=>a.due.localeCompare(b.due));
+}
+
+/* ===== navegación ===== */
+const NAVI={
+  inicio:'<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  calendario:IC.cal,
+  pacientes:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.7 3 2.5 3.5 5.2"/>',
+  informes:'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>',
+  contabilidad:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  config:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'
+};
+const NAV=[['inicio','Inicio',['psicologa','recepcion']],['calendario','Calendario',['psicologa','recepcion']],['pacientes','Pacientes',['psicologa','recepcion']],['informes','Informes clínicos',['psicologa']],['contabilidad','Contabilidad',['psicologa','recepcion','gestoria']],['config','Configuración',['psicologa']]];
+const can=v=>NAV.find(n=>n[0]===v)[2].includes(S.role);
+function todos(){
+  const T=[];const isPsi=S.role==='psicologa';
+  const pn=pendingNotes();const noNote=pn.filter(a=>!noteFor(a)),draftN=pn.filter(a=>noteFor(a));
+  if(isPsi&&draftN.length)T.push({cls:'clin',ic:IC.sign,t:'Notas por firmar',d:'Borradores de sesiones recientes',n:draftN.length,act:'goNotes',f:'borrador'});
+  if(isPsi&&noNote.length)T.push({cls:'clin',ic:IC.pen,t:'Sesiones sin nota',d:'Realizadas en los últimos 30 días',n:noNote.length,act:'goNotes',f:'pendientes'});
+  const nc=S.patients.filter(p=>!p.consent&&p.status!=='alta terapéutica');
+  if(nc.length)T.push({cls:'warn',ic:IC.upload,t:'Consentimientos por subir',d:nc.map(p=>'#'+p.code).join(' · '),n:nc.length,act:'openPatient',id:nc[0].id,tab:'docs'});
+  const conf=S.appts.filter(a=>a.status==='pendiente'&&a.date>=TODAY);
+  if(conf.length)T.push({cls:'warn',ic:IC.cal,t:'Citas por confirmar',d:'Esperando respuesta del paciente',n:conf.length,act:'goCal'});
+  const today=apptsOn(TODAY).filter(a=>['confirmada','pendiente'].includes(a.status)&&a.start+a.dur<=nowMin());
+  if(today.length)T.push({cls:'',ic:IC.cal,t:'Sesiones de hoy por cerrar',d:'Márcalas como realizadas o ausencia',n:today.length,act:'openAppt',id:today[0].id});
+  if(S.role!=='recepcion'){
+    const rev=S.expenses.filter(e=>e.status==='por revisar');
+    if(rev.length)T.push({cls:'warn',ic:IC.cam,t:'Facturas escaneadas por revisar',d:'Comprueba nombre y categoría',n:rev.length,act:'goAcc',tab:'facturas'});
+    const um=unmatched();if(um.length)T.push({cls:'',ic:IC.bank,t:'Movimientos bancarios sin conciliar',d:'Relaciónalos con facturas o gastos',n:um.length,act:'goAcc',tab:'banco'});
+    const tx=taxes().filter(o=>!o.paid&&o.amount>0&&o.due<=addDays(TODAY,45));
+    if(tx.length)T.push({cls:tx.some(o=>o.state==='vencido')?'bad':'',ic:IC.tax,t:'Impuestos próximos',d:`${tx[0].model} vence el ${fD(tx[0].due)}`,n:tx.length,act:'goAcc',tab:'impuestos'});
+  }
+  const ub=unbilled();if(ub.length&&S.role!=='gestoria')T.push({cls:'',ic:IC.doc,t:'Sesiones sin facturar',d:'Incluye la factura mensual de empresa',n:ub.length,act:'goAcc',tab:'facturas'});
+  return T;
+}
+function renderNav(){
+  const pn=S.role==='psicologa'?pendingNotes().length:0;
+  const acc=S.role!=='recepcion'?S.expenses.filter(e=>e.status==='por revisar').length+unmatched().length:0;
+  const badge={informes:pn,contabilidad:acc};
+  document.getElementById('nav').innerHTML=NAV.filter(n=>n[2].includes(S.role)).map(([id,l])=>`<button data-act="go" data-v="${id}" ${S.view===id?'aria-current="page"':''}>${SVG(NAVI[id])}<span class="lb">${l}</span>${badge[id]?`<span class="badge">${badge[id]}</span>`:''}</button>`).join('');
+  document.getElementById('role').value=S.role;
+}
+function render(){
+  if(!can(S.view))S.view=NAV.find(n=>n[2].includes(S.role))[0];
+  renderNav();
+  document.getElementById('view').innerHTML=VIEWS[S.view]();
+  save();
+}
+const bellBtn=()=>{const n=todos().reduce((a,t)=>a+t.n,0);return `<button class="btn bell" data-act="bell" aria-label="Pendientes">${SVG(IC.bell)}${n?`<span class="dotn">${n}</span>`:''}</button>`};
+
+/* ===== vistas ===== */
+const VIEWS={};
+const roleBanner=()=>S.role==='recepcion'?`<div class="roleban">Vista de recepción: agenda, datos administrativos y facturación. Sin acceso a notas clínicas.</div>`:S.role==='gestoria'?`<div class="roleban">Vista de gestoría: solo contabilidad. Los pacientes aparecen únicamente por su código.</div>`:'';
+
+/* calendario reutilizable */
+const H0=9,H1=21;
+function weekGrid(days,px){
+  const hgt=(H1-H0)*px;
+  const times=Array.from({length:H1-H0},(_,i)=>`<span style="top:${i*px}px">${pad(H0+i)}:00</span>`).join('');
+  const cols=days.map(d=>{
+    const av=AVAIL[dow(d)]||[];let off='';let cur=H0*60;
+    av.forEach(([a,b])=>{if(a>cur)off+=`<div class="off" style="top:${(cur-H0*60)/60*px}px;height:${(a-cur)/60*px}px"></div>`;cur=b});
+    if(cur<H1*60)off+=`<div class="off" style="top:${(cur-H0*60)/60*px}px;height:${(H1*60-cur)/60*px}px"></div>`;
+    const nm=nowMin();const now=d===TODAY&&nm>H0*60&&nm<H1*60?`<div class="now" style="top:${(nm-H0*60)/60*px}px"></div>`:'';
+    const aps=apptsOn(d).map(a=>{const p=P(a.patientId);const h=a.dur/60*px-2;return `<button class="ap ${a.status}" style="top:${(a.start-H0*60)/60*px+1}px;height:${h}px" data-act="openAppt" data-id="${a.id}"><b>#${p.code}</b>${h>30?`<span class="sl">${hm(a.start)} · ${esc(SV(a.service).name)}</span>`:''}</button>`}).join('');
+    return `<div class="col" style="height:${hgt}px;--px:${px}px" data-act="slot" data-d="${d}" data-px="${px}">${off}${now}${aps}</div>`}).join('');
+  const heads=days.map(d=>`<div class="${d===TODAY?'today':''}">${DAYN[dow(d)].slice(0,3)}<small>${parse(d).getDate()}</small></div>`).join('');
+  return `<div class="cal-scroll"><div class="cal ${days.length===1?'day':''}" style="grid-template-columns:50px repeat(${days.length},minmax(0,1fr))"><div class="cal-h"><div></div>${heads}</div><div class="times" style="height:${hgt}px">${times}</div>${cols}</div></div>`;
+}
+
+VIEWS.inicio=()=>{
+  const mon=mondayOf(TODAY);const days=Array.from({length:5},(_,i)=>addDays(mon,i));
+  const hd=S.sel.homeDay||TODAY;const list=apptsOn(hd);const isPsi=S.role==='psicologa';
+  const T=todos();const nm=nowMin();
+  const next=apptsOn(TODAY).find(a=>a.start+a.dur>nm&&!['cancelada','realizada','ausencia'].includes(a.status));
+  return `${roleBanner()}
+  <div class="head"><div><div class="eyebrow">${fDl(TODAY)}</div><h1>Tu semana</h1><p>${apptsOn(TODAY).filter(a=>a.status!=='cancelada').length} sesiones hoy${next?` · la próxima a las ${hm(next.start)} (#${P(next.patientId).code})`:''}</p></div>
+  <div class="actions">${bellBtn()}<button class="btn" data-act="newPatient">+ Paciente</button><button class="btn primary" data-act="newAppt">+ Nueva cita</button></div></div>
+  <div class="grid3">
+    <div class="stack" style="gap:14px">${weekGrid(days,40)}
+      <div class="legend"><span><i style="background:var(--sky-mid)"></i>Confirmada</span><span><i style="background:var(--warn-soft);box-shadow:inset 0 0 0 1.5px #f5c27a"></i>Por confirmar</span><span><i style="background:var(--ok-soft)"></i>Realizada</span><span><i style="background:var(--bad-soft)"></i>Ausencia</span><span><i style="background:var(--tint)"></i>Fuera de horario</span></div>
+    </div>
+    <div class="stack" style="gap:20px">
+      <section class="panel"><header><h2>Pendiente</h2><span class="muted small">${T.reduce((a,t)=>a+t.n,0)} tareas</span></header>
+        <div class="stack" style="gap:2px">${T.length?T.map(t=>`<button class="todo ${t.cls}" data-act="${t.act}" data-id="${t.id||''}" data-f="${t.f||''}" data-tab="${t.tab||''}"><span class="ic">${SVG(t.ic)}</span><span class="tx"><b>${t.t}</b><span>${esc(t.d)}</span></span><span class="n">${t.n}</span></button>`).join(''):'<div class="empty">Todo al día.</div>'}</div></section>
+      <section class="panel"><header><h2>${hd===TODAY?'Hoy':fDl(hd)}</h2></header>
+        <div class="daystrip">${days.map(d=>`<button data-act="homeDay" data-d="${d}" aria-pressed="${d===hd}">${DAYN[dow(d)].slice(0,3)}<b>${parse(d).getDate()}</b><i>${apptsOn(d).filter(a=>a.status!=='cancelada').length} citas</i></button>`).join('')}</div>
+        <div class="list">${list.length?list.map(a=>{const p=P(a.patientId);const n=noteFor(a);return `<div class="row"><div class="t">${hm(a.start)}</div><div class="m"><b>${pc(p)} <span style="font-weight:500;color:var(--muted)">${esc(SV(a.service).name)}</span></b><span>${a.dur} min · ${esc(a.modal)}</span></div>
+          ${['confirmada','pendiente'].includes(a.status)&&a.date<=TODAY?`<button class="btn sm" data-act="done" data-id="${a.id}">Realizada</button>`:chip(a.status)}
+          ${a.status==='realizada'&&isPsi&&(!n||n.status==='borrador')?`<button class="btn sm" data-act="note" data-id="${a.id}">${n?'Firmar':'Nota'}</button>`:''}</div>`}).join(''):'<div class="empty">Sin citas este día.</div>'}</div>
+      </section>
+    </div>
+  </div>`;
+};
+
+VIEWS.calendario=()=>{
+  const c=S.cal;let label,body;
+  if(c.mode==='mes'){
+    const d=parse(c.date);const first=iso(new Date(d.getFullYear(),d.getMonth(),1));const start=mondayOf(first);
+    label=d.toLocaleDateString('es-ES',{month:'long',year:'numeric'});
+    let cells='';for(let i=0;i<42;i++){const day=addDays(start,i);const list=apptsOn(day);
+      cells+=`<div class="dc ${ym(day)!==ym(first)?'out':''} ${day===TODAY?'today':''}" data-act="pickDay" data-d="${day}"><span class="d">${parse(day).getDate()}</span>${list.slice(0,3).map(a=>`<span class="mi ${a.status}">${hm(a.start)} #${P(a.patientId).code}</span>`).join('')}${list.length>3?`<span class="mi">+${list.length-3}</span>`:''}</div>`}
+    body=`<div class="month">${['L','M','X','J','V','S','D'].map(x=>`<div class="dh">${x}</div>`).join('')}${cells}</div>`;
+  }else{
+    const days=c.mode==='dia'?[c.date]:Array.from({length:6},(_,i)=>addDays(mondayOf(c.date),i));
+    label=c.mode==='dia'?fDl(c.date):`${fD(days[0])} – ${fD(days[5])}`;
+    body=weekGrid(days,46);
+  }
+  const pend=S.appts.filter(a=>a.status==='pendiente'&&a.date>=TODAY).sort((a,b)=>a.date.localeCompare(b.date));
+  return `<div class="head"><div><h1>Calendario</h1><p style="text-transform:capitalize">${label}</p></div>
+    <div class="actions"><button class="btn" data-act="calNav" data-n="-1" aria-label="Anterior">‹</button><button class="btn" data-act="calToday">Hoy</button><button class="btn" data-act="calNav" data-n="1" aria-label="Siguiente">›</button>
+    <div class="seg" role="group" aria-label="Vista">${['dia','semana','mes'].map(m=>`<button data-act="calMode" data-m="${m}" aria-pressed="${c.mode===m}">${m==='dia'?'Día':m[0].toUpperCase()+m.slice(1)}</button>`).join('')}</div>
+    <button class="btn primary" data-act="newAppt">+ Nueva cita</button></div></div>
+  ${body}
+  <div class="legend"><span><i style="background:var(--sky-mid)"></i>Confirmada</span><span><i style="background:var(--warn-soft);box-shadow:inset 0 0 0 1.5px #f5c27a"></i>Por confirmar</span><span><i style="background:var(--ok-soft)"></i>Realizada</span><span><i style="background:var(--bad-soft)"></i>Ausencia</span><span>Pulsa un hueco libre para crear una cita. Los pacientes aparecen por su código.</span></div>
+  ${pend.length?`<section class="panel"><header><h2>Por confirmar</h2></header><div class="list">${pend.map(a=>`<div class="row"><div class="m"><b>${pc(P(a.patientId))}</b><span>${fDs(a.date)} · ${hm(a.start)} · ${esc(SV(a.service).name)}</span></div><button class="btn sm" data-act="confirm" data-id="${a.id}">Confirmar</button><button class="btn sm" data-act="openAppt" data-id="${a.id}">Abrir</button></div>`).join('')}</div></section>`:''}`;
+};
+
+/* pacientes */
+VIEWS.pacientes=()=>{
+  if(S.sel.patient&&P(S.sel.patient))return ficha(P(S.sel.patient));
+  const q=(S.sel.q||'').toLowerCase().replace('#','');const f=S.sel.pf||'todos';
+  const rows=S.patients.filter(p=>(f==='todos'||p.status===f)&&(!q||p.code.includes(q)||p.name.toLowerCase().includes(q))).sort((a,b)=>a.code.localeCompare(b.code)).map(p=>{
+    const ap=S.appts.filter(a=>a.patientId===p.id);
+    const last=ap.filter(a=>a.status==='realizada').map(a=>a.date).sort().pop();
+    const next=ap.filter(a=>a.date>=TODAY&&a.status!=='cancelada').sort((a,b)=>a.date.localeCompare(b.date)||a.start-b.start)[0];
+    return `<tr class="click" data-act="openPatient" data-id="${p.id}"><td>${pc(p)}</td><td>${esc(SV(p.service).name)} · ${esc(p.modal)}</td><td>${next?`${fDs(next.date)} · ${hm(next.start)}`:'—'}</td><td>${last?fD(last):'—'}</td><td>${chip(p.status)} ${!p.consent?'<span class="chip warn">Sin consentimiento</span>':''}</td></tr>`}).join('');
+  return `${roleBanner()}<div class="head"><div><h1>Pacientes</h1><p>${S.patients.filter(p=>p.status!=='alta terapéutica').length} en seguimiento · identificados por código de 4 dígitos</p></div><div class="actions"><button class="btn primary" data-act="newPatient">+ Nuevo paciente</button></div></div>
+  <div class="toolbar"><input type="search" id="pq" placeholder="Buscar por código o nombre" value="${esc(S.sel.q||'')}" aria-label="Buscar paciente">
+  <div class="seg">${['todos','activo','nuevo','alta terapéutica'].map(x=>`<button data-act="pfilter" data-f="${x}" aria-pressed="${f===x}">${x[0].toUpperCase()+x.slice(1)}</button>`).join('')}</div></div>
+  <div class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Servicio habitual</th><th>Próxima cita</th><th>Última sesión</th><th>Estado</th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="empty">No hay pacientes con ese criterio.</td></tr>'}</tbody></table></div></div>
+  <p class="muted small">El nombre solo se muestra dentro de la ficha y bajo petición. Puedes buscar por nombre, pero el resultado se presenta con el código.</p>`;
+};
+const masked=(p,field,txt)=>REVEAL[p.id]?esc(txt):`<span class="masked">••••••••</span>`;
+function ficha(p){
+  const tab=S.sel.ptab||'resumen';const isPsi=S.role==='psicologa';
+  const ap=S.appts.filter(a=>a.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date));
+  const inv=S.invoices.filter(i=>i.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date));
+  const notes=S.notes.filter(n=>n.patientId===p.id).sort((a,b)=>b.created.localeCompare(a.created));
+  const done=ap.filter(a=>a.status==='realizada').length;
+  let content='';
+  if(tab==='resumen'){
+    const ev=[{d:p.alta,c:'',t:'Alta en la consulta'}];
+    if(p.consent)ev.push({d:p.consent.at,c:'',t:'Consentimiento informado subido'});
+    ap.forEach(a=>ev.push({d:a.date,c:a.status==='ausencia'?'bad':'',t:`${a.date>TODAY?'Cita programada':'Cita'} · ${SV(a.service).name} · ${hm(a.start)} · ${a.status}`,id:a.id,act:'openAppt'}));
+    if(isPsi)notes.forEach(n=>ev.push({d:n.created,c:'clin',t:`${NOTE_T[n.type]} · ${n.status}`,id:n.id,act:'openNote'}));
+    inv.forEach(i=>ev.push({d:i.date,c:'fac',t:`Factura ${i.num||'(borrador)'} · ${eur(tot(i).total)} · ${invStatus(i)}`,id:i.id,act:'openInv'}));
+    ev.sort((a,b)=>b.d.localeCompare(a.d));
+    content=`<div class="grid3"><section class="panel"><header><h2>Línea temporal</h2><span class="muted small">Navegación rápida; no sustituye a la historia clínica</span></header><div class="timeline">${ev.slice(0,40).map(e=>`<div class="ev"><span class="dt">${fD(e.d)}</span><span class="dot ${e.c}"></span><span class="tx">${e.act?`<a href="#" data-act="${e.act}" data-id="${e.id}">${esc(e.t)}</a>`:esc(e.t)}</span></div>`).join('')}</div></section>
+    <section class="panel"><header><h2>Datos administrativos</h2><div class="actions"><button class="btn sm" data-act="reveal" data-id="${p.id}">${SVG(IC.eye)}${REVEAL[p.id]?'Ocultar':'Mostrar'}</button><button class="btn sm" data-act="editPatient" data-id="${p.id}">Editar</button></div></header><dl class="dl">
+      <dt>Código</dt><dd>${pc(p)}</dd><dt>Nombre</dt><dd>${masked(p,'name',p.name)}</dd><dt>Email</dt><dd>${masked(p,'email',p.email)}</dd><dt>Teléfono</dt><dd>${masked(p,'phone',p.phone)}</dd><dt>Alta</dt><dd>${fD(p.alta)}</dd><dt>Modalidad</dt><dd>${esc(p.modal)}</dd>
+      <dt>Facturar a</dt><dd>${p.billing.type==='empresa'?`${esc(p.billing.name)}<br><span class="muted">retención IRPF ${p.billing.ret}%</span>`:'El propio paciente'}</dd>
+      <dt>Recordatorios</dt><dd>${p.reminders?'Activados':'Desactivados'}</dd><dt>Consentimiento</dt><dd>${p.consent?`Subido el ${fD(p.consent.at)}`:`<a href="#" data-act="ptab" data-t="docs" style="color:var(--warn);font-weight:700">Pendiente de subir</a>`}</dd></dl>
+      <p class="muted small" style="margin:12px 0 0">Ver los datos identificativos queda registrado en la auditoría.</p></section></div>`;
+  }else if(tab==='clinico'){
+    content=!isPsi?`<div class="panel lock">${SVG('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>')}<b>Acceso restringido</b><span>El expediente clínico solo es visible para profesionales autorizados.</span></div>`:
+    `<section class="panel flush"><header><h2>Documentación clínica</h2><div class="actions">${['inicial','evolucion','cierre'].map(t=>`<button class="btn sm" data-act="newDoc" data-t="${t}" data-p="${p.id}">+ ${NOTE_T[t]}</button>`).join('')}</div></header>
+    <div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Documento</th><th>Autoría</th><th>Versiones</th><th>Estado</th></tr></thead><tbody>${notes.map(n=>`<tr class="click" data-act="openNote" data-id="${n.id}"><td>${fD(n.created)}</td><td>${NOTE_T[n.type]}</td><td>${esc(n.author)}</td><td class="num">${1+n.versions.length}</td><td>${chip(n.status)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Sin documentos todavía.</td></tr>'}</tbody></table></div></section>`;
+  }else if(tab==='facturas'){
+    content=`<section class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Número</th><th>Fecha</th><th class="r">Total</th><th class="r">Pendiente</th><th>Estado</th></tr></thead><tbody>${inv.map(i=>`<tr class="click" data-act="openInv" data-id="${i.id}"><td class="mono">${i.num||'Borrador'}</td><td>${fD(i.date)}</td><td class="r">${eur(tot(i).total)}</td><td class="r">${eur(Math.max(0,tot(i).pending))}</td><td>${chip(invStatus(i))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Sin facturas.</td></tr>'}</tbody></table></div></section>`;
+  }else{
+    const isImg=u=>u&&/^data:image|\.(png|jpe?g|webp)$|image/i.test(u);
+    content=`<section class="panel"><header><h2>Consentimiento informado</h2>${p.consent?chip('firmada'):'<span class="chip warn">Pendiente</span>'}</header>
+      ${p.consent?`<div class="row"><span class="thumb">${p.consent.url&&isImg(p.consent.url)?`<img src="${esc(p.consent.url)}" alt="" class="thumb">`:SVG(IC.doc)}</span><div class="m"><b>${esc(p.consent.file)}</b><span>Subido el ${fD(p.consent.at)} · almacenamiento privado</span></div><label class="btn sm">Sustituir<input type="file" hidden accept="application/pdf,image/*" data-up="consent" data-p="${p.id}"></label></div>
+      ${p.consent.url&&isImg(p.consent.url)?`<img class="preview" src="${esc(p.consent.url)}" alt="Consentimiento firmado">`:''}`:
+      `<div class="drop">${SVG(IC.upload)}<b>Sube el consentimiento firmado</b><span class="muted small">PDF o foto. Desde el móvil puedes hacer la foto directamente.</span>
+      <div class="actions" style="justify-content:center"><label class="btn primary">${SVG(IC.cam)}Hacer foto<input type="file" hidden accept="image/*" capture="environment" data-up="consent" data-p="${p.id}"></label><label class="btn">${SVG(IC.upload)}Elegir archivo<input type="file" hidden accept="application/pdf,image/*" data-up="consent" data-p="${p.id}"></label></div></div>`}
+    </section>
+    <section class="panel"><header><h2>Otros documentos</h2><label class="btn sm">${SVG(IC.upload)}Adjuntar<input type="file" hidden accept="application/pdf,image/*" data-up="doc" data-p="${p.id}"></label></header><div class="list">
+      ${(p.docs||[]).map(d=>`<div class="row"><span class="thumb">${SVG(IC.doc)}</span><div class="m"><b>${esc(d.name)}</b><span>Subido el ${fD(d.at)}</span></div></div>`).join('')||'<div class="empty">Sin documentos adicionales.</div>'}
+    </div></section>`;
+  }
+  return `${roleBanner()}<div><button class="btn sm ghost" data-act="backPatients">‹ Pacientes</button></div>
+  <div class="head"><div><div class="eyebrow">Ficha de paciente</div><h1 style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span class="pc big">#${p.code}</span>${REVEAL[p.id]?esc(p.name):''}</h1><p>${chip(p.status)} · ${done} sesiones realizadas · desde ${fD(p.alta)}</p></div><div class="actions"><button class="btn primary" data-act="newAppt" data-p="${p.id}">+ Cita</button>${isPsi?`<button class="btn" data-act="newDoc" data-t="evolucion" data-p="${p.id}">+ Informe</button>`:''}</div></div>
+  <div class="tabs" role="tablist">${[['resumen','Resumen'],['clinico','Expediente clínico'],['facturas','Facturas'],['docs','Documentos']].map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-act="ptab" data-t="${k}">${l}${k==='docs'&&!p.consent?' <span class="chip warn">1</span>':''}</button>`).join('')}</div>${content}`;
+}
+
+/* informes */
+VIEWS.informes=()=>{
+  const f=S.sel.nf||'pendientes';const pn=pendingNotes();
+  let list;
+  if(f==='pendientes')list=pn.filter(a=>!noteFor(a)).map(a=>`<tr class="click" data-act="note" data-id="${a.id}"><td>${fD(a.date)}</td><td>${pc(P(a.patientId))}</td><td>${esc(SV(a.service).name)}</td><td><span class="chip warn">Sin nota</span></td></tr>`).join('');
+  else{const ns=S.notes.filter(n=>f==='todas'||n.status===f).sort((a,b)=>b.created.localeCompare(a.created)).slice(0,80);
+    list=ns.map(n=>`<tr class="click" data-act="openNote" data-id="${n.id}"><td>${fD(n.created)}</td><td>${pc(P(n.patientId))}</td><td>${NOTE_T[n.type]}</td><td>${chip(n.status)}</td></tr>`).join('')}
+  return `<div class="head"><div><h1>Informes clínicos</h1><p>${pn.length} sesiones de los últimos 30 días sin nota firmada</p></div></div>
+  <div class="box clin">Las notas firmadas no se pueden sobrescribir: las correcciones se añaden como rectificación con autoría y fecha. Ningún contenido clínico se envía por email.</div>
+  <div class="toolbar"><div class="seg">${[['pendientes','Sin nota'],['borrador','Por firmar'],['firmada','Firmadas'],['todas','Todas']].map(([k,l])=>`<button data-act="nfilter" data-f="${k}" aria-pressed="${f===k}">${l}</button>`).join('')}</div></div>
+  <div class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Paciente</th><th>${f==='pendientes'?'Servicio':'Documento'}</th><th>Estado</th></tr></thead><tbody>${list||'<tr><td colspan="4" class="empty">Nada pendiente en este apartado.</td></tr>'}</tbody></table></div></div>`;
+};
+
+/* ===== contabilidad: los 7 criterios ===== */
+const ACC=[['facturas','01','Facturas'],['gastos','02','Clasificación de gastos'],['impuestos','03','Impuestos'],['banco','04','Conciliación bancaria'],['libros','05','Libros'],['rentabilidad','06','Rentabilidad'],['laboral','07','Laboral']];
+VIEWS.contabilidad=()=>{
+  let tab=S.sel.atab||'facturas';
+  if(S.role==='recepcion'&&tab!=='facturas')tab='facturas';
+  const tabs=ACC.filter(t=>S.role!=='recepcion'||t[0]==='facturas');
+  return `${roleBanner()}<div class="head"><div><h1>Contabilidad</h1><p>Facturas, gastos, impuestos, banco, libros, rentabilidad y personal en un solo sitio</p></div><div class="actions">${S.role!=='gestoria'?`<label class="btn primary">${SVG(IC.cam)}Escanear factura<input type="file" hidden accept="image/*,application/pdf" capture="environment" data-up="scan"></label>`:''}</div></div>
+  <div class="tabs" role="tablist">${tabs.map(([k,n,l])=>`<button role="tab" aria-selected="${tab===k}" data-act="atab" data-t="${k}"><span class="k">${n}</span>${l}</button>`).join('')}</div>
+  ${ACCV[tab]()}`;
+};
+const ACCV={};
+ACCV.facturas=()=>{
+  const dir=S.sel.fdir||'recibidas';const ro=S.role==='gestoria';
+  let body='';
+  if(dir==='recibidas'){
+    const ex=S.expenses.slice().sort((a,b)=>(a.status==='por revisar'?-1:0)-(b.status==='por revisar'?-1:0)||b.date.localeCompare(a.date)).slice(0,80);
+    body=`${ro?'':`<div class="scanbar"><div><b>Haz una foto a la factura y listo</b><div class="muted small">Indica el proveedor y la categoría. La IA lee fecha, número e importes y la añade a la contabilidad, al libro de gastos y a la conciliación.</div></div><div class="actions"><label class="btn primary">${SVG(IC.cam)}Hacer foto<input type="file" hidden accept="image/*" capture="environment" data-up="scan"></label><label class="btn">${SVG(IC.upload)}Subir archivo<input type="file" hidden accept="image/*,application/pdf" data-up="scan"></label></div></div>`}
+    <div class="panel flush"><div class="tbl-wrap"><table><thead><tr><th></th><th>Fecha</th><th>Proveedor</th><th>Categoría</th><th class="r">Total</th><th>Origen</th><th>Estado</th></tr></thead><tbody>
+    ${ex.map(e=>`<tr class="click" data-act="openExp" data-id="${e.id}"><td style="width:56px">${e.photo?`<img class="thumb" src="${esc(e.photo)}" alt="">`:`<span class="thumb">${SVG(IC.doc)}</span>`}</td><td>${fD(e.date)}</td><td><b>${esc(e.supplier)}</b><div class="muted small">${esc(e.concept||'')}</div></td><td>${esc(e.cat)}</td><td class="r">${e.total?eur(e.total):'<span class="muted">Leyendo…</span>'}</td><td><span class="muted small">${esc(e.source)}</span></td><td>${chip(e.status)}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }else{
+    const f=S.sel.if||'todas';
+    const all=S.invoices.slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.num||'').localeCompare(a.num||''));
+    const rows=all.filter(i=>f==='todas'||invStatus(i)===f).slice(0,100);const ub=unbilled();
+    body=`<div class="box">${S.settings.invoiceMode==='auto'?'Las facturas se emiten solas al marcar una sesión como realizada y se envían al paciente. Solo tienes que intervenir en lo que aparece en «Pendiente».':'Las sesiones realizadas generan un borrador que revisas antes de emitir.'}</div>
+    ${ub.length&&!ro?`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span><b>${ub.length} sesiones sin facturar.</b> Las de pacientes que facturan a empresa se agrupan en una factura mensual.</span><button class="btn sm" data-act="billAll">Facturar ahora</button></div>`:''}
+    <div class="toolbar"><div class="seg">${['todas','emitida','enviada','parcial','vencida','cobrada','borrador'].map(x=>`<button data-act="ifilter" data-f="${x}" aria-pressed="${f===x}">${x[0].toUpperCase()+x.slice(1)}</button>`).join('')}</div></div>
+    <div class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Número</th><th>Fecha</th><th>Destinatario</th><th class="r">Total</th><th class="r">Pendiente</th><th>Estado</th></tr></thead><tbody>
+    ${rows.map(i=>{const t=tot(i);return `<tr class="click" data-act="openInv" data-id="${i.id}"><td class="mono">${i.num||'—'}</td><td>${fD(i.date)}</td><td>${i.patientId&&P(i.patientId).billing.type!=='empresa'?pc(P(i.patientId)):esc(i.to.name)}</td><td class="r">${eur(t.total)}</td><td class="r">${t.pending>0&&i.status!=='borrador'&&i.kind!=='R'?eur(t.pending):'—'}</td><td>${chip(invStatus(i))}</td></tr>`}).join('')||'<tr><td colspan="6" class="empty">Sin facturas con este filtro.</td></tr>'}
+    </tbody></table></div></div>`;
+  }
+  const nRev=S.expenses.filter(e=>e.status==='por revisar').length;
+  return `<div class="seg" role="group"><button data-act="fdir" data-d="recibidas" aria-pressed="${dir==='recibidas'}">Recibidas · gastos${nRev?` (${nRev} por revisar)`:''}</button><button data-act="fdir" data-d="emitidas" aria-pressed="${dir==='emitidas'}">Emitidas · ingresos</button></div>${body}`;
+};
+ACCV.gastos=()=>{
+  const per=S.sel.gper||'año';
+  const from=per==='mes'?ym(TODAY)+'-01':per==='trimestre'?quarterRange(YEAR,qOf(TODAY))[0]:`${YEAR}-01-01`;
+  const ex=S.expenses.filter(e=>e.date>=from);
+  const pay=S.payrolls.filter(n=>n.date>=from);
+  const by={};CATS.forEach(c=>by[c]={sum:0,n:0});
+  ex.forEach(e=>{by[e.cat]=by[e.cat]||{sum:0,n:0};by[e.cat].sum+=e.total+e.ret;by[e.cat].n++});
+  pay.forEach(n=>{by.Personal.sum+=n.coste;by.Personal.n++});
+  const total=Object.values(by).reduce((a,b)=>a+b.sum,0);const max=Math.max(1,...Object.values(by).map(b=>b.sum));
+  const cat=S.sel.gcat;
+  const det=cat?ex.filter(e=>e.cat===cat).sort((a,b)=>b.date.localeCompare(a.date)):[];
+  return `<div class="toolbar"><div class="seg">${['mes','trimestre','año'].map(x=>`<button data-act="gper" data-p="${x}" aria-pressed="${per===x}">${x==='año'?'Este año':'Este '+x}</button>`).join('')}</div><span class="muted small">Total ${eur(total)} · IVA soportado incluido (la actividad sanitaria está exenta y no lo recupera)</span></div>
+  <div class="grid3"><section class="panel"><header><h2>Gasto por categoría</h2></header>
+    <div class="hbar">${Object.entries(by).filter(([,v])=>v.sum).sort((a,b)=>b[1].sum-a[1].sum).map(([k,v])=>`<a href="#" data-act="gcat" data-c="${esc(k)}" style="color:inherit;font-weight:${cat===k?800:500}">${esc(k)}</a><span class="b"><i style="width:${v.sum/max*100}%"></i></span><span class="num">${eur0(v.sum)} <span class="muted small">${Math.round(v.sum/total*100)}%</span></span>`).join('')}</div></section>
+  <section class="panel"><header><h2>Clasificación automática</h2></header><p class="muted small" style="margin:0 0 10px">Al escanear, la categoría se propone por el proveedor y por lo que lee la IA. Siempre puedes cambiarla.</p>
+    <div class="list">${RULES.slice(0,7).map(([re,c])=>`<div class="row"><div class="m"><b>${c}</b><span class="mono">${esc(String(re.source).split('|').slice(0,4).join(', ').replace(/\\|\[|\]|\?/g,''))}…</span></div></div>`).join('')}</div></section></div>
+  ${cat?`<section class="panel flush"><header><h2>${esc(cat)}</h2><button class="btn sm" data-act="gcat" data-c="">Cerrar</button></header><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Proveedor</th><th>Concepto</th><th class="r">Total</th></tr></thead><tbody>${det.map(e=>`<tr class="click" data-act="openExp" data-id="${e.id}"><td>${fD(e.date)}</td><td>${esc(e.supplier)}</td><td>${esc(e.concept)}</td><td class="r">${eur(e.total)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Los costes de personal se ven en «Laboral».</td></tr>'}</tbody></table></div></section>`:''}`;
+};
+ACCV.impuestos=()=>{
+  const tx=taxes();const pend=tx.filter(o=>!o.paid);const amt=pend.reduce((a,o)=>a+o.amount,0);
+  const next=pend.filter(o=>o.amount>0)[0];
+  const hist=S.sel.thist;const cut=ym(TODAY)+'-01';const shown=tx.filter(o=>hist?o.due<cut:o.due>=cut||!o.paid);
+  const byM={};shown.forEach(o=>{(byM[ym(o.due)]=byM[ym(o.due)]||[]).push(o)});const cap=t=>t[0].toUpperCase()+t.slice(1);
+  return `<div class="kpis"><div class="kpi"><div class="l">Pendiente de pago</div><div class="v">${eur0(amt)}</div><div class="s">${pend.filter(o=>o.amount>0).length} obligaciones con importe</div></div><div class="kpi"><div class="l">Próximo vencimiento</div><div class="v" style="font-size:1.15rem">${next?fD(next.due):'—'}</div><div class="s">${next?next.model:''}</div></div><div class="kpi"><div class="l">Vencidas</div><div class="v" style="color:${tx.some(o=>o.state==='vencido')?'var(--bad)':'inherit'}">${tx.filter(o=>o.state==='vencido').length}</div></div><div class="kpi"><div class="l">Presentadas este año</div><div class="v">${tx.filter(o=>o.paid).length}</div></div></div>
+  <div class="box warn">Importes estimados a partir de los datos de la app para planificar la tesorería. La gestoría calcula y presenta las declaraciones definitivas.</div>
+  <div class="toolbar"><div class="seg"><button data-act="thist" data-h="" aria-pressed="${!hist}">Próximas</button><button data-act="thist" data-h="1" aria-pressed="${!!hist}">Historial ${YEAR}</button></div></div>
+  ${Object.keys(byM).sort(hist?(a,b)=>b.localeCompare(a):undefined).map(k=>`<section class="panel flush"><header><h2>${cap(monthLong(k))}</h2></header><div class="tbl-wrap"><table><thead><tr><th>Modelo</th><th>Periodo</th><th>Vence</th><th class="r">Importe estimado</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${byM[k].map(o=>`<tr><td><b>${o.model}</b><div class="muted small">${o.name}${o.partial?' · datos parciales del año':''}</div><div class="muted small" style="font-size:.72rem">${esc(o.calc)}</div></td><td>${o.period}</td><td class="num">${fD(o.due)}</td><td class="r">${o.amount?eur(o.amount):'<span class="muted">Informativo</span>'}</td><td>${chip(o.state)}</td><td>${!o.paid&&S.role==='psicologa'?`<button class="btn sm" data-act="payObl" data-k="${o.key}">${o.amount?'Marcar pagado':'Marcar presentado'}</button>`:''}</td></tr>`).join('')}</tbody></table></div></section>`).join('')}`;
+};
+ACCV.banco=()=>{
+  const f=S.sel.bf||'pendientes';const um=unmatched();
+  const list=S.bank.slice().sort((a,b)=>b.date.localeCompare(a.date)).filter(b=>f==='todos'||!b.match).slice(0,120);
+  const bal=S.bank.reduce((a,b)=>a+b.amount,0)+1250000;
+  const pctOk=Math.round((S.bank.length-um.length)/S.bank.length*100);
+  const desc=b=>{if(!b.match)return'<span class="muted">—</span>';if(b.match.t==='pay'){const i=S.invoices.find(x=>x.id===b.match.inv);return i?`Cobro factura <span class="mono">${i.num}</span>`:'Cobro'}if(b.match.t==='exp'){const e=S.expenses.find(x=>x.id===b.match.id);return e?`Gasto · ${esc(e.supplier)}`:'Gasto'}if(b.match.t==='nom')return b.match.part==='ss'?'Seguros sociales':'Nómina';return'Otro'};
+  return `<div class="kpis"><div class="kpi"><div class="l">Saldo en cuenta</div><div class="v">${eur0(bal)}</div><div class="s">Cuenta de la consulta (ficticia)</div></div><div class="kpi"><div class="l">Conciliado</div><div class="v">${pctOk}%</div><div class="prog" style="margin-top:6px"><i style="width:${pctOk}%"></i></div></div><div class="kpi"><div class="l">Sin conciliar</div><div class="v" style="color:${um.length?'var(--warn)':'inherit'}">${um.length}</div></div><div class="kpi"><div class="l">Último movimiento</div><div class="v" style="font-size:1.15rem">${fD(S.bank.map(b=>b.date).sort().pop())}</div></div></div>
+  <div class="toolbar"><div class="seg"><button data-act="bf" data-f="pendientes" aria-pressed="${f==='pendientes'}">Sin conciliar</button><button data-act="bf" data-f="todos" aria-pressed="${f==='todos'}">Todos</button></div>
+  ${S.role!=='gestoria'||true?`<button class="btn primary" data-act="autoMatch" ${um.length?'':'disabled'}>Conciliar automáticamente</button><label class="btn">${SVG(IC.upload)}Importar extracto (CSV)<input type="file" hidden accept=".csv,text/csv,text/plain" data-up="bank"></label>`:''}</div>
+  <p class="muted small" style="margin:0">La conciliación automática relaciona cada movimiento con un cobro, una factura pendiente o un gasto del mismo importe y fecha cercana. Formato del CSV: fecha;concepto;importe.</p>
+  <div class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Concepto bancario</th><th class="r">Importe</th><th>Relacionado con</th><th></th></tr></thead><tbody>
+  ${list.map(b=>`<tr><td class="num">${fD(b.date)}</td><td class="mono" style="font-size:.78rem">${esc(b.concept)}</td><td class="r" style="color:${b.amount>0?'var(--ok)':'inherit'};font-weight:700">${b.amount>0?'+':''}${eur(b.amount)}</td><td>${desc(b)}</td><td class="r">${b.match?chip('conciliado'):`<button class="btn sm" data-act="matchOne" data-id="${b.id}">Relacionar</button>`}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Todos los movimientos están conciliados.</td></tr>'}
+  </tbody></table></div></div>`;
+};
+function libros(q){
+  const[a,b]=q==='año'?[`${YEAR}-01-01`,`${YEAR}-12-31`]:quarterRange(YEAR,Number(q));
+  const ing=S.invoices.filter(i=>i.num&&i.date>=a&&i.date<=b).sort((x,y)=>x.num.localeCompare(y.num)).map(i=>{const t=tot(i);return{fecha:i.date,num:i.num,cliente:i.to.name,code:i.patientId&&P(i.patientId)&&P(i.patientId).billing.type!=='empresa'?'#'+P(i.patientId).code:i.to.name,nif:i.to.nif||'',concepto:i.lines.map(l=>l.desc).join(' / '),base:t.base,iva:t.iva,ret:t.ret,total:t.total}});
+  const gas=S.expenses.filter(e=>e.date>=a&&e.date<=b).map(e=>({fecha:e.date,num:e.num||'',prov:e.supplier,nif:e.nif||'',cat:e.cat,concepto:e.concept,base:e.base,iva:e.iva,ret:e.ret,total:e.total}))
+    .concat(S.payrolls.filter(n=>n.date>=a&&n.date<=b).flatMap(n=>[{fecha:n.date,num:'NOM-'+n.month,prov:'Personal',nif:'',cat:'Sueldos y salarios',concepto:'Nómina '+monthLong(n.month),base:n.bruto,iva:0,ret:n.irpf,total:n.bruto},{fecha:n.date,num:'SS-'+n.month,prov:'Seguridad Social',nif:'',cat:'Seguridad Social a cargo de la empresa',concepto:'Cuota empresa '+monthLong(n.month),base:n.ssE,iva:0,ret:0,total:n.ssE}]))
+    .sort((x,y)=>x.fecha.localeCompare(y.fecha));
+  return{ing,gas};
+}
+ACCV.libros=()=>{
+  const q=S.sel.lq||String(qOf(TODAY));const book=S.sel.lb||'ingresos';const L=libros(q);
+  const rows=book==='ingresos'?L.ing:L.gas;const sum=k=>rows.reduce((a,r)=>a+r[k],0);
+  return `<div class="toolbar"><div class="seg">${['1','2','3','4','año'].map(x=>`<button data-act="lq" data-q="${x}" aria-pressed="${q===x}">${x==='año'?'Año '+YEAR:x+'T'}</button>`).join('')}</div><div class="seg"><button data-act="lb" data-b="ingresos" aria-pressed="${book==='ingresos'}">Libro de ingresos</button><button data-act="lb" data-b="gastos" aria-pressed="${book==='gastos'}">Libro de gastos</button></div>
+  <button class="btn primary" data-act="exportBook">${SVG(IC.upload)}Exportar para la gestoría</button></div>
+  <p class="muted small" style="margin:0">Formato de libro registro de ingresos y gastos para estimación directa. En pantalla los pacientes aparecen por código; el archivo exportado incluye los datos fiscales que exige la gestoría.</p>
+  <div class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Nº</th><th>${book==='ingresos'?'Destinatario':'Proveedor'}</th><th>${book==='ingresos'?'Concepto':'Tipo de gasto'}</th><th class="r">Base</th><th class="r">IVA</th><th class="r">Retención</th><th class="r">Total</th></tr></thead><tbody>
+  ${rows.map(r=>`<tr><td class="num">${fD(r.fecha)}</td><td class="mono">${esc(r.num)}</td><td>${book==='ingresos'?(r.code.startsWith('#')?`<span class="pc">${r.code}</span>`:esc(r.code)):esc(r.prov)}</td><td class="small">${esc(book==='ingresos'?r.concepto:r.cat)}</td><td class="r">${eur(r.base)}</td><td class="r">${eur(r.iva)}</td><td class="r">${r.ret?eur(r.ret):'—'}</td><td class="r"><b>${eur(r.total)}</b></td></tr>`).join('')||'<tr><td colspan="8" class="empty">Sin registros en este periodo.</td></tr>'}
+  ${rows.length?`<tr><td colspan="4"><b>${rows.length} registros</b></td><td class="r"><b>${eur(sum('base'))}</b></td><td class="r"><b>${eur(sum('iva'))}</b></td><td class="r"><b>${eur(sum('ret'))}</b></td><td class="r"><b>${eur(sum('total'))}</b></td></tr>`:''}
+  </tbody></table></div></div>`;
+};
+function monthsBack(n){const out=[];const d=parse(TODAY);d.setDate(1);for(let i=n-1;i>=0;i--)out.push(iso(new Date(d.getFullYear(),d.getMonth()-i,1)).slice(0,7));return out}
+ACCV.rentabilidad=()=>{
+  const ms=monthsBack(6);const inc={},gas={},res={};ms.forEach(k=>{inc[k]=0;gas[k]=0});
+  S.invoices.filter(i=>i.num).forEach(i=>{const k=ym(i.date);if(k in inc)inc[k]+=tot(i).base});
+  S.expenses.forEach(e=>{const k=ym(e.date);if(k in gas)gas[k]+=e.base+e.iva});
+  S.payrolls.forEach(n=>{const k=n.month;if(k in gas)gas[k]+=n.coste});
+  ms.forEach(k=>res[k]=inc[k]-gas[k]);
+  const sum=o=>Object.values(o).reduce((a,b)=>a+b,0);const I=sum(inc),G=sum(gas),R=I-G;
+  const sess=S.appts.filter(a=>a.status==='realizada'&&ms.includes(ym(a.date)));
+  const hours=sess.reduce((a,s)=>a+s.dur,0)/60;
+  const avgP=sess.length?sess.reduce((a,s)=>a+s.price,0)/sess.length:0;
+  const fixedM=G/6;const be=avgP?Math.ceil(fixedM/avgP):0;
+  const bySvc={};sess.forEach(a=>{bySvc[a.service]=(bySvc[a.service]||0)+a.price});const svMax=Math.max(1,...Object.values(bySvc));
+  const weeks=[];for(let i=7;i>=0;i--){const mo=addDays(mondayOf(TODAY),-7*i);weeks.push({mo,...occupancy(mo)})}
+  const half=ms.slice(3),prevHalf=ms.slice(0,3);const r1=half.reduce((a,k)=>a+res[k],0),r0=prevHalf.reduce((a,k)=>a+res[k],0);
+  return `<div class="kpis"><div class="kpi"><div class="l">Ingresos 6 meses</div><div class="v">${eur0(I)}</div><div class="s">Base facturada</div></div><div class="kpi"><div class="l">Gastos 6 meses</div><div class="v">${eur0(G)}</div><div class="s">Incluye personal</div></div><div class="kpi"><div class="l">Resultado</div><div class="v" style="color:${R<0?'var(--bad)':'var(--ok)'}">${eur0(R)}</div><div class="s">Margen ${I>0?Math.round(R/I*100)+' %':'—'} · antes de IRPF</div></div><div class="kpi"><div class="l">Por hora de consulta</div><div class="v">${hours?eur0(R/hours):'—'}</div><div class="s">Resultado / ${Math.round(hours)} h atendidas</div></div></div>
+  <section class="panel chart"><header><h2>Evolución mensual</h2><div class="legend"><span><i style="background:var(--c1)"></i>Ingresos</span><span><i style="background:var(--c3)"></i>Gastos</span><span><i style="background:var(--c2);height:3px;vertical-align:3px"></i>Resultado</span></div></header>${barChart(ms,inc,gas)}
+  <p class="muted small" style="margin:8px 0 0">Último trimestre frente al anterior: resultado ${r0?(r1>=r0?'+':'')+Math.round((r1-r0)/Math.abs(r0)*100)+' %':'—'} (${eur0(r1)} frente a ${eur0(r0)}).</p></section>
+  <div class="grid2"><section class="panel"><header><h2>Ingresos por servicio</h2></header><div class="hbar">${Object.entries(bySvc).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<span>${esc(SV(k).name)}</span><span class="b"><i style="width:${v/svMax*100}%"></i></span><span class="num">${eur0(v)}</span>`).join('')}</div>
+    <dl class="dl" style="margin-top:16px"><dt>Sesiones realizadas</dt><dd class="num">${sess.length}</dd><dt>Precio medio por sesión</dt><dd class="num">${eur(Math.round(avgP))}</dd><dt>Punto de equilibrio</dt><dd class="num">${be} sesiones al mes para cubrir ${eur0(fixedM)} de gastos</dd></dl></section>
+  <section class="panel chart"><header><h2>Ocupación de agenda</h2><span class="muted small">${weeks[0].avail} h disponibles por semana</span></header>${occChart(weeks)}</section></div>`;
+};
+ACCV.laboral=()=>{
+  const e=S.employees[0];
+  const ps=S.payrolls.slice().sort((a,b)=>b.month.localeCompare(a.month));
+  const cy=ps.filter(n=>n.month.startsWith(String(YEAR)));const coste=cy.reduce((a,n)=>a+n.coste,0);
+  const cur=ym(TODAY);const hasCur=ps.some(n=>n.month===cur);
+  if(!e)return `<div class="empty">Sin personal dado de alta.</div>`;
+  return `<div class="kpis"><div class="kpi"><div class="l">Plantilla</div><div class="v">${S.employees.length}</div><div class="s">${esc(e.role)}</div></div><div class="kpi"><div class="l">Coste de personal ${YEAR}</div><div class="v">${eur0(coste)}</div><div class="s">Bruto + Seguridad Social empresa</div></div><div class="kpi"><div class="l">Coste mensual</div><div class="v">${eur0(payroll(e.bruto).coste)}</div><div class="s">${eur0(e.bruto)} brutos</div></div><div class="kpi"><div class="l">Peso sobre ingresos</div><div class="v">${(()=>{const inc=S.invoices.filter(i=>i.num&&i.date.startsWith(String(YEAR))).reduce((a,i)=>a+tot(i).base,0);return inc?Math.round(coste/inc*100)+' %':'—'})()}</div></div></div>
+  <div class="grid3"><section class="panel flush"><header><h2>Nóminas</h2>${hasCur||S.role!=='psicologa'?'':`<button class="btn sm primary" data-act="genPayroll">Generar nómina de ${monthName(cur)}</button>`}</header><div class="tbl-wrap"><table><thead><tr><th>Mes</th><th class="r">Bruto</th><th class="r">SS trabajador</th><th class="r">IRPF</th><th class="r">Neto</th><th class="r">SS empresa</th><th class="r">Coste total</th><th>Estado</th></tr></thead><tbody>
+    ${ps.map(n=>`<tr><td style="text-transform:capitalize">${monthLong(n.month)}</td><td class="r">${eur(n.bruto)}</td><td class="r">${eur(n.ssT)}</td><td class="r">${eur(n.irpf)}</td><td class="r"><b>${eur(n.neto)}</b></td><td class="r">${eur(n.ssE)}</td><td class="r">${eur(n.coste)}</td><td>${n.paid?chip('pagada'):`<button class="btn sm" data-act="payPayroll" data-id="${n.id}">Marcar pagada</button>`}</td></tr>`).join('')}
+    </tbody></table></div><p class="muted small" style="margin:0;padding:10px 18px 16px">Cálculo orientativo (SS trabajador 6,48 %, empresa 31,9 %, IRPF 2 %). La gestoría laboral emite la nómina oficial; aquí se registra y se integra en impuestos, banco y rentabilidad.</p></section>
+  <section class="panel"><header><h2>${esc(e.name)}</h2></header><dl class="dl"><dt>Puesto</dt><dd>${esc(e.role)}</dd><dt>Contrato</dt><dd>${esc(e.contract)}</dd><dt>Alta</dt><dd>${fD(e.start)}</dd><dt>Acceso a la app</dt><dd>Rol recepción · sin acceso clínico</dd></dl>
+    <h3 style="margin:16px 0 6px">Documentación laboral</h3><div class="list">${e.docs.map(d=>`<div class="row"><span class="thumb">${SVG(IC.doc)}</span><div class="m"><b>${esc(d.name)}</b><span>${fD(d.at)}</span></div></div>`).join('')}
+    ${ps.slice(0,3).map(n=>`<div class="row"><span class="thumb">${SVG(IC.doc)}</span><div class="m"><b>Recibo de nómina · ${monthName(n.month)}</b><span>${fD(n.date)}</span></div></div>`).join('')}</div>
+    <label class="btn sm" style="margin-top:10px">${SVG(IC.upload)}Subir documento<input type="file" hidden accept="application/pdf,image/*" data-up="empdoc"></label></section></div>`;
+};
+function barChart(ms,a,b){
+  const W=720,Hh=240,L=60,B=26,T=10;const vals=ms.flatMap(k=>[a[k],b[k]]);const max=Math.max(1,...vals);
+  const step=niceStep(max);const top=Math.ceil(max/step)*step;
+  const y=v=>T+(Hh-T-B)*(1-Math.max(0,v)/top);const gw=(W-L-10)/ms.length;const bw=Math.min(28,gw/3.2);
+  let g='';for(let v=0;v<=top;v+=step){g+=`<line x1="${L}" x2="${W-10}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end">${(v/100).toLocaleString('es-ES')} €</text>`}
+  let bars='',pts=[];
+  ms.forEach((k,i)=>{const cx=L+gw*i+gw/2;bars+=`<rect x="${cx-bw-2}" y="${y(a[k])}" width="${bw}" height="${y(0)-y(a[k])}" rx="4" fill="var(--c1)"><title>${eur(a[k])}</title></rect><rect x="${cx+2}" y="${y(b[k])}" width="${bw}" height="${y(0)-y(b[k])}" rx="4" fill="var(--c3)"><title>${eur(b[k])}</title></rect><text x="${cx}" y="${Hh-6}" text-anchor="middle">${monthName(k)}</text>`;pts.push([cx,y(a[k]-b[k])])});
+  const line=`<polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--c2)" stroke-width="2.5"/>${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="var(--surface)" stroke="var(--c2)" stroke-width="2.5"/>`).join('')}`;
+  return `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Ingresos y gastos por mes">${g}${bars}${line}</svg>`;
+}
+function niceStep(max){const raw=max/4;const p=Math.pow(10,Math.floor(Math.log10(raw)));const n=raw/p;return(n<=1?1:n<=2?2:n<=5?5:10)*p}
+function occChart(weeks){
+  const W=360,Hh=180,L=34,B=24,T=8;const y=v=>T+(Hh-T-B)*(1-v/100);const gw=(W-L-6)/weeks.length;
+  let g='';[0,25,50,75,100].forEach(v=>g+=`<line x1="${L}" x2="${W-6}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}%</text>`);
+  const bars=weeks.map((w,i)=>{const x=L+gw*i+gw*.18;const last=i===weeks.length-1;const v=Math.min(100,w.pct);return `<rect x="${x}" y="${y(v)}" width="${gw*.64}" height="${y(0)-y(v)}" rx="4" fill="${last?'var(--c2)':'var(--c1)'}"><title>Semana del ${fD(w.mo)}: ${w.pct}%</title></rect><text x="${x+gw*.32}" y="${Hh-6}" text-anchor="middle">${parse(w.mo).getDate()}/${parse(w.mo).getMonth()+1}</text>`}).join('');
+  return `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Ocupación semanal">${g}${bars}</svg><p class="muted small" style="margin:6px 0 0">Horas reservadas sobre horas disponibles. La última barra es la semana en curso.</p>`;
+}
+
+/* configuración */
+VIEWS.config=()=>{
+  const s=S.settings;const tg=(k,t,d)=>`<div class="toggle"><div><b>${t}</b><small>${d}</small></div><input type="checkbox" class="sw" id="set-${k}" data-set="${k}" ${s[k]?'checked':''} aria-label="${esc(t)}"></div>`;
+  const tab=S.sel.ctab||'auto';let c='';
+  if(tab==='auto')c=`<div class="grid2"><section class="panel"><header><h2>Automatizaciones</h2></header>
+    ${tg('confirmEmail','Confirmación al crear una cita','Email con fecha, hora y lugar. Nunca incluye datos clínicos.')}
+    ${tg('reminder','Recordatorio antes de la sesión',`Se envía ${s.reminderH} h antes. Se puede desactivar por paciente.`)}
+    ${tg('noteTask','Aviso de nota al cerrar una sesión','Aparece en «Pendiente». La nota nunca se firma sola.')}
+    ${tg('sendInvoice','Enviar la factura al emitirla','El paciente la recibe por email y queda registrado.')}
+    ${tg('aiScan','Leer facturas escaneadas con IA','Extrae fecha, número e importes de la foto. Requiere permitir a Claude en este visor.')}</section>
+    <section class="panel"><header><h2>Facturación al cerrar una sesión</h2></header><div class="stack">
+    ${[['auto','Emitir automáticamente','Recomendado para servicios con IVA y retenciones ya configurados.'],['borrador','Crear borrador para revisar','Revisas destinatario e importes antes de emitir.'],['manual','No hacer nada','La sesión queda en «sin facturar».']].map(([k,t,d])=>`<label class="toggle" style="cursor:pointer"><div><b>${t}</b><small>${d}</small></div><input type="radio" name="invmode" value="${k}" ${s.invoiceMode===k?'checked':''}></label>`).join('')}
+    <label class="field"><span>Días de vencimiento</span><input type="number" id="dueDays" min="0" max="90" value="${s.dueDays}"></label></div></section></div>`;
+  else if(tab==='servicios')c=`<section class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Servicio</th><th>Duración</th><th class="r">Precio</th><th>IVA</th></tr></thead><tbody>${S.services.map(sv=>`<tr><td><b>${esc(sv.name)}</b></td><td class="num">${sv.dur} min</td><td class="r"><input type="number" step="0.5" min="0" value="${sv.price/100}" data-price="${sv.id}" id="pr-${sv.id}" style="width:90px;text-align:right" aria-label="Precio ${esc(sv.name)}"></td><td>${sv.exempt?'<span class="chip acc">Exento · art. 20.Uno.3º LIVA</span>':'<span class="chip warn">IVA 21 %</span>'}</td></tr>`).join('')}</tbody></table></div></section>
+    <div class="box">La exención de IVA aplica a la asistencia sanitaria de profesionales con habilitación sanitaria. Talleres o formación tributan al 21 %. Si el destinatario es una empresa, la factura lleva retención de IRPF.</div>`;
+  else if(tab==='perfil')c=`<section class="panel"><div class="form">${[['name','Nombre y apellidos'],['nif','NIF'],['col','Nº de colegiada'],['email','Email de la consulta'],['addr','Dirección fiscal']].map(([k,l])=>`<label class="field ${k==='addr'?'full':''}"><span>${l}</span><input type="text" id="pro-${k}" data-pro="${k}" value="${esc(S.pro[k])}"></label>`).join('')}
+    <label class="toggle full"><div><b>Habilitación sanitaria</b><small>Determina la exención de IVA de los servicios sanitarios.</small></div><input type="checkbox" class="sw" id="pro-san" data-pro="sanitaria" ${S.pro.sanitaria?'checked':''}></label></div>
+    <h3 style="margin-top:16px">Horario disponible</h3><p class="muted">${Object.entries(AVAIL).map(([d,r])=>`${DAYN[d]} ${r.map(([a,b])=>hm(a)+'–'+hm(b)).join(' y ')}`).join(' · ')}</p></section>`;
+  else if(tab==='comms')c=`<section class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Destinatario</th><th>Asunto</th><th>Estado</th></tr></thead><tbody>${S.outbox.map(m=>`<tr><td class="num">${new Date(m.at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</td><td class="mono" style="font-size:.78rem">${esc(maskEmail(m.to))}</td><td>${esc(m.subject)}<div class="muted small">${esc(m.body)}</div></td><td>${chip(m.status)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Todavía no hay envíos. Crea una cita o cierra una sesión para ver uno aquí.</td></tr>'}</tbody></table></div></section>
+    <p class="muted small">En el prototipo los emails no se envían; se registran como lo haría el proveedor de correo.</p>`;
+  else c=`<section class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody>${S.audit.slice(0,150).map(a=>`<tr><td class="num">${new Date(a.at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</td><td>${esc(a.who)}</td><td>${esc(a.what)}</td></tr>`).join('')}</tbody></table></div></section>`;
+  return `<div class="head"><div><h1>Configuración</h1><p>${esc(S.pro.name)} · consulta individual</p></div><div class="actions"><button class="btn danger" data-act="reset">Restablecer datos de ejemplo</button></div></div>
+  <div class="tabs" role="tablist">${[['auto','Automatizaciones'],['servicios','Servicios y tarifas'],['perfil','Datos profesionales'],['comms','Comunicaciones'],['audit','Auditoría']].map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-act="ctab" data-t="${k}">${l}</button>`).join('')}</div>${c}`;
+};
+
+/* ===== modales ===== */
+function modal(title,body,foot,wide){document.getElementById('modal').innerHTML=`<div class="ov" data-act="ovClose"><div class="mod ${wide?'wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header><h2>${title}</h2><button class="x" data-act="close" aria-label="Cerrar">×</button></header><div class="bd">${body}</div>${foot?`<footer>${foot}</footer>`:''}</div></div>`;const f=document.querySelector('.mod input:not([type=file]),.mod select,.mod textarea');if(f)f.focus()}
+function closeModal(){document.getElementById('modal').innerHTML=''}
+const val=id=>{const e=document.getElementById(id);return e?e.value:''};
+
+function apptForm(a,pre){
+  pre=pre||{};const isNew=!a;a=a||{patientId:pre.p||'',date:pre.d||TODAY,start:pre.t||600,service:'s1',dur:60,modal:'presencial',loc:'Despacho Málaga Centro'};
+  const pts=S.patients.filter(p=>p.status!=='alta terapéutica'||p.id===a.patientId).sort((x,y)=>x.code.localeCompare(y.code));
+  modal(isNew?'Nueva cita':'Reprogramar cita',`<div class="form">
+    <label class="field full"><span>Paciente (código)</span><select id="f-p"><option value="">Selecciona un paciente…</option>${pts.map(p=>`<option value="${p.id}" ${p.id===a.patientId?'selected':''}>#${p.code} · ${esc(SV(p.service).name)}</option>`).join('')}</select></label>
+    <div class="full muted small" style="margin-top:-6px">¿Paciente nuevo? <a href="#" data-act="newPatient">Créalo</a> y se le asignará un código.</div>
+    <label class="field"><span>Fecha</span><input type="date" id="f-d" value="${a.date}"></label>
+    <label class="field"><span>Hora</span><input type="time" id="f-t" step="900" value="${hm(a.start)}"></label>
+    <label class="field"><span>Servicio</span><select id="f-s">${S.services.map(s=>`<option value="${s.id}" ${s.id===a.service?'selected':''}>${esc(s.name)} · ${eur(s.price)}</option>`).join('')}</select></label>
+    <label class="field"><span>Duración (min)</span><input type="number" id="f-dur" min="15" step="5" value="${a.dur}"></label>
+    <label class="field"><span>Modalidad</span><select id="f-m"><option ${a.modal==='presencial'?'selected':''}>presencial</option><option ${a.modal==='online'?'selected':''}>online</option></select></label>
+    <label class="field"><span>Ubicación o enlace</span><input type="text" id="f-l" value="${esc(a.loc)}"></label>
+    <div id="f-warn" class="full" hidden></div></div>`,
+    `<button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="saveAppt" data-id="${isNew?'':a.id}">${isNew?'Crear cita':'Guardar cambios'}</button>`);
+  const s=document.getElementById('f-s'),pp=document.getElementById('f-p');
+  s.onchange=()=>{document.getElementById('f-dur').value=SV(s.value).dur;if(s.value==='s4'){document.getElementById('f-m').value='online';document.getElementById('f-l').value='Videollamada'}};
+  pp.onchange=()=>{const p=P(pp.value);if(p&&isNew){s.value=p.service;s.onchange();document.getElementById('f-m').value=p.modal;document.getElementById('f-l').value=p.modal==='online'?'Videollamada':'Despacho Málaga Centro'}};
+  if(isNew&&pre.p)pp.onchange();
+}
+function conflicts(id,date,start,dur){return S.appts.filter(x=>x.id!==id&&x.date===date&&x.status!=='cancelada'&&x.start<start+dur&&start<x.start+x.dur)}
+function openAppt(id){
+  const a=S.appts.find(x=>x.id===id);const p=P(a.patientId);const n=noteFor(a);const inv=S.invoices.find(i=>i.id===a.invoiceId);const isPsi=S.role==='psicologa';
+  const open=['pendiente','confirmada'].includes(a.status);
+  modal(`<span class="pc big">#${p.code}</span> <span style="font-weight:600;color:var(--muted);font-size:.95rem">${fDs(a.date)}</span>`,`<dl class="dl"><dt>Estado</dt><dd>${chip(a.status)}${a.cancelReason?` <span class="muted">${esc(a.cancelReason)}</span>`:''}</dd><dt>Horario</dt><dd>${hm(a.start)}–${hm(a.start+a.dur)} (${a.dur} min)</dd><dt>Servicio</dt><dd>${esc(SV(a.service).name)} · ${eur(a.price)}</dd><dt>Modalidad</dt><dd>${esc(a.modal)} · ${esc(a.loc)}</dd>
+    ${isPsi&&a.status==='realizada'?`<dt>Nota</dt><dd>${n?chip(n.status):'<span class="chip warn">Sin nota</span>'}</dd>`:''}
+    ${a.status==='realizada'?`<dt>Factura</dt><dd>${inv?`<a href="#" data-act="openInv" data-id="${inv.id}">${inv.num||'Borrador'}</a> · ${chip(invStatus(inv))}`:'Sin facturar'}</dd>`:''}</dl>
+    ${open?`<label class="field"><span>Motivo si se cancela</span><select id="f-cr"><option>Indisposición del paciente</option><option>Motivo laboral</option><option>Cancelada por la consulta</option><option>Otro</option></select></label>`:''}
+    <details><summary class="muted" style="cursor:pointer">Historial de cambios (${a.log.length})</summary><div class="timeline" style="margin-top:8px">${a.log.slice().reverse().map(l=>`<div class="ev"><span class="dt">${fD(l.at.slice(0,10))}</span><span class="dot mail"></span><span class="tx">${esc(l.what)} · ${esc(l.who)}</span></div>`).join('')}</div></details>`,
+    `<button class="btn sm" data-act="openPatient" data-id="${p.id}">Ficha</button>
+    ${open?`<button class="btn sm" data-act="reschedule" data-id="${a.id}">Reprogramar</button><button class="btn sm danger" data-act="cancelAppt" data-id="${a.id}">Cancelar</button><button class="btn sm" data-act="noshow" data-id="${a.id}" ${a.date>TODAY?'disabled':''}>Ausencia</button>${a.status!=='confirmada'?`<button class="btn sm" data-act="confirm" data-id="${a.id}">Confirmar</button>`:''}<button class="btn sm primary" data-act="done" data-id="${a.id}" ${a.date>TODAY?'disabled title="Solo el día de la cita o después"':''}>Marcar realizada</button>`:''}
+    ${a.status==='realizada'&&isPsi?`<button class="btn sm primary" data-act="note" data-id="${a.id}">${n?'Abrir nota':'Escribir nota'}</button>`:''}`);
+}
+function logA(a,what){a.log.push({at:new Date().toISOString(),who:ME[S.role],what})}
+function markDone(a){
+  a.status='realizada';logA(a,'Marcada como realizada');const p=P(a.patientId);audit(`Cita #${p.code} del ${a.date} marcada como realizada`);
+  const msgs=[];
+  if(S.settings.noteTask&&S.role==='psicologa')msgs.push('nota pendiente');
+  if(S.settings.invoiceMode!=='manual'&&p.billing.type!=='empresa'&&!a.invoiceId){
+    const sv=SV(a.service);const inv=mkInv(S,p,TODAY,[{desc:`${sv.name} · ${fD(a.date)}`,qty:1,price:a.price,exempt:sv.exempt&&S.pro.sanitaria}],[a.id]);
+    S.invoices.push(inv);a.invoiceId=inv.id;
+    if(S.settings.invoiceMode==='auto'){emit(inv);msgs.push(`factura ${inv.num} emitida${S.settings.sendInvoice?' y enviada':''}`)}else msgs.push('borrador de factura creado');
+  }else if(p.billing.type==='empresa')msgs.push('irá en la factura mensual de la empresa');
+  toast('Sesión cerrada · '+msgs.join(' · '));
+}
+function emit(inv){
+  const yr=inv.date.slice(0,4);const pre=inv.serie+yr+'/';
+  const n=S.invoices.filter(i=>i.num&&i.num.startsWith(pre)).length+1;
+  inv.num=pre+String(n).padStart(4,'0');inv.status='emitida';inv.prevHash=S.lastHash||'0000000000000000';inv.hash=fnv(inv.prevHash+inv.num+inv.date+tot(inv).total);S.lastHash=inv.hash;
+  inv.due=addDays(inv.date,S.settings.dueDays);audit(`Factura ${inv.num} emitida (${eur(tot(inv).total)})`);
+  if(S.settings.sendInvoice)sendInv(inv,true);
+}
+function sendInv(inv,quiet){const to=inv.patientId?P(inv.patientId).email:'cliente';mail(to,`Factura ${inv.num}`,`Adjuntamos la factura ${inv.num} por importe de ${eur(tot(inv).total)}.`,'Factura');inv.sent={at:TODAY,to,ok:true};audit(`Factura ${inv.num} enviada`);if(!quiet)toast('Factura enviada')}
+function openInv(id){
+  const i=S.invoices.find(x=>x.id===id);const t=tot(i);const st=invStatus(i);const ro=S.role==='gestoria';const draft=i.status==='borrador';
+  const lines=i.lines.map((l,k)=>`<tr><td>${draft&&!ro?`<input type="text" value="${esc(l.desc)}" data-ld="${k}" id="ld-${k}" aria-label="Concepto">`:esc(l.desc)}</td><td class="r num">${l.qty}</td><td class="r">${draft&&!ro?`<input type="number" step="0.01" value="${l.price/100}" data-lp="${k}" id="lp-${k}" style="width:90px;text-align:right" aria-label="Precio">`:eur(l.price)}</td><td>${l.exempt?'Exento':'21 %'}</td><td class="r">${eur(Math.round(l.qty*l.price))}</td></tr>`).join('');
+  const p=i.patientId?P(i.patientId):null;const showName=!p||p.billing.type==='empresa'||REVEAL[p.id];
+  modal(i.num?`Factura ${i.num}`:'Borrador de factura',`<div class="inv">
+    <div class="top"><div><div class="eyebrow" style="color:var(--muted)">Emisor</div><b>${esc(S.pro.name)}</b><div class="muted small">NIF ${esc(S.pro.nif)}<br>${esc(S.pro.addr)}<br>Colegiada ${esc(S.pro.col)}</div></div>
+    <div style="text-align:right"><div class="numb">${i.num||'BORRADOR'}</div><div class="muted small">Fecha ${fD(i.date)}<br>Vence ${fD(i.due)}</div><div style="margin-top:6px">${chip(st)}</div></div></div>
+    <div><div class="eyebrow" style="color:var(--muted)">Destinatario</div>${showName?`<b>${esc(i.to.name)}</b>${i.to.nif?`<div class="muted small">${esc(i.to.nif)} · ${esc(i.to.addr)}</div>`:''}`:`${pc(p)} <span class="masked">••••••••</span> <button class="btn sm ghost" data-act="revealInv" data-id="${p.id}" data-inv="${i.id}">${SVG(IC.eye)}Mostrar</button><div class="muted small">El nombre figura en el documento que recibe el paciente.</div>`}</div>
+    <div class="tbl-wrap"><table><thead><tr><th>Concepto</th><th class="r">Cant.</th><th class="r">Precio</th><th>IVA</th><th class="r">Importe</th></tr></thead><tbody>${lines}</tbody></table></div>
+    <div class="tot"><span>Base imponible</span><span>${eur(t.base)}</span><span>IVA</span><span>${eur(t.iva)}</span>${i.ret?`<span>Retención IRPF ${i.ret} %</span><span>−${eur(t.ret)}</span>`:''}<span class="g">Total</span><span class="g">${eur(t.total)}</span>${t.paid?`<span class="muted">Cobrado</span><span class="muted">${eur(t.paid)}</span><span class="muted">Pendiente</span><span class="muted">${eur(Math.max(0,t.pending))}</span>`:''}</div>
+    ${i.lines.some(l=>l.exempt)?`<div class="muted small">Operación exenta de IVA conforme al art. 20.Uno.3º de la Ley 37/1992.</div>`:''}
+    ${i.hash?`<div class="vf"><div>Registro de facturación encadenado (simulado)<br><span class="mono">Huella ${i.hash} · anterior ${i.prevHash}</span><br>Prototipo: no conectado a la AEAT ni certificado Verifactu.</div></div>`:''}
+  </div>
+  ${i.payments.length?`<section><h3>Cobros</h3><div class="list">${i.payments.map(x=>`<div class="row"><div class="m"><b>${eur(x.amount)}</b><span>${fD(x.date)} · ${esc(x.method)}${x.ref?' · '+esc(x.ref):''}</span></div></div>`).join('')}</div></section>`:''}
+  ${i.sent?`<p class="muted small" style="margin:0">Enviada el ${fD(i.sent.at)} a ${esc(maskEmail(i.sent.to))} · entrega correcta</p>`:''}
+  ${!draft&&t.pending>0&&!ro&&i.kind!=='R'?`<div class="form" style="align-items:end"><label class="field"><span>Registrar cobro</span><input type="number" step="0.01" id="pay-a" value="${(t.pending/100).toFixed(2)}"></label><label class="field"><span>Método</span><select id="pay-m"><option>Tarjeta</option><option>Bizum</option><option>Transferencia</option><option>Efectivo</option></select></label></div>`:''}`,
+  ro?'<button class="btn" data-act="close">Cerrar</button>':
+  draft?`<button class="btn danger" data-act="delInv" data-id="${i.id}">Descartar</button><button class="btn" data-act="saveDraft" data-id="${i.id}">Guardar</button><button class="btn primary" data-act="emitInv" data-id="${i.id}">Emitir</button>`:
+  `${i.kind!=='R'&&st!=='rectificada'?`<button class="btn" data-act="rectInv" data-id="${i.id}">Rectificar</button>`:''}${st==='vencida'?`<button class="btn" data-act="remind" data-id="${i.id}">Recordatorio de pago</button>`:''}<button class="btn" data-act="sendInv" data-id="${i.id}">${i.sent?'Reenviar':'Enviar'}</button>${t.pending>0&&i.kind!=='R'?`<button class="btn primary" data-act="payInv" data-id="${i.id}">Registrar cobro</button>`:''}`,true);
+}
+function noteEditor(n){
+  const p=P(n.patientId);const locked=n.status==='firmada';const fs=FIELDS[n.type];
+  const a=n.apptId?S.appts.find(x=>x.id===n.apptId):null;
+  const prev=S.notes.filter(x=>x.patientId===n.patientId&&x.id!==n.id&&x.status==='firmada'&&x.created<=n.created).sort((x,y)=>y.created.localeCompare(x.created))[0];
+  modal(`${NOTE_T[n.type]} · <span class="pc">#${p.code}</span>`,`<div class="box clin">${a?`Sesión del ${fD(a.date)} · ${hm(a.start)} · ${esc(SV(a.service).name)}`:`Documento del ${fD(n.created)}`} · ${esc(n.author)} ${locked?`· firmado el ${fD(n.signedAt)}`:'· borrador'}</div>
+  ${prev&&!locked?`<details><summary class="muted" style="cursor:pointer">Plan de la nota anterior (${fD(prev.created)})</summary><p style="margin:6px 0 0">${esc(prev.fields.plan||'—')}</p></details>`:''}
+  <div class="form">${fs.map(([k,l])=>`<label class="field full"><span>${l}</span>${locked?`<div style="white-space:pre-wrap">${esc(n.fields[k]||'—')}</div>`:`<textarea id="nf-${k}" data-nf="${k}">${esc(n.fields[k]||'')}</textarea>`}</label>`).join('')}</div>
+  ${n.versions.length?`<section><h3>Rectificaciones</h3><div class="timeline">${n.versions.map(v=>`<div class="ev"><span class="dt">${fD(v.at.slice(0,10))}</span><span class="dot clin"></span><span class="tx"><b>${esc(v.author)}</b>: ${esc(v.text)}</span></div>`).join('')}</div></section>`:''}
+  ${locked?`<label class="field"><span>Añadir rectificación (el contenido original se conserva)</span><textarea id="nf-rect"></textarea></label>`:''}`,
+  locked?`<button class="btn" data-act="close">Cerrar</button><button class="btn primary" data-act="rectNote" data-id="${n.id}">Guardar rectificación</button>`:
+  `<button class="btn" data-act="close">Cancelar</button><button class="btn" data-act="saveNote" data-id="${n.id}">Guardar borrador</button><button class="btn primary" data-act="signNote" data-id="${n.id}">${SVG(IC.sign)}Firmar y cerrar</button>`,true);
+}
+function ensureNote(a){let n=noteFor(a);if(!n){n={id:nid('n'),patientId:a.patientId,apptId:a.id,type:a.service==='s3'?'inicial':'sesion',fields:{},status:'borrador',author:'Laura Benítez',created:a.date,signedAt:null,versions:[]};S.notes.push(n)}return n}
+function readNote(n){document.querySelectorAll('[data-nf]').forEach(t=>n.fields[t.dataset.nf]=t.value.trim())}
+function newCode(){let c;do{c=String(1000+Math.floor(Math.random()*9000))}while(S.patients.some(p=>p.code===c));return c}
+function patientForm(p){
+  const isNew=!p;p=p||{code:newCode(),name:'',email:'',phone:'',modal:'presencial',service:'s1',billing:{type:'particular',name:'',nif:'',addr:'',ret:15},reminders:true};
+  modal(isNew?'Nuevo paciente':`Editar <span class="pc">#${p.code}</span>`,`${isNew?`<div class="box" style="display:flex;gap:12px;align-items:center"><span class="pc big">#${p.code}</span><span>Código confidencial asignado. Es el que verás en el calendario, las reservas y los listados.</span></div>`:''}
+  <div class="form">
+  <label class="field full"><span>Nombre y apellidos</span><input type="text" id="np-n" value="${esc(p.name)}"></label>
+  <label class="field"><span>Email</span><input type="email" id="np-e" value="${esc(p.email)}"></label><label class="field"><span>Teléfono</span><input type="tel" id="np-t" value="${esc(p.phone)}"></label>
+  <label class="field"><span>Servicio habitual</span><select id="np-s">${S.services.map(s=>`<option value="${s.id}" ${s.id===p.service?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
+  <label class="field"><span>Modalidad</span><select id="np-m"><option ${p.modal==='presencial'?'selected':''}>presencial</option><option ${p.modal==='online'?'selected':''}>online</option></select></label>
+  <label class="field"><span>Facturar a</span><select id="np-bt"><option value="particular" ${p.billing.type==='particular'?'selected':''}>El propio paciente</option><option value="empresa" ${p.billing.type==='empresa'?'selected':''}>Empresa (con retención)</option></select></label>
+  <label class="field"><span>Razón social si es empresa</span><input type="text" id="np-bn" value="${p.billing.type==='empresa'?esc(p.billing.name):''}"></label>
+  <label class="field"><span>NIF / CIF para la factura</span><input type="text" id="np-bnif" value="${esc(p.billing.nif)}"></label>
+  <label class="toggle"><div><b>Recordatorios de cita</b></div><input type="checkbox" class="sw" id="np-r" ${p.reminders?'checked':''}></label>
+  </div>${isNew?'<p class="muted small" style="margin:0">El consentimiento firmado se sube después desde la ficha (foto o PDF).</p>':''}<div id="np-err" hidden class="box warn"></div>`,`<button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="savePatient" data-id="${isNew?'':p.id}" data-code="${p.code}">${isNew?'Crear paciente':'Guardar'}</button>`);
+}
+
+/* ===== archivos: fotos y PDF ===== */
+async function compress(file,max=1400,q=.72){
+  if(!file.type.startsWith('image/'))return null;
+  try{const bmp=await createImageBitmap(file);const s=Math.min(1,max/Math.max(bmp.width,bmp.height));const c=document.createElement('canvas');c.width=Math.round(bmp.width*s);c.height=Math.round(bmp.height*s);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);return await new Promise(r=>c.toBlob(r,'image/jpeg',q))}catch(e){return null}
+}
+const toDataURL=b=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=()=>r(null);fr.readAsDataURL(b)});
+async function store(blob){
+  if(ASSETS){try{const a=await ASSETS.upload(blob);return a.url}catch(e){}}
+  if(blob.size>900000)return null;
+  return await toDataURL(blob);
+}
+let SCAN=null;
+async function startScan(file){
+  const blob=await compress(file);const isPdf=file.type==='application/pdf';
+  SCAN={file,blob,preview:blob?URL.createObjectURL(blob):null,ai:null,status:'idle'};
+  const guessName=file.name.replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ').replace(/^(img|image|scan|foto|photo|pxl|dsc)\s?\d*/i,'').trim();
+  modal('Nueva factura recibida',`<div class="grid2" style="gap:16px">
+    <div>${SCAN.preview?`<img class="preview" src="${SCAN.preview}" alt="Foto de la factura">`:`<div class="drop">${SVG(IC.doc)}<b>${esc(file.name)}</b><span class="muted small">${isPdf?'PDF adjuntado':'Archivo adjuntado'}</span></div>`}</div>
+    <div class="stack" style="gap:12px">
+      <label class="field"><span>Nombre del proveedor o concepto</span><input type="text" id="sc-n" value="${esc(guessName)}" placeholder="Ej.: Inmobiliaria, Endesa, papelería…"></label>
+      <label class="field"><span>Categoría</span><select id="sc-c">${CATS.map(c=>`<option ${c===guessCat(guessName)?'selected':''}>${c}</option>`).join('')}</select></label>
+      <div id="sc-ai" class="box">${blob&&SAMPLE&&S.settings.aiScan?'<span class="spin"></span> Leyendo la factura…':'Los importes quedarán pendientes de revisar y podrás completarlos desde el gasto.'}</div>
+      <details id="sc-det"><summary class="muted small" style="cursor:pointer">Ver o corregir los datos leídos</summary><div class="form" style="margin-top:10px">
+        <label class="field"><span>Fecha</span><input type="date" id="sc-d" value="${TODAY}"></label><label class="field"><span>Nº factura</span><input type="text" id="sc-num"></label>
+        <label class="field"><span>Base (€)</span><input type="number" step="0.01" id="sc-b"></label><label class="field"><span>IVA (€)</span><input type="number" step="0.01" id="sc-i"></label>
+        <label class="field"><span>Retención (€)</span><input type="number" step="0.01" id="sc-r"></label><label class="field"><span>Total (€)</span><input type="number" step="0.01" id="sc-t"></label></div></details>
+    </div></div>`,
+    `<button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="saveScan">Añadir a la contabilidad</button>`,true);
+  const n=document.getElementById('sc-n');n.addEventListener('input',()=>{if(!SCAN.catTouched)document.getElementById('sc-c').value=guessCat(n.value)});
+  document.getElementById('sc-c').addEventListener('change',()=>SCAN.catTouched=true);
+  if(blob&&SAMPLE&&S.settings.aiScan)runOCR(blob);
+}
+async function runOCR(blob){
+  const box=()=>document.getElementById('sc-ai');
+  try{
+    const lim=await SAMPLE.limits().catch(()=>null);
+    if(lim&&!lim.images)throw{code:'images_unavailable'};
+    const prompt=`Lee esta factura española recibida por una consulta de psicología. Responde SOLO con un objeto JSON con estas claves: "proveedor" (texto), "nif" (texto o null), "numero" (texto o null), "fecha" ("AAAA-MM-DD" o null), "base" (número en euros o null), "iva" (número o null), "retencion" (número o null), "total" (número o null), "categoria" (exactamente una de: ${CATS.join(', ')}). Usa punto decimal. No inventes datos que no aparezcan.`;
+    const d=await SAMPLE.json(prompt,{images:[blob],modelTier:'default'});
+    if(!SCAN||SCAN.blob!==blob)return;
+    SCAN.ai=d;
+    const set=(id,v)=>{const e=document.getElementById(id);if(e&&v!=null&&v!=='')e.value=v};
+    const n=document.getElementById('sc-n');if(n&&!n.value&&d.proveedor)n.value=d.proveedor;
+    if(d.categoria&&CATS.includes(d.categoria)&&!SCAN.catTouched)document.getElementById('sc-c').value=d.categoria;
+    set('sc-d',d.fecha);set('sc-num',d.numero);set('sc-b',d.base);set('sc-i',d.iva);set('sc-r',d.retencion);set('sc-t',d.total);
+    if(box()){box().className='box ok';box().innerHTML=`Leída: ${esc(d.proveedor||'proveedor')} · ${d.fecha?fD(d.fecha):'sin fecha'} · total <b>${d.total!=null?eur(Math.round(d.total*100)):'—'}</b>`}
+  }catch(e){
+    if(box()){box().className='box warn';box().textContent=e&&e.code==='not_granted'?'Lectura automática no permitida. Puedes guardarla igualmente y completar los importes después.':'No se pudo leer automáticamente. Guarda la factura y revisa los importes en el detalle.'}
+  }
+}
+function parseCSV(text){
+  const out=[];text.split(/\r?\n/).forEach(l=>{const c=l.split(/[;\t]/);if(c.length<3)return;let[d,concept,amt]=c;d=d.trim();let date=null;
+    if(/^\d{4}-\d{2}-\d{2}$/.test(d))date=d;else{const m=d.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);if(m)date=`${m[3].length===2?'20'+m[3]:m[3]}-${pad(m[2])}-${pad(m[1])}`}
+    const a=Number(String(amt).trim().replace(/\./g,'').replace(',','.'));if(date&&!isNaN(a))out.push({date,concept:concept.trim().toUpperCase(),amount:Math.round(a*100)})});
+  return out;
+}
+document.addEventListener('change',async e=>{
+  const t=e.target;if(!t.dataset||!t.dataset.up||!t.files||!t.files[0])return;
+  const f=t.files[0];const kind=t.dataset.up;t.value='';
+  if(kind==='scan'){startScan(f);return}
+  if(kind==='bank'){const rows=parseCSV(await f.text());rows.forEach(r=>S.bank.push({id:nid('b'),...r,match:null}));audit(`Extracto importado: ${rows.length} movimientos`);render();toast(rows.length?`${rows.length} movimientos importados`:'No se reconocieron movimientos. Usa fecha;concepto;importe');return}
+  const blob=(await compress(f,1600,.75))||f;const url=await store(blob);
+  if(kind==='consent'){const p=P(t.dataset.p);p.consent={at:TODAY,file:f.name,url};audit(`Consentimiento subido para #${p.code}`);render();toast('Consentimiento guardado en la ficha');return}
+  if(kind==='doc'){const p=P(t.dataset.p);(p.docs=p.docs||[]).push({name:f.name,at:TODAY,url});audit(`Documento adjuntado a #${p.code}`);render();toast('Documento adjuntado');return}
+  if(kind==='empdoc'){S.employees[0].docs.push({name:f.name,at:TODAY,url});audit('Documento laboral subido');render();toast('Documento laboral guardado')}
+});
+
+/* ===== conciliación ===== */
+function linkedPays(){return new Set(S.bank.filter(b=>b.match&&b.match.t==='pay').map(b=>b.match.pay))}
+function linkedExp(){return new Set(S.bank.filter(b=>b.match&&b.match.t==='exp').map(b=>b.match.id))}
+const near=(a,b,n)=>Math.abs(parse(a)-parse(b))/864e5<=n;
+function candidates(b){
+  const C=[];
+  if(b.amount>0){const lp=linkedPays();
+    S.invoices.forEach(i=>i.payments.forEach(p=>{if(!lp.has(p.id)&&p.method!=='Efectivo'&&p.amount===b.amount&&near(p.date,b.date,5))C.push({t:'pay',inv:i.id,pay:p.id,label:`Cobro ya registrado · ${i.num} · ${toLabel(i)}`})}));
+    S.invoices.forEach(i=>{if(i.num&&i.kind!=='R'&&['emitida','enviada','parcial','vencida'].includes(invStatus(i))&&tot(i).pending===b.amount&&i.date<=b.date)C.push({t:'inv',inv:i.id,label:`Factura pendiente ${i.num} · ${toLabel(i)} · registrar cobro`})});
+  }else{const le=linkedExp();
+    S.expenses.forEach(e=>{if(!le.has(e.id)&&e.method!=='Efectivo'&&e.total===-b.amount&&near(e.date,b.date,7))C.push({t:'exp',id:e.id,label:`Gasto · ${e.supplier} · ${fD(e.date)}`})});
+  }
+  const dist=c=>{const d=c.t==='exp'?S.expenses.find(e=>e.id===c.id).date:c.t==='pay'?S.invoices.find(i=>i.id===c.inv).payments.find(p=>p.id===c.pay).date:S.invoices.find(i=>i.id===c.inv).date;return Math.abs(parse(d)-parse(b.date))};
+  return C.sort((x,y)=>dist(x)-dist(y));
+}
+function applyMatch(b,c){
+  if(c.t==='inv'){const i=S.invoices.find(x=>x.id===c.inv);const p={id:nid('pay'),date:b.date,amount:b.amount,method:/BIZUM/.test(b.concept)?'Bizum':/TPV/.test(b.concept)?'Tarjeta':'Transferencia',ref:'Banco'};i.payments.push(p);b.match={t:'pay',inv:i.id,pay:p.id};audit(`Cobro de ${i.num} registrado desde el banco`)}
+  else b.match=c.t==='pay'?{t:'pay',inv:c.inv,pay:c.pay}:{t:'exp',id:c.id};
+}
+
+/* ===== acciones ===== */
+const ACT={
+  go:d=>{S.view=d.v;S.sel.patient=null;render();window.scrollTo(0,0)},
+  goCal:()=>{S.view='calendario';render()},
+  goNotes:d=>{S.view='informes';S.sel.nf=d.f;render()},
+  goAcc:d=>{closeModal();S.view='contabilidad';S.sel.atab=d.tab;if(d.tab==='facturas')S.sel.fdir=S.expenses.some(e=>e.status==='por revisar')?'recibidas':(unbilled().length?'emitidas':'recibidas');render();window.scrollTo(0,0)},
+  bell:()=>{const T=todos();modal('Pendiente',`<div class="stack" style="gap:2px">${T.map(t=>`<button class="todo ${t.cls}" data-act="${t.act}" data-id="${t.id||''}" data-f="${t.f||''}" data-tab="${t.tab||''}"><span class="ic">${SVG(t.ic)}</span><span class="tx"><b>${t.t}</b><span>${esc(t.d)}</span></span><span class="n">${t.n}</span></button>`).join('')||'<div class="empty">Todo al día.</div>'}</div>`)},
+  homeDay:d=>{S.sel.homeDay=d.d;render()},
+  close:()=>closeModal(),
+  ovClose:(d,t,e)=>{if(e.target===t)closeModal()},
+  newAppt:d=>{if(S.role==='gestoria')return;apptForm(null,{p:d.p})},
+  slot:(d,t,e)=>{if(e.target!==t||S.role==='gestoria')return;const r=t.getBoundingClientRect();const px=Number(d.px);const min=H0*60+Math.floor((e.clientY-r.top)/px*2)*30;apptForm(null,{d:d.d,t:min})},
+  pickDay:d=>{S.cal={mode:'dia',date:d.d};render()},
+  saveAppt:d=>{
+    const pid=val('f-p'),date=val('f-d'),t=val('f-t'),dur=Number(val('f-dur'));const w=document.getElementById('f-warn');
+    if(!pid||!date||!t||!dur){w.hidden=false;w.className='full box warn';w.textContent='Elige el paciente por su código y completa fecha, hora y duración.';return}
+    const start=toMin(t);const cf=conflicts(d.id,date,start,dur);const force=document.getElementById('f-force');
+    if(cf.length&&!(force&&force.checked)){w.hidden=false;w.className='full box warn';w.innerHTML=`Se solapa con ${cf.map(c=>`#${P(c.patientId).code} (${hm(c.start)}–${hm(c.start+c.dur)})`).join(', ')}.<label style="display:flex;gap:8px;margin-top:6px;align-items:center"><input type="checkbox" id="f-force"> Permitir el solapamiento</label>`;return}
+    const out=(AVAIL[dow(date)]||[]).every(([a,b])=>start<a||start+dur>b);const sv=SV(val('f-s'));const p=P(pid);
+    if(d.id){const a=S.appts.find(x=>x.id===d.id);const old=`${a.date} ${hm(a.start)}`;Object.assign(a,{patientId:pid,date,start,dur,service:sv.id,price:sv.price,modal:val('f-m'),loc:val('f-l')});logA(a,`Reprogramada de ${old} a ${date} ${t}`);audit(`Cita #${p.code} reprogramada`);
+      if(S.settings.confirmEmail)mail(p.email,'Cambio en tu cita',`Tu cita se ha movido al ${fDs(date)} a las ${t} (${a.loc}).`,'Cita');toast('Cita reprogramada')}
+    else{const a={id:nid('a'),patientId:pid,date,start,dur,service:sv.id,price:sv.price,modal:val('f-m'),loc:val('f-l'),status:S.settings.confirmEmail?'pendiente':'confirmada',log:[],cancelReason:''};logA(a,'Cita creada');S.appts.push(a);audit(`Cita creada para #${p.code} el ${date} ${t}`);
+      if(S.settings.confirmEmail)mail(p.email,'Confirma tu cita',`Tienes una cita el ${fDs(date)} a las ${t} en ${a.loc}. Responde para confirmarla.`,'Cita');
+      toast(S.settings.confirmEmail?`Cita para #${p.code} creada · confirmación enviada`:'Cita creada')}
+    if(out)setTimeout(()=>toast('Aviso: la cita queda fuera de tu horario configurado'),2900);
+    closeModal();render();
+  },
+  openAppt:d=>openAppt(d.id),
+  reschedule:d=>apptForm(S.appts.find(x=>x.id===d.id)),
+  confirm:d=>{const a=S.appts.find(x=>x.id===d.id);a.status='confirmada';logA(a,'Confirmada');audit(`Cita #${P(a.patientId).code} confirmada`);closeModal();render();toast('Cita confirmada')},
+  done:d=>{const a=S.appts.find(x=>x.id===d.id);if(a.date>TODAY)return;markDone(a);closeModal();render()},
+  noshow:d=>{const a=S.appts.find(x=>x.id===d.id);a.status='ausencia';logA(a,'Ausencia del paciente');audit(`Ausencia #${P(a.patientId).code}`);closeModal();render();toast('Ausencia registrada')},
+  cancelAppt:d=>{const a=S.appts.find(x=>x.id===d.id);a.status='cancelada';a.cancelReason=val('f-cr');logA(a,'Cancelada · '+a.cancelReason);audit(`Cita #${P(a.patientId).code} cancelada`);mail(P(a.patientId).email,'Cita cancelada',`Tu cita del ${fDs(a.date)} a las ${hm(a.start)} ha quedado cancelada.`,'Cita');closeModal();render();toast('Cita cancelada · aviso enviado')},
+  calNav:d=>{const c=S.cal;const n=Number(d.n);if(c.mode==='mes'){const x=parse(c.date);c.date=iso(new Date(x.getFullYear(),x.getMonth()+n,1))}else c.date=addDays(c.date,c.mode==='dia'?n:7*n);render()},
+  calToday:()=>{S.cal.date=TODAY;render()},
+  calMode:d=>{S.cal.mode=d.m;render()},
+  newPatient:()=>{if(S.role==='gestoria')return;patientForm()},
+  editPatient:d=>patientForm(P(d.id)),
+  savePatient:d=>{
+    const name=val('np-n').trim(),email=val('np-e').trim();const err=document.getElementById('np-err');
+    if(!name||!email){err.hidden=false;err.textContent='El nombre y el email son obligatorios.';return}
+    if(S.patients.some(p=>p.email===email&&p.id!==d.id)){err.hidden=false;err.textContent='Ya existe un paciente con ese email.';return}
+    const bt=val('np-bt');const billing=bt==='empresa'?{type:'empresa',name:val('np-bn')||name,nif:val('np-bnif'),addr:'',ret:15}:{type:'particular',name,nif:val('np-bnif'),addr:''};
+    if(d.id){const p=P(d.id);Object.assign(p,{name,email,phone:val('np-t'),service:val('np-s'),modal:val('np-m'),billing,reminders:document.getElementById('np-r').checked});audit(`Datos de #${p.code} editados`);closeModal();render();toast('Datos guardados');return}
+    const p={id:nid('p'),code:d.code,name,email,phone:val('np-t'),alta:TODAY,status:'nuevo',slot:[0,600],service:val('np-s'),modal:val('np-m'),billing,consent:null,docs:[],reminders:document.getElementById('np-r').checked};
+    S.patients.push(p);audit(`Paciente #${p.code} creado`);S.view='pacientes';S.sel.patient=p.id;S.sel.ptab='docs';closeModal();render();toast(`Paciente #${p.code} creado · sube su consentimiento`);
+  },
+  openPatient:d=>{if(S.role==='gestoria')return;closeModal();S.view='pacientes';S.sel.patient=d.id;S.sel.ptab=d.tab||'resumen';render();window.scrollTo(0,0)},
+  backPatients:()=>{S.sel.patient=null;render()},
+  ptab:d=>{S.sel.ptab=d.t;render()},
+  pfilter:d=>{S.sel.pf=d.f;render()},
+  reveal:d=>{REVEAL[d.id]=!REVEAL[d.id];if(REVEAL[d.id])audit(`Datos identificativos de #${P(d.id).code} visualizados`);render()},
+  revealInv:d=>{REVEAL[d.id]=true;audit(`Datos identificativos de #${P(d.id).code} visualizados en factura`);openInv(d.inv)},
+  note:d=>{if(S.role!=='psicologa')return;const a=S.appts.find(x=>x.id===d.id);noteEditor(ensureNote(a))},
+  openNote:d=>{if(S.role!=='psicologa')return;noteEditor(S.notes.find(n=>n.id===d.id))},
+  newDoc:d=>{const n={id:nid('n'),patientId:d.p,apptId:null,type:d.t,fields:{},status:'borrador',author:'Laura Benítez',created:TODAY,signedAt:null,versions:[]};S.notes.push(n);audit(`${NOTE_T[d.t]} creado para #${P(d.p).code}`);noteEditor(n)},
+  saveNote:d=>{const n=S.notes.find(x=>x.id===d.id);readNote(n);audit(`Nota de #${P(n.patientId).code} guardada como borrador`);closeModal();render();toast('Borrador guardado')},
+  signNote:d=>{const n=S.notes.find(x=>x.id===d.id);readNote(n);if(FIELDS[n.type].every(([k])=>!n.fields[k])){toast('Completa al menos un apartado antes de firmar');return}
+    n.status='firmada';n.signedAt=TODAY;audit(`${NOTE_T[n.type]} de #${P(n.patientId).code} firmado`);closeModal();render();toast('Nota firmada y cerrada')},
+  rectNote:d=>{const n=S.notes.find(x=>x.id===d.id);const t=val('nf-rect').trim();if(!t){closeModal();return}n.versions.push({at:new Date().toISOString(),author:'Laura Benítez',text:t});audit(`Rectificación en ${NOTE_T[n.type]} de #${P(n.patientId).code}`);closeModal();render();toast('Rectificación añadida')},
+  nfilter:d=>{S.sel.nf=d.f;render()},
+  atab:d=>{S.sel.atab=d.t;render()},
+  fdir:d=>{S.sel.fdir=d.d;render()},
+  ifilter:d=>{S.sel.if=d.f;render()},
+  gper:d=>{S.sel.gper=d.p;render()},
+  gcat:d=>{S.sel.gcat=d.c||null;render()},
+  lq:d=>{S.sel.lq=d.q;render()},
+  lb:d=>{S.sel.lb=d.b;render()},
+  bf:d=>{S.sel.bf=d.f;render()},
+  thist:d=>{S.sel.thist=!!d.h;render()},
+  openInv:d=>openInv(d.id),
+  saveDraft:d=>{const i=S.invoices.find(x=>x.id===d.id);readLines(i);closeModal();render();toast('Borrador guardado')},
+  emitInv:d=>{const i=S.invoices.find(x=>x.id===d.id);readLines(i);if(tot(i).total<=0){toast('El total debe ser mayor que cero');return}i.date=TODAY;emit(i);closeModal();render();toast(`Factura ${i.num} emitida`)},
+  delInv:d=>{const i=S.invoices.find(x=>x.id===d.id);i.appts.forEach(id=>{const a=S.appts.find(x=>x.id===id);if(a)delete a.invoiceId});S.invoices=S.invoices.filter(x=>x.id!==i.id);closeModal();render();toast('Borrador descartado')},
+  sendInv:d=>{sendInv(S.invoices.find(x=>x.id===d.id));closeModal();render()},
+  payInv:d=>{const i=S.invoices.find(x=>x.id===d.id);const amt=Math.round(Number(val('pay-a'))*100);const t=tot(i);if(!(amt>0)){toast('Indica un importe válido');return}if(amt>t.pending){toast('El importe supera lo pendiente');return}
+    i.payments.push({id:nid('pay'),date:TODAY,amount:amt,method:val('pay-m'),ref:''});audit(`Cobro de ${eur(amt)} en ${i.num}`);closeModal();render();toast(amt<t.pending?`Cobro parcial · quedan ${eur(t.pending-amt)}`:'Factura cobrada')},
+  rectInv:d=>{const i=S.invoices.find(x=>x.id===d.id);const r={...mkInv(S,{id:i.patientId,billing:{...i.to,ret:i.ret}},TODAY,i.lines.map(l=>({...l,price:-l.price,desc:'Rectificación: '+l.desc})),[]),serie:'R',kind:'R',ret:i.ret};
+    emit(r);i.status='rectificada';i.appts.forEach(id=>{const a=S.appts.find(x=>x.id===id);if(a)delete a.invoiceId});S.invoices.push(r);audit(`Factura ${i.num} rectificada por ${r.num}`);closeModal();render();toast(`Rectificativa ${r.num} emitida`)},
+  remind:d=>{const i=S.invoices.find(x=>x.id===d.id);const to=i.patientId?P(i.patientId).email:'cliente';mail(to,`Recordatorio de pago · factura ${i.num}`,`La factura ${i.num} de ${eur(tot(i).pending)} figura pendiente.`,'Cobro');audit(`Recordatorio de cobro enviado: ${i.num}`);closeModal();render();toast('Recordatorio enviado')},
+  billAll:()=>{let n=0;const emp={};
+    unbilled().forEach(a=>{const p=P(a.patientId);if(p.billing.type==='empresa'){(emp[p.id]=emp[p.id]||[]).push(a);return}const sv=SV(a.service);const inv=mkInv(S,p,TODAY,[{desc:`${sv.name} · ${fD(a.date)}`,qty:1,price:a.price,exempt:sv.exempt&&S.pro.sanitaria}],[a.id]);S.invoices.push(inv);a.invoiceId=inv.id;if(S.settings.invoiceMode==='auto')emit(inv);n++});
+    Object.entries(emp).forEach(([pid,list])=>{const p=P(pid);const inv=mkInv(S,p,TODAY,list.map(a=>({desc:`${SV(a.service).name} · ${fD(a.date)}`,qty:1,price:a.price,exempt:SV(a.service).exempt&&S.pro.sanitaria})),list.map(a=>a.id));S.invoices.push(inv);list.forEach(a=>a.invoiceId=inv.id);if(S.settings.invoiceMode==='auto')emit(inv);n++});
+    audit(`${n} facturas generadas`);render();toast(`${n} facturas ${S.settings.invoiceMode==='auto'?'emitidas':'creadas en borrador'}`)},
+  saveScan:async(d,btn)=>{
+    const name=val('sc-n').trim();if(!name){toast('Indica el nombre del proveedor');return}
+    btn.disabled=true;btn.textContent='Guardando…';
+    const num=x=>{const v=val(x);return v===''?null:Math.round(Number(v)*100)};
+    let base=num('sc-b'),iva=num('sc-i'),ret=num('sc-r')||0,total=num('sc-t');
+    if(total==null&&base!=null)total=base+(iva||0)-ret;
+    if(base==null&&total!=null){base=total-(iva||0)+ret}
+    const photo=SCAN.blob?await store(SCAN.blob):null;
+    const complete=total!=null&&total>0;
+    const e={id:nid('g'),date:val('sc-d')||TODAY,supplier:name,nif:SCAN.ai?.nif||'',cat:val('sc-c'),concept:name,base:base||0,iva:iva||0,ret,total:total||0,method:'Tarjeta',num:val('sc-num'),status:complete?'revisado':'por revisar',source:SCAN.ai?'escaneada · leída por IA':'escaneada',photo,file:SCAN.file.name};
+    S.expenses.push(e);audit(`Factura recibida escaneada: ${name}${complete?' '+eur(total):''}`);SCAN=null;
+    closeModal();S.view='contabilidad';S.sel.atab='facturas';S.sel.fdir='recibidas';render();toast(complete?`Añadida: ${eur(e.total)} en ${e.cat}`:'Añadida · completa los importes cuando puedas')},
+  openExp:d=>{const e=S.expenses.find(x=>x.id===d.id);const ro=S.role==='gestoria';
+    modal(esc(e.supplier),`<div class="grid2" style="gap:16px"><div>${e.photo?`<img class="preview" src="${esc(e.photo)}" alt="Foto de la factura">`:`<div class="drop">${SVG(IC.doc)}<span class="muted small">${e.file?esc(e.file):'Sin foto (cargo domiciliado)'}</span></div>`}</div>
+    <div class="form">
+      <label class="field full"><span>Proveedor</span><input type="text" id="ge-s" value="${esc(e.supplier)}" ${ro?'disabled':''}></label>
+      <label class="field full"><span>Categoría</span><select id="ge-c" ${ro?'disabled':''}>${CATS.map(c=>`<option ${c===e.cat?'selected':''}>${c}</option>`).join('')}</select></label>
+      <label class="field"><span>Fecha</span><input type="date" id="ge-d" value="${e.date}" ${ro?'disabled':''}></label><label class="field"><span>Nº factura</span><input type="text" id="ge-n" value="${esc(e.num||'')}" ${ro?'disabled':''}></label>
+      <label class="field"><span>Base (€)</span><input type="number" step="0.01" id="ge-b" value="${(e.base/100).toFixed(2)}" ${ro?'disabled':''}></label><label class="field"><span>IVA (€)</span><input type="number" step="0.01" id="ge-i" value="${(e.iva/100).toFixed(2)}" ${ro?'disabled':''}></label>
+      <label class="field"><span>Retención (€)</span><input type="number" step="0.01" id="ge-r" value="${(e.ret/100).toFixed(2)}" ${ro?'disabled':''}></label><label class="field"><span>Total</span><input type="text" value="${eur(e.total)}" disabled></label>
+      <div class="full muted small">${esc(e.source)} · ${chip(e.status)}</div></div></div>`,
+    ro?'<button class="btn" data-act="close">Cerrar</button>':`<button class="btn danger" data-act="delExp" data-id="${e.id}">Eliminar</button><button class="btn primary" data-act="saveExp" data-id="${e.id}">Guardar · revisado</button>`,true)},
+  saveExp:d=>{const e=S.expenses.find(x=>x.id===d.id);const n=id=>Math.round(Number(val(id))*100)||0;Object.assign(e,{supplier:val('ge-s'),cat:val('ge-c'),date:val('ge-d'),num:val('ge-n'),base:n('ge-b'),iva:n('ge-i'),ret:n('ge-r')});e.total=e.base+e.iva-e.ret;
+    if(!(e.total>0)){toast('Indica al menos la base o el total');return}e.status='revisado';audit(`Gasto revisado: ${e.supplier}`);closeModal();render();toast('Gasto guardado')},
+  delExp:d=>{S.expenses=S.expenses.filter(e=>e.id!==d.id);S.bank.forEach(b=>{if(b.match&&b.match.t==='exp'&&b.match.id===d.id)b.match=null});audit('Gasto eliminado');closeModal();render();toast('Gasto eliminado')},
+  payObl:d=>{S.oblPaid[d.k]=TODAY;audit(`Obligación ${d.k} marcada como pagada`);render();toast('Marcada como pagada')},
+  autoMatch:()=>{let n=0;unmatched().forEach(b=>{const c=candidates(b);if(c.length){applyMatch(b,c[0]);n++}});const left=unmatched().length;audit(`Conciliación automática: ${n} movimientos`);render();toast(`${n} movimientos conciliados${left?` · ${left} requieren tu revisión`:''}`)},
+  matchOne:d=>{const b=S.bank.find(x=>x.id===d.id);const C=candidates(b);
+    modal('Relacionar movimiento',`<div class="row"><div class="m"><b class="mono">${esc(b.concept)}</b><span>${fD(b.date)}</span></div><b style="color:${b.amount>0?'var(--ok)':'inherit'}">${eur(b.amount)}</b></div>
+    ${C.length?`<div class="stack">${C.map((c,k)=>`<button class="todo" data-act="pickMatch" data-id="${b.id}" data-k="${k}"><span class="ic">${SVG(b.amount>0?IC.doc:IC.tax)}</span><span class="tx"><b>${esc(c.label)}</b></span></button>`).join('')}</div>`:'<div class="box warn">No hay facturas ni gastos con el mismo importe y fecha cercana.</div>'}
+    ${b.amount<0?`<div class="ph" style="margin:0"><span class="muted small">¿Es un gasto sin factura escaneada (comisión, compra pequeña)?</span><div class="actions"><select id="mm-c" style="width:auto">${CATS.map(c=>`<option ${c===guessCat(b.concept)?'selected':''}>${c}</option>`).join('')}</select><button class="btn sm primary" data-act="expFromBank" data-id="${b.id}">Crear gasto</button></div></div>`:''}`,`<button class="btn" data-act="ignoreMove" data-id="${b.id}">Marcar como movimiento interno</button><button class="btn" data-act="close">Cerrar</button>`)},
+  pickMatch:d=>{const b=S.bank.find(x=>x.id===d.id);applyMatch(b,candidates(b)[Number(d.k)]);audit('Movimiento conciliado manualmente');closeModal();render();toast('Movimiento conciliado')},
+  expFromBank:d=>{const b=S.bank.find(x=>x.id===d.id);const cat=val('mm-c');const tt=-b.amount;const e={id:nid('g'),date:b.date,supplier:b.concept.replace(/^(PAGO|RECIBO|COMPRA TARJETA)\s*/,'').toLowerCase().replace(/^./,c=>c.toUpperCase()),nif:'',cat,concept:'Creado desde el banco',base:tt,iva:0,ret:0,total:tt,method:'Tarjeta',num:'',status:'por revisar',source:'banco',photo:null};S.expenses.push(e);b.match={t:'exp',id:e.id};audit(`Gasto creado desde movimiento bancario: ${eur(tt)}`);closeModal();render();toast('Gasto creado y conciliado · puedes adjuntar el justificante')},
+  ignoreMove:d=>{const b=S.bank.find(x=>x.id===d.id);b.match={t:'int'};closeModal();render();toast('Marcado como movimiento interno')},
+  exportBook:async()=>{const q=S.sel.lq||String(qOf(TODAY));const L=libros(q);const book=S.sel.lb||'ingresos';const per=q==='año'?String(YEAR):`${YEAR}-${q}T`;
+    const n2=c=>(c/100).toFixed(2).replace('.',',');
+    const rows=book==='ingresos'?[['Fecha','Número','Destinatario','NIF','Concepto','Base imponible','IVA','Retención IRPF','Total']].concat(L.ing.map(r=>[r.fecha,r.num,r.cliente,r.nif,r.concepto,n2(r.base),n2(r.iva),n2(r.ret),n2(r.total)]))
+      :[['Fecha','Número','Proveedor','NIF','Tipo de gasto','Concepto','Base imponible','IVA','Retención','Total']].concat(L.gas.map(r=>[r.fecha,r.num,r.prov,r.nif,r.cat,r.concepto,n2(r.base),n2(r.iva),n2(r.ret),n2(r.total)]));
+    const csv='﻿'+rows.map(r=>r.map(c=>/[;"\n]/.test(c)?`"${String(c).replace(/"/g,'""')}"`:c).join(';')).join('\n');
+    const fn=`libro-${book}-${per}.csv`;audit(`Libro de ${book} ${per} exportado`);
+    if(DL){try{await DL.save({filename:fn,data:new Blob([csv],{type:'text/csv'})});toast('Libro exportado');return}catch(e){if(e&&e.code==='declined')return}}
+    modal('Exportar libro',`<p class="muted" style="margin:0">Copia el contenido y pégalo en una hoja de cálculo (${rows.length-1} registros).</p><textarea id="csv" readonly style="min-height:260px;font-family:var(--f-mono);font-size:.76rem">${esc(csv)}</textarea>`,`<button class="btn" data-act="close">Cerrar</button><button class="btn primary" data-act="copyCsv">Copiar</button>`,true)},
+  copyCsv:()=>{const t=document.getElementById('csv');navigator.clipboard.writeText(t.value).then(()=>toast('Copiado'),()=>{t.focus();t.select();toast('Selecciona y copia con Ctrl+C')})},
+  genPayroll:()=>{const e=S.employees[0];const k=ym(TODAY);const n={id:nid('n'),emp:e.id,month:k,date:lastDay(Number(k.slice(0,4)),Number(k.slice(5,7))),...payroll(e.bruto),paid:false};S.payrolls.push(n);audit(`Nómina de ${monthLong(k)} generada`);render();toast(`Nómina generada · coste ${eur(n.coste)}`)},
+  payPayroll:d=>{const n=S.payrolls.find(x=>x.id===d.id);n.paid=true;S.bank.push({id:nid('b'),date:TODAY,concept:'TRANSFERENCIA NOMINA',amount:-n.neto,match:{t:'nom',id:n.id,part:'neto'}});audit(`Nómina ${n.month} pagada`);render();toast('Nómina pagada y conciliada')},
+  ctab:d=>{S.sel.ctab=d.t;render()},
+  reset:()=>{modal('Restablecer datos',`<p style="margin:0">Se borrarán los cambios hechos en este navegador y se cargarán de nuevo los datos de ejemplo.</p>`,`<button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="doReset">Restablecer</button>`)},
+  doReset:()=>{try{localStorage.removeItem(KEY)}catch(e){}S=seed();S.builtFor=TODAY.slice(0,7);REVEAL={};closeModal();render();toast('Datos de ejemplo restablecidos')}
+};
+function readLines(i){document.querySelectorAll('[data-ld]').forEach(t=>i.lines[t.dataset.ld].desc=t.value);document.querySelectorAll('[data-lp]').forEach(t=>i.lines[t.dataset.lp].price=Math.round(Number(t.value)*100))}
+
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;if(t.tagName==='A')e.preventDefault();const f=ACT[t.dataset.act];if(f){e.stopPropagation();f(t.dataset,t,e)}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='role'){S.role=t.value;if(S.role==='gestoria')S.sel.patient=null;REVEAL={};closeModal();render();return}
+  if(t.dataset.set){S.settings[t.dataset.set]=t.checked;audit(`Ajuste «${t.dataset.set}» ${t.checked?'activado':'desactivado'}`);save();toast(t.checked?'Activado':'Desactivado');return}
+  if(t.name==='invmode'){S.settings.invoiceMode=t.value;audit(`Modo de facturación: ${t.value}`);save();toast('Modo de facturación actualizado');return}
+  if(t.id==='dueDays'){S.settings.dueDays=Math.max(0,Number(t.value)||0);save();return}
+  if(t.dataset.price){const s=SV(t.dataset.price);s.price=Math.round(Number(t.value)*100);audit(`Tarifa de ${s.name}: ${eur(s.price)}`);save();toast('Tarifa actualizada');return}
+  if(t.dataset.pro){S.pro[t.dataset.pro]=t.type==='checkbox'?t.checked:t.value;audit('Datos profesionales actualizados');save()}
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='pq'){S.sel.q=e.target.value;const pos=e.target.selectionStart;render();const n=document.getElementById('pq');n.focus();n.setSelectionRange(pos,pos)}
+});
+render();
+</script>
+
+</body></html>

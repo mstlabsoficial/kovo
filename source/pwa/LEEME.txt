@@ -1,0 +1,13 @@
+KOVO · app instalable (prototipo con datos ficticios)
+
+Esta carpeta es la app completa. Para tenerla en el móvil como una app:
+
+1. Súbela a un alojamiento web con https (por ejemplo Netlify: entra en app.netlify.com/drop
+   y arrastra esta carpeta entera). Te dará una dirección tipo https://kovo-xxxx.netlify.app
+2. Abre esa dirección en el móvil:
+   - iPhone (Safari): botón Compartir > "Añadir a pantalla de inicio".
+   - Android (Chrome): menú ⋮ > "Instalar aplicación" o "Añadir a pantalla de inicio".
+3. Aparecerá el icono de KOVO y se abrirá a pantalla completa, también sin conexión.
+
+Los datos se guardan en cada dispositivo (no se sincronizan entre móvil y ordenador).
+No uses datos reales de pacientes: para eso hace falta un servidor seguro y cumplir el RGPD.
