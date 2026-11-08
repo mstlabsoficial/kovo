@@ -1,3 +1,2 @@
-const mode=import.meta.env.VITE_DATA_MODE||'demo';
-if(mode==='supabase') await import('./remote.js');
-else await import('./legacy.js');
+// KOVO demo mode: direct browser entry point, served as an ES module.
+import './legacy.js';
