@@ -97,7 +97,7 @@ export function validateAppointmentRow(row, { partial = false } = {}) {
 }
 
 /* ===== errores ===== */
-function classify(error, table) {
+export function classify(error, table) {
   if (error instanceof WriteError) return error;
   const status = Number.isInteger(error?.status) ? error.status : null;
   const pg = error?.details?.code || null;

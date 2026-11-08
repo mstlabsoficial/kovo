@@ -7,6 +7,7 @@
 - Transformaciones explícitas para pacientes, citas, notas y facturas.
 - `load()` en modo Supabase: lectura por rol de todas las tablas de negocio, conversión al modelo legacy (`from-supabase.js`, `legacy-state.js`). Correspondencias, valores de presentación e incompatibilidades en `from-supabase.md`.
 - Escritura de **pacientes y citas** (altas, cambios y estados), una operación por acción y confirmada por Supabase: `writes.js`, `legacy-writes.js`. Detalle, garantías y bloqueos de lo pendiente en `escrituras.md`.
+- Borradores de **notas clínicas** (crear y editar, solo psicóloga) mediante la RPC `save_clinical_note_draft`: `note-writes.js`. Firma, rectificación y borrado pendientes; detalle y límites del esquema en `notas.md`.
 - El resto de cambios no se guarda: `persist()` no sincroniza el estado completo. El modo sigue desactivado por defecto.
 
 ## Configuración DEV

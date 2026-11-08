@@ -236,6 +236,9 @@ const nid=p=>data.newId(p,S);
 const W=data.writes||null;let BUSY=false;
 function remote(btn,op,ok,fail){if(BUSY)return;BUSY=true;if(btn)btn.disabled=true;op().then(r=>{BUSY=false;ok(r)},e=>{BUSY=false;if(btn)btn.disabled=false;(fail||(x=>toast(x.message||'No se ha podido guardar')))(e)})}
 function remoteStatus(btn,a,status,ok){remote(btn,()=>W.setAppointmentStatus({appt:a,status,services:S.services}),({appt})=>{W.applyAppointment(S,appt);ok(appt)})}
+// Notas en modo Supabase: el editor trabaja sobre una copia; S.notes solo cambia tras confirmar el guardado.
+const NB={};function edNote(id){return(W&&NB[id])||S.notes.find(x=>x.id===id)}
+function nbDirty(n){const saved=S.notes.find(x=>x.id===n.id);const f=n.fields||{};return saved?JSON.stringify(f)!==JSON.stringify(saved.fields||{}):Object.values(f).some(v=>v)}
 const P=id=>S.patients.find(p=>p.id===id);
 const SV=id=>S.services.find(s=>s.id===id);
 const ME={psicologa:'Psicóloga',recepcion:'Recepción',gestoria:'Gestoría externa'};
@@ -607,7 +610,7 @@ function editorView(n){
   </div>`;
 }
 VIEWS.informes=()=>{
-  if(S.sel.editing){const n=S.notes.find(x=>x.id===S.sel.editing);if(n)return editorView(n);S.sel.editing=null}
+  if(S.sel.editing){const n=edNote(S.sel.editing);if(n)return editorView(n);S.sel.editing=null}
   const f=S.sel.nf||'pendientes';const pn=pendingNotes();
   let list;
   if(f==='pendientes')list=pn.filter(a=>!noteFor(a)).map(a=>`<tr class="click" data-act="note" data-id="${a.id}"><td>${fD(a.date)}</td><td>${pc(P(a.patientId))}</td><td>${esc(SV(a.service).name)}</td><td><span class="chip warn">Sin nota</span></td></tr>`).join('');
@@ -1001,8 +1004,8 @@ function openInv(id){
   draft?`<button class="btn danger" data-act="delInv" data-id="${i.id}">Descartar</button><button class="btn" data-act="saveDraft" data-id="${i.id}">Guardar</button><button class="btn primary" data-act="emitInv" data-id="${i.id}">Emitir</button>`:
   `${i.kind!=='R'&&st!=='rectificada'?`<button class="btn" data-act="rectInv" data-id="${i.id}">Rectificar</button>`:''}${st==='vencida'?`<button class="btn" data-act="remind" data-id="${i.id}">Recordatorio de pago</button>`:''}<button class="btn" data-act="pdfInv" data-id="${i.id}">${SVG(IC.download)}Exportar PDF</button><button class="btn" data-act="sendInv" data-id="${i.id}">${i.sent?'Reenviar':'Enviar'}</button>${t.pending>0&&i.kind!=='R'?`<button class="btn primary" data-act="payInv" data-id="${i.id}">Registrar cobro</button>`:''}`,true);
 }
-function noteEditor(n){closeModal();S.view='informes';S.sel.editing=n.id;render();window.scrollTo(0,0)}
-function ensureNote(a){let n=noteFor(a);if(!n){n={id:nid('n'),patientId:a.patientId,apptId:a.id,type:a.service==='s3'?'inicial':'sesion',fields:{},status:'borrador',author:'Laura Benítez',created:a.date,signedAt:null,versions:[]};S.notes.push(n)}return n}
+function noteEditor(n){if(W&&n&&!NB[n.id])NB[n.id]={...n,fields:{...n.fields},versions:n.versions.slice(),log:(n.log||[]).slice()};closeModal();S.view='informes';S.sel.editing=n.id;render();window.scrollTo(0,0)}
+function ensureNote(a){let n=noteFor(a)||(W?Object.values(NB).find(x=>x.apptId===a.id):null);if(!n){n={id:nid('n'),patientId:a.patientId,apptId:a.id,type:a.service==='s3'?'inicial':'sesion',fields:{},status:'borrador',author:W?'':'Laura Benítez',created:a.date,signedAt:null,versions:[]};if(W){n.unsaved=true;NB[n.id]=n}else S.notes.push(n)}return n}
 function readNote(n){document.querySelectorAll('[data-nf]').forEach(t=>n.fields[t.dataset.nf]=t.value.trim())}
 function newCode(){let c;do{c=String(1000+Math.floor(Math.random()*9000))}while(S.patients.some(p=>p.code===c));return c}
 function patientForm(p){
@@ -1177,7 +1180,7 @@ const ACT={
   revealInv:d=>{REVEAL[d.id]=true;audit(`Datos identificativos de #${P(d.id).code} visualizados en factura`);openInv(d.inv)},
   note:d=>{if(S.role!=='psicologa')return;const a=S.appts.find(x=>x.id===d.id);noteEditor(ensureNote(a))},
   openNote:d=>{if(S.role!=='psicologa')return;noteEditor(S.notes.find(n=>n.id===d.id))},
-  newDoc:d=>{const n={id:nid('n'),patientId:d.p,apptId:null,type:d.t,fields:{},status:'borrador',author:'Laura Benítez',created:TODAY,signedAt:null,versions:[]};S.notes.push(n);audit(`${NOTE_T[d.t]} creado para #${P(d.p).code}`);noteEditor(n)},
+  newDoc:d=>{const n={id:nid('n'),patientId:d.p,apptId:null,type:d.t,fields:{},status:'borrador',author:W?'':'Laura Benítez',created:TODAY,signedAt:null,versions:[]};if(W){n.unsaved=true;NB[n.id]=n;noteEditor(n);return}S.notes.push(n);audit(`${NOTE_T[d.t]} creado para #${P(d.p).code}`);noteEditor(n)},
   nfilter:d=>{S.sel.nf=d.f;render()},
   atab:d=>{S.sel.atab=d.t;render()},
   fdir:d=>{S.sel.fdir=d.d;render()},
@@ -1264,8 +1267,8 @@ const ACT={
     <label class="field"><span>Ver como (prototipo)</span><select id="role2">${[['psicologa','Psicóloga'],['recepcion','Recepción'],['gestoria','Gestoría']].map(([v,l])=>`<option value="${v}" ${S.role===v?'selected':''}>${l}</option>`).join('')}</select></label>`)},
   goClose:d=>{closeModal();ACT.go(d)},
   sfilter:d=>{S.sel.sf=d.f;render()},
-  closeEditor:()=>{const n=S.notes.find(x=>x.id===S.sel.editing);if(n&&n.status!=='firmada')readNote(n);S.sel.editing=null;render();window.scrollTo(0,0)},
-  applyTpl:d=>{const n=S.notes.find(x=>x.id===S.sel.editing);if(!n)return;readNote(n);const tpl=TEMPLATES[n.type][Number(d.i)][1];let c=0;Object.entries(tpl).forEach(([k,v])=>{if(!n.fields[k]){n.fields[k]=v;c++}});render();toast(c?`Plantilla aplicada a ${c} ${c===1?'apartado vacío':'apartados vacíos'}`:'No hay apartados vacíos')},
+  closeEditor:()=>{const n=edNote(S.sel.editing);if(n&&n.status!=='firmada')readNote(n);const kept=W&&n&&NB[n.id]&&nbDirty(n);if(W&&n&&!kept)delete NB[n.id];S.sel.editing=null;render();window.scrollTo(0,0);if(kept)toast('El borrador tiene cambios sin guardar: siguen en el editor, pero no están guardados')},
+  applyTpl:d=>{const n=edNote(S.sel.editing);if(!n)return;readNote(n);const tpl=TEMPLATES[n.type][Number(d.i)][1];let c=0;Object.entries(tpl).forEach(([k,v])=>{if(!n.fields[k]){n.fields[k]=v;c++}});render();toast(c?`Plantilla aplicada a ${c} ${c===1?'apartado vacío':'apartados vacíos'}`:'No hay apartados vacíos')},
   newReport:()=>{if(S.role!=='psicologa')return;const pts=S.patients.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name)));
     modal('Nuevo informe',`<div class="form"><label class="field full"><span>Paciente</span><select id="nr-p">${pts.map(p=>`<option value="${p.id}">${esc(p.name)} · #${p.code}</option>`).join('')}</select></label>
     <label class="field full"><span>Tipo de informe</span><select id="nr-t"><option value="inicial">Evaluación inicial</option><option value="evolucion">Informe de seguimiento</option><option value="cierre">Informe de cierre</option></select></label></div>`,
@@ -1280,10 +1283,10 @@ const ACT={
   saveNewInv:()=>{const p=P(val('ni-p'));const amt=Math.round(Number(val('ni-a'))*100);if(!p||!(amt>0)){toast('Indica el paciente y un importe mayor que cero');return}
     const inv=mkInv(S,p,TODAY,[{desc:val('ni-d')||'Servicio',qty:1,price:amt,exempt:val('ni-x')==='1'}],[]);S.invoices.push(inv);audit('Borrador de factura creado');closeModal();render();openInv(inv.id)},
   pdfInv:d=>pdfInv(S.invoices.find(x=>x.id===d.id)),
-  saveNote:d=>{const n=S.notes.find(x=>x.id===d.id);readNote(n);nlog(n,'Borrador guardado');audit(`Nota de #${P(n.patientId).code} guardada como borrador`);render();toast('Borrador guardado')},
-  signNote:d=>{const n=S.notes.find(x=>x.id===d.id);readNote(n);if(FIELDS[n.type].every(([k])=>!n.fields[k])){toast('Completa al menos un apartado antes de firmar');return}
+  saveNote:(d,btn)=>{const n=edNote(d.id);readNote(n);if(W){const sent={...n.fields};remote(btn,()=>W.notes.saveNote({note:n,fields:sent,knownIds:S.notes.map(x=>x.id)}),({note:x,replacedId})=>{const now={};document.querySelectorAll('[data-nf]').forEach(t=>now[t.dataset.nf]=t.value.trim());W.notes.applyNote(S,x,replacedId);delete NB[d.id];if(S.sel.editing===x.id&&Object.keys(now).some(k=>now[k]!==(sent[k]||'')))NB[x.id]={...x,fields:{...x.fields,...now},versions:x.versions.slice(),log:x.log};nlog(x,'Borrador guardado');audit(`Nota de #${P(x.patientId).code} guardada como borrador`);render();toast('Borrador guardado')});return}nlog(n,'Borrador guardado');audit(`Nota de #${P(n.patientId).code} guardada como borrador`);render();toast('Borrador guardado')},
+  signNote:d=>{if(W){toast('La firma todavía no está disponible en este modo. Guarda el borrador.');return}const n=S.notes.find(x=>x.id===d.id);readNote(n);if(FIELDS[n.type].every(([k])=>!n.fields[k])){toast('Completa al menos un apartado antes de firmar');return}
     n.status='firmada';n.signedAt=TODAY;nlog(n,'Firmado y cerrado');audit(`${NOTE_T[n.type]} de #${P(n.patientId).code} firmado`);S.sel.editing=null;render();toast('Informe firmado y cerrado')},
-  rectNote:d=>{const n=S.notes.find(x=>x.id===d.id);const t=val('nf-rect').trim();if(!t){toast('Escribe la rectificación antes de guardar');return}n.versions.push({at:new Date().toISOString(),author:'Laura Benítez',text:t});nlog(n,'Rectificación añadida');audit(`Rectificación en ${NOTE_T[n.type]} de #${P(n.patientId).code}`);render();toast('Rectificación añadida')},
+  rectNote:d=>{if(W){toast('Las rectificaciones todavía no están disponibles en este modo.');return}const n=S.notes.find(x=>x.id===d.id);const t=val('nf-rect').trim();if(!t){toast('Escribe la rectificación antes de guardar');return}n.versions.push({at:new Date().toISOString(),author:'Laura Benítez',text:t});nlog(n,'Rectificación añadida');audit(`Rectificación en ${NOTE_T[n.type]} de #${P(n.patientId).code}`);render();toast('Rectificación añadida')},
   slotNew:d=>{if(S.role==='gestoria')return;apptForm(null,{d:d.d,t:Number(d.t)})},
   fillNote:(d,btn)=>{if(S.role!=='psicologa')return;const a=S.appts.find(x=>x.id===d.id);if(!a)return;if(['confirmada','pendiente'].includes(a.status)){if(a.date>TODAY)return;if(W){remoteStatus(btn,a,'realizada',x=>{logA(x,'Marcada como realizada');noteEditor(ensureNote(x))});return}markDone(a)}noteEditor(ensureNote(a))},
   carMove:d=>{const c=document.getElementById('car');if(c)c.scrollBy({left:Number(d.n)*carStep(c),behavior:'smooth'})},

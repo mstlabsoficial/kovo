@@ -4,12 +4,14 @@
 // load(): lee las tablas que permite el rol (solo GET), las convierte al modelo de legacy.js con
 // from-supabase.js y construye el estado con legacy-state.js.
 // writes: altas y cambios de pacientes y citas, uno a uno y confirmados por Supabase
-// (writes.js + legacy-writes.js). El resto de cambios de la interfaz se quedan en memoria:
+// (writes.js + legacy-writes.js), y borradores de notas clínicas mediante la RPC autorizada
+// (writes.notes, note-writes.js). El resto de cambios de la interfaz se quedan en memoria:
 // persist() no sincroniza el estado completo.
 import { getOrganizationContext, restoreSession, refreshAccessToken } from './auth.js';
 import { isSupabaseConfigured, supabaseRequest } from './supabase-client.js';
 import { createEntityWriter } from './writes.js';
 import { createLegacyWrites, applyPatient, applyAppointment } from './legacy-writes.js';
+import { createNoteWriter, createLegacyNoteWrites, applyNote } from './note-writes.js';
 import { createKovoRepository } from './repository.js';
 import { buildLegacyCollections } from './from-supabase.js';
 import { toLegacyState } from './legacy-state.js';
@@ -25,7 +27,9 @@ export function createSupabaseSource({
 } = {}) {
   let context = null;
   let lastReport = [];
-  const writer = createEntityWriter({ request, refresh, getContext: async () => context || source.authenticate() });
+  const ctxNow = async () => context || source.authenticate();
+  const writer = createEntityWriter({ request, refresh, getContext: ctxNow });
+  const noteWriter = createNoteWriter({ request, refresh, getContext: ctxNow });
   const source = {
     mode:'supabase',
     repository,
@@ -39,6 +43,7 @@ export function createSupabaseSource({
     writes: {
       ...createLegacyWrites({ writer, newId }),
       applyPatient, applyAppointment,
+      notes: { ...createLegacyNoteWrites({ writer: noteWriter }), applyNote },
       userId: () => context?.userId ?? null
     },
     async load({ today }) {

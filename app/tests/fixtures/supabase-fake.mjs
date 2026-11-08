@@ -77,8 +77,10 @@ export const RLS_WRITE = { patients: ['psychologa', 'recepcion'], appointments: 
 //   faults.beforeWrite(method, table) → lanza: la escritura NO llega (corte de red);
 //   faults.afterWrite(method, table)  → lanza: la escritura SE APLICA pero la respuesta se pierde;
 //   faults.expired = true             → 401 hasta que se llame a refresh().
+// RPC: POST rpc/save_clinical_note_draft, copia de la función real (ver saveClinicalNoteDraft).
+// `uid` es auth.uid() y `org` la consulta de la membresía con ese rol.
 // Todo ocurre en memoria; nunca hay red.
-export function createFakeServer({ role, db = syntheticDb(), clock = () => new Date().toISOString() } = {}) {
+export function createFakeServer({ role, db = syntheticDb(), clock = () => new Date().toISOString(), uid = uuid(999), org = ORG } = {}) {
   const calls = [];
   const faults = { beforeWrite: null, afterWrite: null, expired: false };
   const counters = {};
@@ -88,6 +90,7 @@ export function createFakeServer({ role, db = syntheticDb(), clock = () => new D
   const filterRows = (rows, q) => rows.filter(r => {
     for (const [k, v] of q) {
       if (['select', 'order', 'limit', 'offset'].includes(k)) continue;
+      if (v === 'is.null') { if (r[k] != null) return false; continue; }
       const want = eqValue(v);
       if (k === 'updated_at' ? !sameTs(r[k], want) : String(r[k]) !== want) return false;
     }
@@ -122,6 +125,27 @@ export function createFakeServer({ role, db = syntheticDb(), clock = () => new D
     appointments: () => ({ professional_id: null, service_id: null, status: 'scheduled', location: null, administrative_note: null, created_by: null, legacy_id: null, modality: null, price_cents: 0 })
   };
 
+  // public.save_clinical_note_draft (SECURITY DEFINER): mismas comprobaciones y mismos errores.
+  function saveClinicalNoteDraft(b = {}) {
+    if (!uid || role !== 'psychologa' || b.p_org_id !== org) throw httpError(403, '42501', 'Not authorized to manage clinical notes');
+    if (b.p_content == null || String(b.p_content).trim().length === 0) throw httpError(400, 'P0001', 'Clinical note content cannot be empty');
+    const type = b.p_note_type ? b.p_note_type : 'session';
+    const now = clock();
+    if (b.p_note_id == null) {
+      if (b.p_patient_id == null) throw httpError(400, '23502', 'null value in column "patient_id" violates not-null constraint');
+      const has = (t, id) => (db[t] || []).some(x => x.org_id === b.p_org_id && x.id === id);
+      if (!has('patients', b.p_patient_id)) throw httpError(409, '23503', 'violates foreign key constraint "clinical_notes_org_id_patient_id_fkey"');
+      if (b.p_appointment_id != null && !has('appointments', b.p_appointment_id)) throw httpError(409, '23503', 'violates foreign key constraint "clinical_notes_org_id_appointment_id_fkey"');
+      const row = { id: crypto.randomUUID(), org_id: b.p_org_id, patient_id: b.p_patient_id, appointment_id: b.p_appointment_id ?? null, author_id: uid, note_type: type, content: b.p_content, status: 'draft', signed_at: null, created_at: now, updated_at: now };
+      (db.clinical_notes ||= []).push(row);
+      return row.id;
+    }
+    const t = (db.clinical_notes || []).find(x => x.id === b.p_note_id && x.org_id === b.p_org_id && x.author_id === uid && x.status === 'draft');
+    if (!t) throw httpError(400, 'P0001', 'Draft not found or not editable');
+    Object.assign(t, { content: b.p_content, note_type: type, updated_at: now });   // patient_id y appointment_id no cambian
+    return t.id;
+  }
+
   async function request(path, options = {}) {
     const method = options.method || 'GET';
     calls.push({ method, path, body: options.body === undefined ? undefined : JSON.parse(JSON.stringify(options.body)) });
@@ -135,7 +159,11 @@ export function createFakeServer({ role, db = syntheticDb(), clock = () => new D
     }
     if (faults.beforeWrite) faults.beforeWrite(method, table);
     let result;
-    if (method === 'POST') {
+    if (method === 'POST' && table === 'rpc/save_clinical_note_draft') {
+      result = saveClinicalNoteDraft(structuredClone(options.body));
+    } else if (table.startsWith('rpc/')) {
+      throw httpError(404, 'PGRST202', 'Could not find the function in the schema cache');
+    } else if (method === 'POST') {
       if (!RLS_WRITE[table]?.includes(role)) throw httpError(403, '42501', `new row violates row-level security policy for table "${table}"`);
       const now = clock();
       const row = { ...defaults[table](), ...structuredClone(options.body), created_at: now, updated_at: now };

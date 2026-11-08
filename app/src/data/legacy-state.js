@@ -44,6 +44,18 @@ export function uiPatient(src, sIds, note = () => {}) {
   return p;
 }
 // Valores de presentación de una cita. Devuelve null si la interfaz no puede mostrarla.
+export function uiNote(src, note = () => {}) {
+  if (src.type == null || src.status == null) { note('clinical_note', src.id, 'type', 'excluded_from_ui'); return null; }
+  const n = { ...src, fields: { ...src.fields }, versions: (src.versions || []).map(v => ({ ...v, author: v.author ?? '' })), log: (src.log || []).slice() };
+  if (src.versions == null) note('clinical_note', n.id, 'versions', 'ui_default', 'empty');
+  if (!n.structured && n.content) {
+    // Texto sin apartados: se muestra completo en el primer apartado para que no parezca vacío.
+    n.fields = { [NOTE_FIELD_KEYS[n.type][0]]: n.content };
+    note('clinical_note', n.id, 'fields', 'ui_default', 'content_in_first_field');
+  }
+  if (n.author == null) n.author = '';
+  return n;
+}
 export function uiAppointment(src, sIds, note = () => {}) {
   if (src.status == null || src.date == null || src.start == null || src.dur == null) { note('appointment', src.id, 'status', 'excluded_from_ui'); return null; }
   const a = { ...src, log: (src.log || []).slice() };
@@ -106,19 +118,7 @@ export function toLegacyState({ collections, loaded = {}, report = [], context, 
   }
 
   /* notas clínicas */
-  const notes = [];
-  for (const src of c.notes || []) {
-    if (src.type == null || src.status == null) { note('clinical_note', src.id, 'type', 'excluded_from_ui'); continue; }
-    const n = { ...src, fields: { ...src.fields }, versions: (src.versions || []).map(v => ({ ...v, author: v.author ?? '' })), log: (src.log || []).slice() };
-    if (src.versions == null) note('clinical_note', n.id, 'versions', 'ui_default', 'empty');
-    if (!n.structured && n.content) {
-      // Texto sin apartados: se muestra completo en el primer apartado para que no parezca vacío.
-      n.fields = { [NOTE_FIELD_KEYS[n.type][0]]: n.content };
-      note('clinical_note', n.id, 'fields', 'ui_default', 'content_in_first_field');
-    }
-    if (n.author == null) n.author = '';
-    notes.push(n);
-  }
+  const notes = (c.notes || []).map(src => uiNote(src, note)).filter(Boolean);
 
   /* gastos y empleados */
   const expenses = (c.expenses || []).map(src => {

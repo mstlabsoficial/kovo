@@ -113,7 +113,7 @@ verificado con las 20 capturas de la prueba visual, idénticas píxel a píxel a
 4. **Email no único en la BD:** el duplicado se comprueba solo con los pacientes cargados.
 5. **Estado `nuevo`** no existe en la BD: el paciente recién creado aparece como `activo`.
 6. **Código `P-00001`:** la interfaz habla de "código de 4 dígitos" en algún texto.
-7. **El editor de notas clínicas** sigue funcionando en memoria: lo que se escriba en una nota **no se guarda**.
+7. **Notas clínicas:** los borradores se guardan desde T2C (ver [notas.md](notas.md)); firmar y rectificar, todavía no.
 8. **Consentimiento y documentos:** la subida a Storage no está implementada.
 9. La interfaz no avisa de que el resto de acciones (gastos, facturas, ajustes…) no se guardan.
 
