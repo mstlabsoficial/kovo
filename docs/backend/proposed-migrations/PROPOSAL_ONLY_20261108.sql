@@ -15,6 +15,49 @@
 -- allocation table before adopting this SQL.
 
 -- ============================================================================
+-- PHASE 0 — database-enforced professional schedule conflict protection
+-- ============================================================================
+
+-- The UI currently checks for overlapping sessions, but two concurrent clients
+-- can both pass that check. A GiST exclusion constraint makes the rule atomic at
+-- the database boundary. Half-open intervals [start,end) allow back-to-back visits.
+CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA extensions;
+
+-- Fail explicitly rather than leaving the migration half-applied if historical
+-- data already contains overlapping active appointments for the same professional.
+DO $preflight$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.appointments a
+    JOIN public.appointments b
+      ON b.org_id = a.org_id
+     AND b.professional_id = a.professional_id
+     AND b.id > a.id
+     AND tstzrange(b.starts_at, b.ends_at, '[)')
+         && tstzrange(a.starts_at, a.ends_at, '[)')
+    WHERE a.professional_id IS NOT NULL
+      AND a.status IN ('scheduled','confirmed')
+      AND b.status IN ('scheduled','confirmed')
+  ) THEN
+    RAISE EXCEPTION 'Existing overlapping active appointments must be resolved before enabling the schedule constraint';
+  END IF;
+END;
+$preflight$;
+
+ALTER TABLE public.appointments
+  ADD CONSTRAINT appointments_no_professional_overlap
+  EXCLUDE USING gist (
+    org_id WITH =,
+    professional_id WITH =,
+    tstzrange(starts_at, ends_at, '[)') WITH &&
+  )
+  WHERE (
+    professional_id IS NOT NULL
+    AND status IN ('scheduled','confirmed')
+  );
+
+-- ============================================================================
 -- PHASE 1 — appointment to invoice-line traceability
 -- ============================================================================
 
