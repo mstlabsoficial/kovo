@@ -200,6 +200,11 @@ ALTER TABLE public.invoices
 ALTER TABLE public.organization_billing_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.patient_billing_profiles ENABLE ROW LEVEL SECURITY;
 
+REVOKE ALL ON TABLE
+  public.organization_billing_profiles,
+  public.patient_billing_profiles
+FROM PUBLIC, anon, authenticated, service_role;
+
 CREATE POLICY organization_billing_profiles_finance_all
   ON public.organization_billing_profiles
   FOR ALL TO authenticated
@@ -338,6 +343,9 @@ CREATE INDEX expense_tax_lines_org_expense_idx
 
 ALTER TABLE public.expense_tax_lines ENABLE ROW LEVEL SECURITY;
 
+REVOKE ALL ON TABLE public.expense_tax_lines
+  FROM PUBLIC, anon, authenticated, service_role;
+
 CREATE POLICY expense_tax_lines_finance_all
   ON public.expense_tax_lines
   FOR ALL TO authenticated
@@ -347,6 +355,10 @@ CREATE POLICY expense_tax_lines_finance_all
 GRANT SELECT, INSERT, UPDATE
   ON TABLE public.expense_tax_lines
   TO authenticated;
+
+CREATE TRIGGER audit_expense_tax_lines
+  AFTER INSERT OR UPDATE OR DELETE ON public.expense_tax_lines
+  FOR EACH ROW EXECUTE FUNCTION private.write_audit_event();
 
 -- Important: amount_cents remains untouched. Its gross/net meaning must be
 -- explicitly decided and historic expenses classified before fiscal summaries
@@ -401,6 +413,11 @@ CREATE INDEX patient_consents_org_patient_created_idx
 
 ALTER TABLE public.patient_consents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.patient_consent_status ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE
+  public.patient_consents,
+  public.patient_consent_status
+FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE POLICY patient_consents_psychologist_read
   ON public.patient_consents
