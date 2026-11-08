@@ -172,3 +172,13 @@ Before any write workflow is opened to the clinic:
 - `supabase/recovered-schema/AUTHORIZATION_MODEL.md`
 - `supabase/recovered-schema/MIGRATION_RECONCILIATION_PLAN.md`
 - Local Claude T2A report supplied in the conversation (commit `9e67c7b`, not yet published).
+
+## Concrete implementation draft
+
+A first additive implementation draft and its isolated test matrix are now maintained separately:
+
+- `docs/backend/IMPLEMENTATION_BLUEPRINT.md`
+- `docs/backend/proposed-migrations/PROPOSAL_ONLY_20261108.sql`
+- `docs/backend/proposed-migrations/ISOLATED_TEST_PLAN.md`
+
+The draft is intentionally not an active migration and has not been executed. Its choices and remaining clinic decisions are documented in the blueprint.
