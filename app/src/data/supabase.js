@@ -13,13 +13,13 @@ export function createSupabaseSource() {
     async authenticate() {
       if (!isSupabaseConfigured()) throw new Error('Configura VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY.');
       const user=await restoreSession();
-      if(!user) throw new Error('Inicia sesión para acceder a KOVO.');
+      if(!user) throw new Error('Inicia sesión para acceder a KOVO. La pantalla de acceso se integrará antes de habilitar este modo.');
       context = await getOrganizationContext();
       return context;
     },
     async load() {
       if (!context) await this.authenticate();
-      return repository.loadSnapshot();
+      throw new Error('El repositorio remoto ya dispone de operaciones por rol, pero la interfaz legacy aún no está adaptada al modelo relacional. Mantén VITE_DATA_MODE=demo hasta completar esa integración.');
     },
     // La UI legacy guarda de forma síncrona. No se conecta a esta función hasta
     // sustituir save() por operaciones explícitas y comprobadas del repositorio.
