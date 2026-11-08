@@ -31,3 +31,12 @@ The remote project has migration-history drift and a recovered candidate baselin
 ## Validation status
 
 Static review only. No PostgreSQL/Supabase execution has been performed for this proposal. No production schema, data, policies, functions, users or Storage settings have been changed.
+
+
+## Additional security finding — direct invoice status escalation
+
+The recovered catalog shows authenticated users have INSERT/UPDATE privileges on `public.invoices`, and the live RLS policies permit those operations for `psychologa` and `gestoria`. The existing `private.prevent_issued_invoice_mutation()` trigger protects invoices whose **old** status is already non-draft, but it does not reject an authenticated client inserting a row directly as `issued` or changing a draft's status directly.
+
+The SQL proposal therefore adds `private.guard_invoice_status_transition()`: authenticated clients may create drafts, but any status transition must occur under the existing SECURITY DEFINER workflow owner (currently `postgres`) through the guarded issuance path. Add explicit negative PostgREST tests for direct INSERT/UPDATE attempts.
+
+This is a catalog-based code finding, not evidence that anyone exploited the path. It is proposed for local verification only; production remains unchanged.
