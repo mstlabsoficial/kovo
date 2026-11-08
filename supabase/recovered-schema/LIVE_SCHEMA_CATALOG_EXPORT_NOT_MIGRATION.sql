@@ -615,32 +615,32 @@ BEGIN
 END; $function$;
 
 -- 5. Explicit function EXECUTE grants. ACL-null functions retain PostgreSQL defaults.
-REVOKE ALL ON FUNCTION private.emit_invoice(p_invoice uuid) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION private.emit_invoice(p_invoice uuid) TO postgres, authenticated;
-REVOKE ALL ON FUNCTION private.has_role(target_org uuid, allowed_roles text[]) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION private.has_role(target_org uuid, allowed_roles text[]) TO postgres, authenticated;
+REVOKE ALL ON FUNCTION private.emit_invoice(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION private.emit_invoice(uuid) TO postgres, authenticated;
+REVOKE ALL ON FUNCTION private.has_role(uuid, text[]) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION private.has_role(uuid, text[]) TO postgres, authenticated;
 REVOKE ALL ON FUNCTION private.my_orgs() FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION private.my_orgs() TO postgres, authenticated;
-REVOKE ALL ON FUNCTION private.next_counter(p_org uuid, p_type text) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION private.next_counter(p_org uuid, p_type text) TO postgres;
-REVOKE ALL ON FUNCTION private.rectify_clinical_note(p_note uuid, p_reason text, p_replacement text) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION private.rectify_clinical_note(p_note uuid, p_reason text, p_replacement text) TO postgres, authenticated;
-REVOKE ALL ON FUNCTION private.sign_clinical_note(p_note uuid) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION private.sign_clinical_note(p_note uuid) TO postgres, authenticated;
+REVOKE ALL ON FUNCTION private.next_counter(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION private.next_counter(uuid, text) TO postgres;
+REVOKE ALL ON FUNCTION private.rectify_clinical_note(uuid, text, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION private.rectify_clinical_note(uuid, text, text) TO postgres, authenticated;
+REVOKE ALL ON FUNCTION private.sign_clinical_note(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION private.sign_clinical_note(uuid) TO postgres, authenticated;
 REVOKE ALL ON FUNCTION private.write_audit_event() FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION private.write_audit_event() TO postgres;
-REVOKE ALL ON FUNCTION public.delete_clinical_note_draft(p_org_id uuid, p_note_id uuid) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.delete_clinical_note_draft(p_org_id uuid, p_note_id uuid) TO postgres, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.emit_invoice(p_invoice uuid) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.emit_invoice(p_invoice uuid) TO postgres, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.rectify_clinical_note(p_note uuid, p_reason text, p_replacement text) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.rectify_clinical_note(p_note uuid, p_reason text, p_replacement text) TO postgres, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.save_clinical_note_draft(p_org_id uuid, p_patient_id uuid, p_appointment_id uuid, p_note_type text, p_content text, p_note_id uuid) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.save_clinical_note_draft(p_org_id uuid, p_patient_id uuid, p_appointment_id uuid, p_note_type text, p_content text, p_note_id uuid) TO postgres, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.save_invoice_draft(p_org_id uuid, p_patient_id uuid, p_issue_date date, p_due_date date, p_lines jsonb, p_legacy_id text, p_retention_cents integer) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.save_invoice_draft(p_org_id uuid, p_patient_id uuid, p_issue_date date, p_due_date date, p_lines jsonb, p_legacy_id text, p_retention_cents integer) TO postgres, authenticated, service_role;
-REVOKE ALL ON FUNCTION public.sign_clinical_note(p_note uuid) FROM PUBLIC, anon, authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.sign_clinical_note(p_note uuid) TO postgres, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.delete_clinical_note_draft(uuid, uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.delete_clinical_note_draft(uuid, uuid) TO postgres, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.emit_invoice(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.emit_invoice(uuid) TO postgres, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.rectify_clinical_note(uuid, text, text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.rectify_clinical_note(uuid, text, text) TO postgres, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.save_clinical_note_draft(uuid, uuid, uuid, text, text, uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.save_clinical_note_draft(uuid, uuid, uuid, text, text, uuid) TO postgres, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.save_invoice_draft(uuid, uuid, date, date, jsonb, text, integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.save_invoice_draft(uuid, uuid, date, date, jsonb, text, integer) TO postgres, authenticated, service_role;
+REVOKE ALL ON FUNCTION public.sign_clinical_note(uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.sign_clinical_note(uuid) TO postgres, authenticated, service_role;
 
 -- 6. RLS enablement and policies.
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
@@ -748,7 +748,7 @@ GRANT INSERT, SELECT, UPDATE ON TABLE public.services TO authenticated;
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.services TO postgres;
 GRANT DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public.services TO service_role;
 
--- 8. Private schema access: authenticated has USAGE; anon and service_role do not.
+-- 8. Private schema access.
 REVOKE ALL ON SCHEMA private FROM PUBLIC, anon, service_role;
 GRANT USAGE ON SCHEMA private TO authenticated;
 
