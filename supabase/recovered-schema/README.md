@@ -59,3 +59,13 @@ Therefore the next task is to reconstruct and review the pre-history schema base
 ## Safety
 
 This recovery branch contains schema metadata and SQL history only. It does not contain patient records, credentials, API keys, auth users, or storage file contents. No production DDL, migrations, auth users, or data were changed.
+
+
+## Validation assets
+
+- `BASELINE_CANDIDATE_NOT_TESTED.sql`: full one-file candidate assembled from the live catalog. It is intentionally not under `supabase/migrations/`.
+- `LOCAL_VALIDATION.md`: procedure for validating the candidate on a disposable local Supabase stack.
+- `STATIC_VALIDATION_REPORT.md`: token-aware structural scan results. This is not a PostgreSQL execution test.
+- `AUTHORIZATION_MODEL.md`: live role/policy matrix and security review checklist.
+
+The candidate's static scan found 284 statements, balanced SQL quoting/dollar-quoting, 16 table declarations, 79 constraints, 30 additional indexes, 17 function definitions, 25 policies, 9 triggers and RLS enabled on 15 public tables. All trigger-function references and public policy table references resolve against the captured catalog. A real clean reset remains pending because Docker and Supabase CLI are not available in the current execution environment.
