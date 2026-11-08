@@ -190,7 +190,9 @@ ALTER TABLE public.invoices
   CHECK (
     status NOT IN ('issued', 'paid', 'partially_paid')
     OR (
-      jsonb_typeof(issuer_snapshot) = 'object'
+      issuer_snapshot IS NOT NULL
+      AND recipient_snapshot IS NOT NULL
+      AND jsonb_typeof(issuer_snapshot) = 'object'
       AND jsonb_typeof(recipient_snapshot) = 'object'
     )
   ) NOT VALID;
