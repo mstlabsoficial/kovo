@@ -15,17 +15,17 @@ Validate `BASELINE_CANDIDATE_NOT_TESTED.sql` against a fresh, disposable Supabas
 
 ## Automated disposable validation
 
-The repository now includes `scripts/validate-backend-proposal.sh` and `.github/workflows/validate-backend-proposal.yml`.
+The repository includes `scripts/validate-backend-proposal.sh` and `.github/workflows/validate-backend-proposal.yml`.
 
 The script:
 1. Creates a fresh temporary directory.
 2. Runs `supabase init` there.
 3. Copies the recovered baseline and proposal into that temporary workspace's migrations directory.
 4. Starts a local stack with optional services excluded.
-5. runs `supabase db reset --local`.
+5. Runs `supabase db reset`.
 6. Generates TypeScript database types against the local database.
 
-It fails closed when hosted Supabase credentials or URLs are present in its environment. The GitHub Actions workflow supplies no Supabase secrets and only uses a GitHub-hosted ephemeral runner. It does not link to or contact the production project.
+It refuses to run if any of the explicitly checked hosted Supabase credential/URL environment variables are present. The GitHub Actions workflow supplies no Supabase secrets and runs on an ephemeral GitHub-hosted runner. The workflow does not link to the production project.
 
 Run manually from the repository root:
 
@@ -33,7 +33,20 @@ Run manually from the repository root:
 bash scripts/validate-backend-proposal.sh
 ```
 
-A successful run proves the SQL can be applied to the reconstructed local schema and that the local Supabase type generator can introspect it. It does not prove that application-level authorization, data semantics, legal invoice requirements or rollout safety are complete.
+### Latest result
+
+GitHub Actions run #12 passed on 2026-11-08:
+
+https://github.com/mstlabsoficial/kovo/actions/runs/42533658189
+
+The log confirms the order:
+- `20261108000000_kovo_recovered_schema.sql` applied.
+- `20261108000100_kovo_backend_gap_proposal.sql` applied.
+- Local TypeScript database types generated.
+
+The CLI printed a non-fatal notice that the generated TypeScript output was unformatted. It also noted that no `supabase/seed.sql` matched; the test intentionally uses no production data or seed data.
+
+A successful run proves the SQL can be applied to the reconstructed local schema and that the local Supabase type generator can introspect it. It does **not** prove application-level authorization or that the full role/RLS/PostgREST test plan passes.
 
 ## Expected captured schema counts
 
@@ -48,7 +61,7 @@ The current hosted catalog snapshot contains:
 
 Counts may vary for Supabase-managed objects or if the project changes after capture.
 
-## Manual follow-up after CI passes
+## Remaining manual follow-up
 
 - Capture local catalog output for tables, columns, constraints, indexes, RLS policies, functions, grants, triggers and Storage bucket configuration.
 - Compare it with `catalog-tables.json` and `catalog-security.json`; investigate differences.
