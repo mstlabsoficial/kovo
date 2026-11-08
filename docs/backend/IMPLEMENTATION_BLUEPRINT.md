@@ -40,3 +40,8 @@ The recovered catalog shows authenticated users have INSERT/UPDATE privileges on
 The SQL proposal therefore adds `private.guard_invoice_status_transition()`: authenticated clients may create drafts, but any status transition must occur under the existing SECURITY DEFINER workflow owner (currently `postgres`) through the guarded issuance path. Add explicit negative PostgREST tests for direct INSERT/UPDATE attempts.
 
 This is a catalog-based code finding, not evidence that anyone exploited the path. It is proposed for local verification only; production remains unchanged.
+
+
+## Additional scheduling control — database-level overlap prevention
+
+Claude's T2B report confirms that overlapping appointments are currently checked in the UI only. The proposal adds a PostgreSQL GiST exclusion constraint over organization, professional and the appointment time range for active `scheduled`/`confirmed` records. It uses half-open time ranges so one appointment may start exactly when another ends, and it remains safe under concurrent requests. A preflight check aborts the migration when historical overlapping active bookings need reconciliation. Appointments without an assigned professional are not covered; the interface must make that limitation explicit until a professional is selected.
