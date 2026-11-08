@@ -5,6 +5,7 @@
 - Sesión guardada en sessionStorage (se elimina al cerrar la sesión del navegador).
 - Contexto de organización y rol recuperado desde memberships.
 - Transformaciones explícitas para pacientes, citas, notas y facturas.
+- Adaptador de lectura BD → modelo legacy (`from-supabase.js`, sin uso todavía en la interfaz). Correspondencias e incompatibilidades en `from-supabase.md`.
 - El adaptador **no carga ni escribe el estado legacy todavía**. Se bloquea deliberadamente para evitar importar IDs ficticios, duplicar registros o perder relaciones.
 
 ## Configuración DEV

@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "extract": "python3 scripts/extract-legacy.py",
     "pw:install": "PLAYWRIGHT_BROWSERS_PATH=.playwright-browsers playwright install chromium",
+    "test:unit": "TZ=Europe/Madrid node --test tests/unit/*.unit.mjs",
     "test": "echo 'Las pruebas se lanzan sin npm: sh scripts/pw.sh smoke|visual|baseline|all (ver README)' && exit 1"
   },
   "devDependencies": {
