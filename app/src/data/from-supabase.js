@@ -138,6 +138,8 @@ export function patientFromRow(row, opts) {
     reminders: profileField(profile, 'reminders', v => typeof v === 'boolean', r, id),
     consent: null,
     docs: [],
+    // profile_data original: al editar se fusiona con los cambios para no perder claves.
+    profileData: isObj(profile) ? profile : {},
     createdAt: row.created_at ?? null, updatedAt: row.updated_at ?? null
   };
 }
@@ -186,7 +188,8 @@ export function appointmentFromRow(row, opts) {
     log: [],             // la BD no guarda historial por cita
     cancelReason: null,  // la BD no guarda el motivo de cancelación
     invoiceId: null,     // la BD no relaciona citas con facturas
-    startsAt: row.starts_at ?? null, endsAt: row.ends_at ?? null, createdAt: row.created_at ?? null
+    startsAt: row.starts_at ?? null, endsAt: row.ends_at ?? null, createdAt: row.created_at ?? null,
+    updatedAt: row.updated_at ?? null   // versión para las escrituras (control de concurrencia)
   };
 }
 

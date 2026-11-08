@@ -1,8 +1,8 @@
 # Modo Supabase: carga de datos y correspondencias con el modelo legacy
 
-El modo Supabase (`VITE_DATA_MODE=supabase`) ya carga datos reales de la consulta en la interfaz de
-`legacy.js`. Es de **solo lectura**: no se escribe nada en la BD y los cambios hechos en pantalla se
-pierden al recargar. Sigue **desactivado** por defecto; el modo demo no cambia.
+El modo Supabase (`VITE_DATA_MODE=supabase`) carga los datos de la consulta en la interfaz de `legacy.js`.
+Las altas y cambios de **pacientes y citas** se guardan en la BD (ver [escrituras.md](escrituras.md)); el resto
+de cambios hechos en pantalla se pierden al recargar. Sigue **desactivado** por defecto; el modo demo no cambia.
 
 ## Flujo de `load()`
 
@@ -151,7 +151,7 @@ guarda en la BD.
 15. **Interfaz pensada para la demo:** el selector "Ver como" sigue visible (cambiar de rol solo muestra pantallas
     vacías: los datos no se cargan) y el pie dice "Prototipo con datos ficticios. Los cambios se guardan en este
     navegador", que no es cierto en este modo. Cambiarlo es un cambio de interfaz, fuera de esta tarea.
-16. **Sin escritura:** `persist()` no hace nada. Las acciones de la interfaz cambian solo la memoria.
+16. **Escritura parcial:** solo pacientes y citas (escrituras.md). `persist()` no hace nada; el resto de acciones cambia solo la memoria.
 
 ## Pruebas
 

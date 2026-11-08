@@ -6,7 +6,8 @@
 - Contexto de organización y rol recuperado desde memberships.
 - Transformaciones explícitas para pacientes, citas, notas y facturas.
 - `load()` en modo Supabase: lectura por rol de todas las tablas de negocio, conversión al modelo legacy (`from-supabase.js`, `legacy-state.js`). Correspondencias, valores de presentación e incompatibilidades en `from-supabase.md`.
-- **Solo lectura:** `persist()` no escribe. Los cambios en pantalla se pierden al recargar. El modo sigue desactivado por defecto.
+- Escritura de **pacientes y citas** (altas, cambios y estados), una operación por acción y confirmada por Supabase: `writes.js`, `legacy-writes.js`. Detalle, garantías y bloqueos de lo pendiente en `escrituras.md`.
+- El resto de cambios no se guarda: `persist()` no sincroniza el estado completo. El modo sigue desactivado por defecto.
 
 ## Configuración DEV
 Copia `.env.example` a `.env.local`, completa la publishable key del proyecto DEV y establece `VITE_DATA_MODE=supabase` solo para probar autenticación. No uses service_role en el navegador.

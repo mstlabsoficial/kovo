@@ -1,6 +1,6 @@
 import { supabaseRequest } from './supabase-client.js';
 import { getOrganizationContext, restoreSession, getCurrentUser } from './auth.js';
-import { isUuid, splitName } from './mapping.js';
+import { isUuid } from './mapping.js';
 
 const one = value => Array.isArray(value) ? value[0] : value;
 
@@ -55,7 +55,6 @@ export function createKovoRepository({ request = supabaseRequest, getContext = n
     return request(`${name}?select=*${suffix}`,options);
   };
   const insert = (name,row) => request(name,{method:'POST',body:row,headers:{Prefer:'return=representation'}});
-  const patch = (name,id,row) => request(`${name}?id=eq.${id}`,{method:'PATCH',body:row,headers:{Prefer:'return=representation'}});
   const rpc = (name,args) => request(`rpc/${name}`,{method:'POST',body:args});
 
   // Lee todas las filas de la organización, página a página. Se para con una página vacía (no
@@ -91,27 +90,10 @@ export function createKovoRepository({ request = supabaseRequest, getContext = n
       const ctx=await role('psychologa','recepcion');
       return table('patients',`org_id=eq.${ctx.id}&order=created_at.desc`);
     },
-    async savePatient(patient){
-      const ctx=await role('psychologa','recepcion');
-      const {first_name,last_name}=splitName(patient.name || [patient.first_name,patient.last_name].filter(Boolean).join(' '));
-      const row={org_id:ctx.id,first_name,last_name,email:patient.email||null,phone:patient.phone||null,
-        birth_date:patient.birth_date||null,address:patient.address||null,
-        emergency_contact:patient.emergency_contact||null,
-        status:patient.status==='alta terapéutica'?'inactive':'active',
-        administrative_notes:patient.administrative_notes||null,
-        profile_data:patient.profile_data||{},legacy_id:patient.legacy_id||(!isUuid(patient.id)?patient.id:null)};
-      if(patient.id && isUuid(patient.id)) return one(await patch('patients',patient.id,row));
-      return one(await insert('patients',row));
-    },
+    // Altas y cambios de pacientes y citas: writes.js (validados, idempotentes y confirmados).
     async listAppointments(){
       const ctx=await role('psychologa','recepcion');
       return table('appointments',`org_id=eq.${ctx.id}&order=starts_at.asc`);
-    },
-    async saveAppointment(row){
-      const ctx=await role('psychologa','recepcion');
-      const payload={...row,org_id:ctx.id};
-      delete payload.id;
-      return one(await insert('appointments',payload));
     },
     async listClinicalNotes(patientId){
       const ctx=await role('psychologa');

@@ -231,6 +231,11 @@ S.avail=S.avail||JSON.parse(JSON.stringify(DEF_AVAIL));AVAIL=S.avail;S.settings=
 let REVEAL={};
 function save(){try{data.persist(S)}catch(e){toast('El almacenamiento del navegador está lleno; las últimas fotos no se guardarán')}}
 const nid=p=>data.newId(p,S);
+// Modo Supabase: altas y cambios de pacientes y citas se guardan uno a uno y el estado local solo
+// cambia cuando Supabase confirma. En modo demo W es null y todo funciona como siempre.
+const W=data.writes||null;let BUSY=false;
+function remote(btn,op,ok,fail){if(BUSY)return;BUSY=true;if(btn)btn.disabled=true;op().then(r=>{BUSY=false;ok(r)},e=>{BUSY=false;if(btn)btn.disabled=false;(fail||(x=>toast(x.message||'No se ha podido guardar')))(e)})}
+function remoteStatus(btn,a,status,ok){remote(btn,()=>W.setAppointmentStatus({appt:a,status,services:S.services}),({appt})=>{W.applyAppointment(S,appt);ok(appt)})}
 const P=id=>S.patients.find(p=>p.id===id);
 const SV=id=>S.services.find(s=>s.id===id);
 const ME={psicologa:'Psicóloga',recepcion:'Recepción',gestoria:'Gestoría externa'};
@@ -920,7 +925,7 @@ function onPatientPick(p){
   document.getElementById('f-m').value=p.modal;document.getElementById('f-l').value=p.modal==='online'?'Videollamada':LOC();
 }
 function apptForm(a,pre){
-  pre=pre||{};const isNew=!a;a=a||{patientId:pre.p||'',date:pre.d||TODAY,start:pre.t||600,service:'s1',dur:60,modal:'presencial',loc:LOC()};
+  pre=pre||{};const isNew=!a;if(W&&isNew)W.resetPending('appointment');a=a||{patientId:pre.p||'',date:pre.d||TODAY,start:pre.t||600,service:'s1',dur:60,modal:'presencial',loc:LOC()};
   APPT_CTX={isNew,keep:a.patientId};const cur=P(a.patientId);
   modal(isNew?'Nueva cita':'Reprogramar cita',`<div class="form">
     <div class="field full combo"><span>Paciente · busca por nombre o código</span>
@@ -1001,7 +1006,7 @@ function ensureNote(a){let n=noteFor(a);if(!n){n={id:nid('n'),patientId:a.patien
 function readNote(n){document.querySelectorAll('[data-nf]').forEach(t=>n.fields[t.dataset.nf]=t.value.trim())}
 function newCode(){let c;do{c=String(1000+Math.floor(Math.random()*9000))}while(S.patients.some(p=>p.code===c));return c}
 function patientForm(p){
-  const isNew=!p;p=p||{code:newCode(),name:'',email:'',phone:'',modal:'presencial',service:'s1',billing:{type:'particular',name:'',nif:'',addr:'',ret:15},reminders:true};
+  const isNew=!p;if(W&&isNew)W.resetPending('patient');p=p||{code:W?'····':newCode(),name:'',email:'',phone:'',modal:'presencial',service:'s1',billing:{type:'particular',name:'',nif:'',addr:'',ret:15},reminders:true};
   modal(isNew?'Nuevo paciente':`Editar <span class="pc">#${p.code}</span>`,`${isNew?`<div class="box" style="display:flex;gap:12px;align-items:center"><span class="pc big">#${p.code}</span><span>Código confidencial asignado. Es el que verás en el calendario, las reservas y los listados.</span></div>`:''}
   <div class="form">
   <label class="field full"><span>Nombre y apellidos</span><input type="text" id="np-n" value="${esc(p.name)}"></label>
@@ -1114,12 +1119,21 @@ const ACT={
   newAppt:d=>{if(S.role==='gestoria')return;apptForm(null,{p:d.p})},
   slot:(d,t,e)=>{if(e.target!==t||S.role==='gestoria')return;const r=t.getBoundingClientRect();const px=Number(d.px);const min=H0*60+Math.floor((e.clientY-r.top)/px*2)*30;apptForm(null,{d:d.d,t:min})},
   pickDay:d=>{S.cal={mode:'dia',date:d.d};render()},
-  saveAppt:d=>{
+  saveAppt:(d,btn)=>{
     const pid=val('f-p'),date=val('f-d'),t=val('f-t'),dur=Number(val('f-dur'));const w=document.getElementById('f-warn');
     if(!pid||!date||!t||!dur){w.hidden=false;w.className='full box warn';w.textContent='Elige un paciente de la lista y completa fecha, hora y duración.';return}
     const start=toMin(t);const cf=conflicts(d.id,date,start,dur);const force=document.getElementById('f-force');
     if(cf.length&&!(force&&force.checked)){w.hidden=false;w.className='full box warn';w.innerHTML=`Se solapa con ${cf.map(c=>`#${P(c.patientId).code} (${hm(c.start)}–${hm(c.start+c.dur)})`).join(', ')}.<label style="display:flex;gap:8px;margin-top:6px;align-items:center"><input type="checkbox" id="f-force"> Permitir el solapamiento</label>`;return}
     const out=(AVAIL[dow(date)]||[]).every(([a,b])=>start<a||start+dur>b);const sv=SV(val('f-s'));const p=P(pid);
+    if(W){const ex=d.id?S.appts.find(x=>x.id===d.id):null;
+      const input={patientId:pid,date,start,dur,service:sv.id,price:sv.price,modal:val('f-m'),loc:val('f-l'),notes:val('f-n'),status:S.settings.confirmEmail?'pendiente':'confirmada'};
+      remote(btn,()=>W.saveAppointment({existing:ex,input,patient:p,professionalId:S.pro.id,userId:W.userId(),services:S.services}),({appt,replacedId})=>{
+        W.applyAppointment(S,appt,replacedId);
+        if(ex){logA(appt,`Reprogramada de ${ex.date} ${hm(ex.start)} a ${date} ${t}`);audit(`Cita #${p.code} reprogramada`);toast('Cita reprogramada')}
+        else{logA(appt,'Cita creada');audit(`Cita creada para #${p.code} el ${date} ${t}`);toast('Cita creada')}
+        if(out)setTimeout(()=>toast('Aviso: la cita queda fuera de tu horario configurado'),2900);
+        closeModal();render()},e=>{w.hidden=false;w.className='full box warn';w.textContent=e.message});
+      return}
     if(d.id){const a=S.appts.find(x=>x.id===d.id);const old=`${a.date} ${hm(a.start)}`;Object.assign(a,{patientId:pid,date,start,dur,service:sv.id,price:sv.price,modal:val('f-m'),loc:val('f-l'),notes:val('f-n')});logA(a,`Reprogramada de ${old} a ${date} ${t}`);audit(`Cita #${p.code} reprogramada`);
       if(S.settings.confirmEmail)mail(p.email,'Cambio en tu cita',`Tu cita se ha movido al ${fDs(date)} a las ${t} (${a.loc}).`,'Cita');toast('Cita reprogramada')}
     else{const a={id:nid('a'),patientId:pid,date,start,dur,service:sv.id,price:sv.price,modal:val('f-m'),loc:val('f-l'),notes:val('f-n'),status:S.settings.confirmEmail?'pendiente':'confirmada',log:[],cancelReason:''};logA(a,'Cita creada');S.appts.push(a);audit(`Cita creada para #${p.code} el ${date} ${t}`);
@@ -1130,20 +1144,27 @@ const ACT={
   },
   openAppt:d=>openAppt(d.id),
   reschedule:d=>apptForm(S.appts.find(x=>x.id===d.id)),
-  confirm:d=>{const a=S.appts.find(x=>x.id===d.id);a.status='confirmada';logA(a,'Confirmada');audit(`Cita #${P(a.patientId).code} confirmada`);closeModal();render();toast('Cita confirmada')},
-  done:d=>{const a=S.appts.find(x=>x.id===d.id);if(a.date>TODAY)return;markDone(a);closeModal();render()},
-  noshow:d=>{const a=S.appts.find(x=>x.id===d.id);a.status='ausencia';logA(a,'Ausencia del paciente');audit(`Ausencia #${P(a.patientId).code}`);closeModal();render();toast('Ausencia registrada')},
-  cancelAppt:d=>{const a=S.appts.find(x=>x.id===d.id);a.status='cancelada';a.cancelReason=val('f-cr');logA(a,'Cancelada · '+a.cancelReason);audit(`Cita #${P(a.patientId).code} cancelada`);mail(P(a.patientId).email,'Cita cancelada',`Tu cita del ${fDs(a.date)} a las ${hm(a.start)} ha quedado cancelada.`,'Cita');closeModal();render();toast('Cita cancelada · aviso enviado')},
+  confirm:(d,btn)=>{const a=S.appts.find(x=>x.id===d.id);if(W){remoteStatus(btn,a,'confirmada',x=>{logA(x,'Confirmada');audit(`Cita #${P(x.patientId).code} confirmada`);closeModal();render();toast('Cita confirmada')});return}a.status='confirmada';logA(a,'Confirmada');audit(`Cita #${P(a.patientId).code} confirmada`);closeModal();render();toast('Cita confirmada')},
+  done:(d,btn)=>{const a=S.appts.find(x=>x.id===d.id);if(a.date>TODAY)return;if(W){remoteStatus(btn,a,'realizada',x=>{logA(x,'Marcada como realizada');audit(`Cita #${P(x.patientId).code} del ${x.date} marcada como realizada`);closeModal();render();toast('Sesión cerrada · la factura todavía no se crea en este modo')});return}markDone(a);closeModal();render()},
+  noshow:(d,btn)=>{const a=S.appts.find(x=>x.id===d.id);if(W){remoteStatus(btn,a,'ausencia',x=>{logA(x,'Ausencia del paciente');audit(`Ausencia #${P(x.patientId).code}`);closeModal();render();toast('Ausencia registrada')});return}a.status='ausencia';logA(a,'Ausencia del paciente');audit(`Ausencia #${P(a.patientId).code}`);closeModal();render();toast('Ausencia registrada')},
+  cancelAppt:(d,btn)=>{const a=S.appts.find(x=>x.id===d.id);if(W){const why=val('f-cr');remoteStatus(btn,a,'cancelada',x=>{x.cancelReason=why;logA(x,'Cancelada · '+why);audit(`Cita #${P(x.patientId).code} cancelada`);closeModal();render();toast('Cita cancelada')});return}a.status='cancelada';a.cancelReason=val('f-cr');logA(a,'Cancelada · '+a.cancelReason);audit(`Cita #${P(a.patientId).code} cancelada`);mail(P(a.patientId).email,'Cita cancelada',`Tu cita del ${fDs(a.date)} a las ${hm(a.start)} ha quedado cancelada.`,'Cita');closeModal();render();toast('Cita cancelada · aviso enviado')},
   calNav:d=>{const c=S.cal;const n=Number(d.n);const mode=c.mode;if(mode==='mes'){const x=parse(c.date);c.date=iso(new Date(x.getFullYear(),x.getMonth()+n,1))}else c.date=addDays(c.date,mode==='dia'?n:7*n);render()},
   calToday:()=>{S.cal.date=TODAY;render()},
   calMode:d=>{S.cal.mode=d.m;render()},
   newPatient:()=>{if(S.role==='gestoria')return;patientForm()},
   editPatient:d=>patientForm(P(d.id)),
-  savePatient:d=>{
+  savePatient:(d,btn)=>{
     const name=val('np-n').trim(),email=val('np-e').trim();const err=document.getElementById('np-err');
     if(!name||!email){err.hidden=false;err.textContent='El nombre y el email son obligatorios.';return}
     if(S.patients.some(p=>p.email===email&&p.id!==d.id)){err.hidden=false;err.textContent='Ya existe un paciente con ese email.';return}
     const bt=val('np-bt');const billing=bt==='empresa'?{type:'empresa',name:val('np-bn')||name,nif:val('np-bnif'),addr:val('np-addr'),ret:15}:{type:'particular',name,nif:val('np-bnif'),addr:val('np-addr')};
+    if(W){const ex=d.id?P(d.id):null;
+      const input={name,email,phone:val('np-t'),service:val('np-s'),modal:val('np-m'),billing,reminders:document.getElementById('np-r').checked};
+      remote(btn,()=>W.savePatient({existing:ex,input,today:TODAY,services:S.services}),({patient,replacedId})=>{
+        W.applyPatient(S,patient,replacedId);closeModal();
+        if(ex){audit(`Datos de #${patient.code} editados`);render();toast('Datos guardados');return}
+        audit(`Paciente #${patient.code} creado`);S.view='pacientes';S.sel.patient=patient.id;S.sel.ptab='docs';render();toast(`Paciente #${patient.code} creado · sube su consentimiento`)},e=>{err.hidden=false;err.textContent=e.message});
+      return}
     if(d.id){const p=P(d.id);Object.assign(p,{name,email,phone:val('np-t'),service:val('np-s'),modal:val('np-m'),billing,reminders:document.getElementById('np-r').checked});audit(`Datos de #${p.code} editados`);closeModal();render();toast('Datos guardados');return}
     const p={id:nid('p'),code:d.code,name,email,phone:val('np-t'),alta:TODAY,status:'nuevo',slot:[0,600],service:val('np-s'),modal:val('np-m'),billing,consent:null,docs:[],reminders:document.getElementById('np-r').checked};
     S.patients.push(p);audit(`Paciente #${p.code} creado`);S.view='pacientes';S.sel.patient=p.id;S.sel.ptab='docs';closeModal();render();toast(`Paciente #${p.code} creado · sube su consentimiento`);
@@ -1264,7 +1285,7 @@ const ACT={
     n.status='firmada';n.signedAt=TODAY;nlog(n,'Firmado y cerrado');audit(`${NOTE_T[n.type]} de #${P(n.patientId).code} firmado`);S.sel.editing=null;render();toast('Informe firmado y cerrado')},
   rectNote:d=>{const n=S.notes.find(x=>x.id===d.id);const t=val('nf-rect').trim();if(!t){toast('Escribe la rectificación antes de guardar');return}n.versions.push({at:new Date().toISOString(),author:'Laura Benítez',text:t});nlog(n,'Rectificación añadida');audit(`Rectificación en ${NOTE_T[n.type]} de #${P(n.patientId).code}`);render();toast('Rectificación añadida')},
   slotNew:d=>{if(S.role==='gestoria')return;apptForm(null,{d:d.d,t:Number(d.t)})},
-  fillNote:d=>{if(S.role!=='psicologa')return;const a=S.appts.find(x=>x.id===d.id);if(!a)return;if(['confirmada','pendiente'].includes(a.status)){if(a.date>TODAY)return;markDone(a)}noteEditor(ensureNote(a))},
+  fillNote:(d,btn)=>{if(S.role!=='psicologa')return;const a=S.appts.find(x=>x.id===d.id);if(!a)return;if(['confirmada','pendiente'].includes(a.status)){if(a.date>TODAY)return;if(W){remoteStatus(btn,a,'realizada',x=>{logA(x,'Marcada como realizada');noteEditor(ensureNote(x))});return}markDone(a)}noteEditor(ensureNote(a))},
   carMove:d=>{const c=document.getElementById('car');if(c)c.scrollBy({left:Number(d.n)*carStep(c),behavior:'smooth'})},
   pmenu:()=>{const m=document.getElementById('pmenu');if(m)m.hidden=!m.hidden},
   goSettings:()=>{S.view='config';S.sel.ctab='auto';S.sel.patient=null;render();window.scrollTo(0,0)},

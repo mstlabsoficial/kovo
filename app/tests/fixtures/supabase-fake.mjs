@@ -66,3 +66,104 @@ export function fakeApi(db, role, { maxRows = Infinity, fail = null } = {}) {
   };
   return { request, calls };
 }
+
+// Políticas de INSERT/UPDATE reales (catalog-security.json) de las tablas que se escriben.
+export const RLS_WRITE = { patients: ['psychologa', 'recepcion'], appointments: ['psychologa', 'recepcion'] };
+
+// Servidor simulado CON ESTADO: lecturas como fakeApi y escrituras con las reglas de la BD real:
+// RLS de INSERT/UPDATE por rol, claves primarias, índice único (org_id, legacy_id), claves foráneas
+// compuestas (org_id, id), CHECK de estados y fechas, trigger del código de paciente (P-00001) y
+// valores por defecto. Para simular fallos:
+//   faults.beforeWrite(method, table) → lanza: la escritura NO llega (corte de red);
+//   faults.afterWrite(method, table)  → lanza: la escritura SE APLICA pero la respuesta se pierde;
+//   faults.expired = true             → 401 hasta que se llame a refresh().
+// Todo ocurre en memoria; nunca hay red.
+export function createFakeServer({ role, db = syntheticDb(), clock = () => new Date().toISOString() } = {}) {
+  const calls = [];
+  const faults = { beforeWrite: null, afterWrite: null, expired: false };
+  const counters = {};
+  const httpError = (status, code, message) => Object.assign(new Error(message), { status, details: { code, message } });
+  const eqValue = v => (v == null ? null : decodeURIComponent(v.replace(/^eq\./, '')));
+  const sameTs = (a, b) => a === b || (Date.parse(a) === Date.parse(b) && Number.isFinite(Date.parse(a)));
+  const filterRows = (rows, q) => rows.filter(r => {
+    for (const [k, v] of q) {
+      if (['select', 'order', 'limit', 'offset'].includes(k)) continue;
+      const want = eqValue(v);
+      if (k === 'updated_at' ? !sameTs(r[k], want) : String(r[k]) !== want) return false;
+    }
+    return true;
+  });
+  const checkRefs = (table, row) => {
+    if (table !== 'appointments') return;
+    const has = (t, id) => (db[t] || []).some(x => x.org_id === row.org_id && x.id === id);
+    if (!has('patients', row.patient_id)) throw httpError(409, '23503', 'violates foreign key constraint "appointments_org_id_patient_id_fkey"');
+    if (row.professional_id != null && !has('professionals', row.professional_id)) throw httpError(409, '23503', 'violates foreign key constraint "appointments_org_id_professional_id_fkey"');
+    if (row.service_id != null && !has('services', row.service_id)) throw httpError(409, '23503', 'violates foreign key constraint "appointments_org_id_service_id_fkey"');
+  };
+  const checkRow = (table, row) => {
+    if (table === 'patients') {
+      if (!['active', 'inactive', 'archived'].includes(row.status)) throw httpError(400, '23514', 'violates check constraint "patients_status_check"');
+      if (!row.first_name || !row.last_name || !row.patient_code) throw httpError(400, '23502', 'null value violates not-null constraint');
+    }
+    if (table === 'appointments') {
+      if (!['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'].includes(row.status)) throw httpError(400, '23514', 'violates check constraint "appointments_status_check"');
+      if (!(Date.parse(row.ends_at) > Date.parse(row.starts_at))) throw httpError(400, '23514', 'violates check constraint "appointments_check"');
+    }
+  };
+  const unique = (table, row, selfId) => {
+    for (const x of db[table] || []) {
+      if (x.id === row.id && x.id !== selfId) throw httpError(409, '23505', `duplicate key value violates unique constraint "${table}_pkey"`);
+      if (row.legacy_id != null && x.id !== selfId && x.org_id === row.org_id && x.legacy_id === row.legacy_id) throw httpError(409, '23505', `duplicate key value violates unique constraint "${table}_org_legacy_id_uq"`);
+      if (table === 'patients' && x.id !== selfId && x.org_id === row.org_id && x.patient_code === row.patient_code) throw httpError(409, '23505', 'duplicate key value violates unique constraint "patients_org_id_patient_code_key"');
+    }
+  };
+  const defaults = {
+    patients: () => ({ email: null, phone: null, birth_date: null, address: null, emergency_contact: null, administrative_notes: null, status: 'active', legacy_id: null, profile_data: {} }),
+    appointments: () => ({ professional_id: null, service_id: null, status: 'scheduled', location: null, administrative_note: null, created_by: null, legacy_id: null, modality: null, price_cents: 0 })
+  };
+
+  async function request(path, options = {}) {
+    const method = options.method || 'GET';
+    calls.push({ method, path, body: options.body === undefined ? undefined : JSON.parse(JSON.stringify(options.body)) });
+    if (faults.expired) throw httpError(401, 'PGRST301', 'JWT expired');
+    const [table, qs] = path.split('?');
+    const q = new URLSearchParams(qs || '');
+    if (method === 'GET') {
+      const rows = RLS[table]?.includes(role) ? (db[table] || []) : [];
+      const offset = Number(q.get('offset') || 0), limit = Number(q.get('limit') || Infinity);
+      return filterRows(rows, q).slice(offset, offset + limit).map(r => structuredClone(r));
+    }
+    if (faults.beforeWrite) faults.beforeWrite(method, table);
+    let result;
+    if (method === 'POST') {
+      if (!RLS_WRITE[table]?.includes(role)) throw httpError(403, '42501', `new row violates row-level security policy for table "${table}"`);
+      const now = clock();
+      const row = { ...defaults[table](), ...structuredClone(options.body), created_at: now, updated_at: now };
+      if (!row.id) row.id = crypto.randomUUID();
+      if (table === 'patients' && (row.patient_code == null || String(row.patient_code).trim() === '' || row.patient_code === 'AUTO')) {
+        counters[row.org_id] = (counters[row.org_id] || 0) + 1;   // trigger patients_assign_code
+        row.patient_code = 'P-' + String(counters[row.org_id]).padStart(5, '0');
+      }
+      checkRow(table, row); unique(table, row); checkRefs(table, row);
+      (db[table] ||= []).push(row);
+      result = [structuredClone(row)];
+    } else if (method === 'PATCH') {
+      // RLS de UPDATE: las filas que el rol no puede modificar simplemente no se encuentran.
+      const visible = RLS_WRITE[table]?.includes(role) ? (db[table] || []) : [];
+      const targets = filterRows(visible, q);
+      const out = [];
+      for (const target of targets) {
+        const next = { ...target, ...structuredClone(options.body), id: target.id, org_id: target.org_id, patient_code: target.patient_code };
+        if (table !== 'patients') delete next.patient_code;
+        checkRow(table, next); unique(table, next, target.id); checkRefs(table, next);
+        Object.assign(target, next);
+        out.push(structuredClone(target));
+      }
+      result = out;
+    } else throw httpError(405, 'PGRST000', 'Método no permitido en la prueba');
+    if (faults.afterWrite) faults.afterWrite(method, table);
+    return result;
+  }
+  const refresh = async () => { faults.expired = false; return { id: 'usuario-renovado' }; };
+  return { db, calls, faults, request, refresh, writes: () => calls.filter(c => c.method !== 'GET') };
+}

@@ -52,6 +52,12 @@ export async function signOut() {
 
 export function getCurrentUser() { return currentUser; }
 
+// Renueva el token de acceso con el refresh token guardado. Devuelve el usuario o null si la
+// sesión ya no es válida (en ese caso se borra). Lo usan las escrituras tras un 401.
+export async function refreshAccessToken() {
+  return refreshSession(readSession());
+}
+
 export async function getMemberships() {
   const user = currentUser || await restoreSession();
   if (!user) throw new Error('Inicia sesión para continuar.');
@@ -71,5 +77,5 @@ export async function getOrganizationContext() {
   const membership = memberships[0];
   const orgs = await supabaseRequest(`organizations?select=id,name,is_demo&id=eq.${membership.org_id}&limit=1`);
   if (!orgs.length) throw new Error('No se ha encontrado la organización asignada.');
-  return { ...orgs[0], role: membership.role, membershipId: membership.id };
+  return { ...orgs[0], role: membership.role, membershipId: membership.id, userId: membership.user_id };
 }

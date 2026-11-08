@@ -21,6 +21,36 @@ const DEFAULT_AVAIL = { 0: [[600, 840], [960, 1200]], 1: [[600, 840], [960, 1200
 // cargado). Evita que la interfaz falle al leer SV(id).name. No existe en la BD.
 export const MISSING_SERVICE_ID = 'kovo:sin-servicio';
 const missingService = () => ({ id: MISSING_SERVICE_ID, name: 'Servicio sin asignar', dur: null, price: 0, exempt: false, active: false, placeholder: true });
+// Añade el servicio de presentación a la lista si alguna cita o paciente lo usa y aún no está.
+export function ensureMissingService(services) {
+  if (!services.some(s => s.id === MISSING_SERVICE_ID)) services.push(missingService());
+  return services;
+}
+
+// Valores de presentación de un paciente (también para el registro confirmado tras guardarlo).
+// note(entity, id, field, issue, value) anota cada sustitución; sIds = ids de servicios cargados.
+export function uiPatient(src, sIds, note = () => {}) {
+  const p = { ...src, docs: (src.docs || []).slice() };
+  if (p.name == null) { p.name = ''; note('patient', p.id, 'name', 'ui_default'); }
+  if (p.code == null) { p.code = ''; note('patient', p.id, 'code', 'ui_default'); }
+  if (p.status == null) { p.status = 'activo'; note('patient', p.id, 'status', 'ui_default', 'activo'); }
+  if (p.billing == null) {
+    // Igual que un paciente nuevo en la interfaz: particular a su propio nombre, sin NIF ni dirección.
+    p.billing = { type: 'particular', name: p.name, nif: '', addr: '' };
+    p.billingFromDb = false;
+    note('patient', p.id, 'billing', 'ui_default');
+  } else p.billingFromDb = true;
+  if (!(p.service && sIds.has(p.service))) { p.service = MISSING_SERVICE_ID; note('patient', p.id, 'service', 'ui_default', MISSING_SERVICE_ID); }
+  return p;
+}
+// Valores de presentación de una cita. Devuelve null si la interfaz no puede mostrarla.
+export function uiAppointment(src, sIds, note = () => {}) {
+  if (src.status == null || src.date == null || src.start == null || src.dur == null) { note('appointment', src.id, 'status', 'excluded_from_ui'); return null; }
+  const a = { ...src, log: (src.log || []).slice() };
+  if (!(a.service && sIds.has(a.service))) { a.service = MISSING_SERVICE_ID; note('appointment', a.id, 'service', 'ui_default', MISSING_SERVICE_ID); }
+  if (a.cancelReason == null) a.cancelReason = '';
+  return a;
+}
 
 export function toLegacyState({ collections, loaded = {}, report = [], context, today }) {
   const role = ROLE[context?.role];
@@ -37,42 +67,14 @@ export function toLegacyState({ collections, loaded = {}, report = [], context, 
   /* servicios */
   const services = (c.services || []).map(s => ({ ...s }));
   const sIds = new Set(services.map(s => s.id));
-  let usedMissing = false;
-  const serviceOrMissing = (entity, id, sid) => {
-    if (sid && sIds.has(sid)) return sid;
-    usedMissing = true;
-    note(entity, id, 'service', 'ui_default', MISSING_SERVICE_ID);
-    return MISSING_SERVICE_ID;
-  };
 
   /* pacientes */
-  const patients = (c.patients || []).map(src => {
-    const p = { ...src, docs: (src.docs || []).slice() };
-    if (p.name == null) { p.name = ''; note('patient', p.id, 'name', 'ui_default'); }
-    if (p.code == null) { p.code = ''; note('patient', p.id, 'code', 'ui_default'); }
-    if (p.status == null) { p.status = 'activo'; note('patient', p.id, 'status', 'ui_default', 'activo'); }
-    if (p.billing == null) {
-      // Igual que un paciente nuevo en la interfaz: particular a su propio nombre, sin NIF ni dirección.
-      p.billing = { type: 'particular', name: p.name, nif: '', addr: '' };
-      p.billingFromDb = false;
-      note('patient', p.id, 'billing', 'ui_default');
-    } else p.billingFromDb = true;
-    if (p.service != null || loaded.services) p.service = serviceOrMissing('patient', p.id, p.service);
-    return p;
-  });
+  const patients = (c.patients || []).map(src => uiPatient(src, sIds, note));
   const pById = new Map(patients.map(p => [p.id, p]));
 
   /* citas */
-  const appts = [];
-  for (const src of c.appts || []) {
-    if (src.status == null || src.date == null || src.start == null || src.dur == null) {
-      note('appointment', src.id, 'status', 'excluded_from_ui'); continue;
-    }
-    const a = { ...src, log: (src.log || []).slice() };
-    a.service = serviceOrMissing('appointment', a.id, a.service);
-    if (a.cancelReason == null) a.cancelReason = '';
-    appts.push(a);
-  }
+  const appts = (c.appts || []).map(src => uiAppointment(src, sIds, note)).filter(Boolean);
+  const usedMissing = patients.some(p => p.service === MISSING_SERVICE_ID) || appts.some(a => a.service === MISSING_SERVICE_ID);
 
   /* facturas */
   const invoices = [];
@@ -137,7 +139,7 @@ export function toLegacyState({ collections, loaded = {}, report = [], context, 
   // loc queda null: legacy.js ya pone su ubicación por defecto al cargar el estado.
   const pro = { id: p0?.id ?? null, name: p0?.name ?? '', col: p0?.col ?? '', email: p0?.email ?? '', nif: '', addr: '', loc: null, sanitaria: null };
 
-  if (usedMissing) services.push(missingService());
+  if (usedMissing) ensureMissingService(services);
 
   const state = {
     seq: 1, role, view: 'inicio', cal: { mode: 'semana', date: today }, sel: { homeDay: today },
