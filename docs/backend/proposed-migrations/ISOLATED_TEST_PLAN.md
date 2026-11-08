@@ -41,7 +41,9 @@ Also test concurrent duplicate billing attempts. Exactly one transaction may win
 | Reception reads patient billing profile | Denied by RLS |
 | Invoice issuance with no organization profile | Rejected; invoice remains draft |
 | Invoice issuance with no patient billing profile | Rejected; invoice remains draft |
-| Valid issuance | Number, series, issuer snapshot, recipient snapshot and status are written atomically |
+| Direct REST INSERT of an invoice with status `issued`, `paid`, `partially_paid` or `void` | Rejected; only draft invoices can be inserted by authenticated clients |
+| Direct REST UPDATE that changes a draft invoice status | Rejected; status transitions must use the guarded RPC |
+| Valid issuance through `public.emit_invoice` | Number, series, issuer snapshot, recipient snapshot and status are written atomically |
 | Profile changes after issuance | Existing invoice snapshots remain unchanged |
 | Direct REST update/delete of issued invoice | Rejected by existing invoice immutability trigger |
 | Caller from another organization tries to issue invoice | Denied |
@@ -85,7 +87,7 @@ Run the complete test set for each role and for a user with no membership. For e
 
 - Cross-organization SELECT, INSERT, UPDATE and RPC invocation.
 - Missing/expired JWT and inactive membership.
-- Direct REST writes that bypass the UI, including appointment/invoice-line consistency checks.
+- Direct REST writes that bypass the UI, including appointment/invoice-line consistency checks and invoice status escalation.
 - Concurrent retries and unique-key races.
 - Transaction rollback when any part of a multi-row RPC fails.
 - Issued invoice and signed clinical-note immutability remains intact.
