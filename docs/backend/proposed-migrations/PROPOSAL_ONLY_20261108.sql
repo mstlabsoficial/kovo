@@ -376,7 +376,9 @@ ALTER TABLE public.invoices
 CREATE OR REPLACE FUNCTION private.guard_invoice_status_transition()
 RETURNS trigger
 LANGUAGE plpgsql
-SECURITY DEFINER
+-- Intentionally SECURITY INVOKER: current_user must remain the API role for
+-- direct REST attempts, while the approved SECURITY DEFINER invoice RPC runs
+-- this trigger as its owner (postgres).
 SET search_path TO ''
 AS $function$
 BEGIN
