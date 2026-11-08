@@ -324,6 +324,42 @@ ALTER TABLE public.invoices
     )
   ) NOT VALID;
 
+
+-- Existing authenticated table grants allow direct INSERT/UPDATE on invoices.
+-- The original immutability trigger blocks edits only once an invoice is already
+-- non-draft; it does not prevent a client from inserting status='issued' or changing
+-- a draft directly to 'issued'. Keep draft creation available but force every
+-- status transition through the SECURITY DEFINER workflow RPCs.
+CREATE OR REPLACE FUNCTION private.guard_invoice_status_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status IS DISTINCT FROM 'draft' AND current_user <> 'postgres' THEN
+      RAISE EXCEPTION 'Invoices must be created as drafts and issued through the guarded workflow';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.status IS DISTINCT FROM OLD.status AND current_user <> 'postgres' THEN
+    RAISE EXCEPTION 'Invoice status transitions must use an authorized workflow';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION private.guard_invoice_status_transition()
+  FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE TRIGGER invoices_guard_status_transition
+  BEFORE INSERT OR UPDATE OF status
+  ON public.invoices
+  FOR EACH ROW EXECUTE FUNCTION private.guard_invoice_status_transition();
+
 ALTER TABLE public.organization_billing_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.patient_billing_profiles ENABLE ROW LEVEL SECURITY;
 
