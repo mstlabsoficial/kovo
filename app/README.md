@@ -75,5 +75,19 @@ app/
     └── __screenshots__/       38 capturas de referencia del original (19 escritorio + 19 móvil)
 ```
 
+## Fuente e iconos
+
+- `src/fonts.css` + `src/assets/fonts/`: Geist y Geist Mono alojadas en el proyecto (licencia OFL en
+  `src/assets/fonts/OFL.txt`). Son los mismos archivos y rangos que servía Google Fonts, por eso las
+  capturas de referencia coinciden. No se carga nada de Google.
+- `public/`: favicon (`icon-192.png`), Apple Touch Icon (`apple-touch-icon.png`, 180×180), icono de
+  512 y `manifest.webmanifest`. Vite les antepone la ruta base al compilar (`/` o `/kovo/`).
+  Los iconos de 180 y 192 se generan reduciendo `icon-512.png`.
+
+## Variables de entorno
+
+Copia `.env.example` a `.env.local` para tus valores locales. Git ignora `.env`, `.env.*` y `*.local`;
+solo se versionan los archivos `*.example`, que nunca deben contener claves.
+
 Herramientas locales (fuera de Git): `.tools/node` (Node 22.23.4 portátil), `node_modules/`,
 `.playwright-browsers/` (Chromium de pruebas).

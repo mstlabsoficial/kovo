@@ -1,2 +1,9 @@
 backups/
 .DS_Store
+
+# Archivos de entorno locales (pueden contener claves). Se versionan solo los de ejemplo.
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local

@@ -5,3 +5,8 @@ playwright-report/
 .playwright-browsers/
 .tools/
 .DS_Store
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
