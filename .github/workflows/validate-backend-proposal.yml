@@ -1,0 +1,36 @@
+name: Validate KOVO backend proposal
+
+on:
+  pull_request:
+    branches:
+      - chore/recover-supabase-migrations
+    paths:
+      - "docs/backend/**"
+      - "supabase/recovered-schema/BASELINE_CANDIDATE_NOT_TESTED.sql"
+      - "scripts/validate-backend-proposal.sh"
+      - ".github/workflows/validate-backend-proposal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kovo-backend-proposal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  local-supabase-reconstruction:
+    name: Reconstruct schema and apply proposal locally
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Apply recovered baseline and proposal in an isolated stack
+        run: bash scripts/validate-backend-proposal.sh
