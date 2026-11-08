@@ -8,6 +8,7 @@
 #   sh scripts/pw.sh visual     compara la versión Vite contra esas capturas
 #   sh scripts/pw.sh smoke      recorre secciones, roles y acciones de la versión Vite
 #   sh scripts/pw.sh all        smoke + visual
+#   sh scripts/pw.sh supabase   interfaz en modo Supabase contra una API simulada (sin red)
 set -e
 cd "$(dirname "$0")/.."
 export PATH="$PWD/.tools/node/bin:$PATH"
@@ -18,5 +19,6 @@ case "$1" in
   visual)   $PW tests/visual --project=vite --project=vite-movil ;;
   smoke)    $PW tests/smoke --project=vite ;;
   all)      $PW tests/smoke --project=vite && $PW tests/visual --project=vite --project=vite-movil ;;
-  *) echo "Uso: sh scripts/pw.sh baseline|visual|smoke|all"; exit 1 ;;
+  supabase) $PW --config=playwright.supabase.config.js ;;
+  *) echo "Uso: sh scripts/pw.sh baseline|visual|smoke|all|supabase"; exit 1 ;;
 esac

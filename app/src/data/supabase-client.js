@@ -1,7 +1,9 @@
 // Cliente REST mínimo para Supabase. No contiene claves secretas: la publishable key
 // es pública y la seguridad real depende de Auth + RLS en PostgreSQL.
-const URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
-const KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+// `|| {}`: permite importar el módulo en las pruebas de Node, donde no existe import.meta.env.
+const ENV = import.meta.env || {};
+const URL = (ENV.VITE_SUPABASE_URL || '').replace(/\/$/, '');
+const KEY = ENV.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 const SESSION_KEY = 'kovo.auth.session.v1';
 
 export function isSupabaseConfigured() { return Boolean(URL && KEY); }

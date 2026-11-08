@@ -12,16 +12,28 @@
 
 export const TIME_ZONE = 'Europe/Madrid';
 
-// Valores con evidencia en el repositorio (mapping.js escribe estos valores en la BD).
-export const PATIENT_STATUS = Object.freeze({ active: 'activo', inactive: 'alta terapéutica' });
+// Estados: valores permitidos por las restricciones CHECK de la BD
+// (supabase/recovered-schema/catalog-tables.json, rama chore/recover-supabase-migrations).
+// patients.status: active | inactive | archived. 'archived' no existe en la interfaz:
+// se muestra como alta terapéutica y se anota como correspondencia aproximada.
+export const PATIENT_STATUS = Object.freeze({ active: 'activo', inactive: 'alta terapéutica', archived: 'alta terapéutica' });
+const APPROX_PATIENT_STATUS = new Set(['archived']);
+// appointments.status: scheduled | confirmed | completed | cancelled | no_show.
 export const APPOINTMENT_STATUS = Object.freeze({
   scheduled: 'pendiente', confirmed: 'confirmada', completed: 'realizada', cancelled: 'cancelada', no_show: 'ausencia'
 });
+// note_type no tiene CHECK: valores que escribe mapping.js ('session' es el valor por defecto de la RPC).
 export const NOTE_TYPE = Object.freeze({ session: 'sesion', initial: 'inicial', progress: 'evolucion', discharge: 'cierre' });
-// Facturas: solo 'draft' está confirmado (migración 008). El resto de valores depende de
-// private.emit_invoice, que no está en Git: no se traducen hasta verificarlos.
-export const INVOICE_STATUS = Object.freeze({ draft: 'borrador' });
-const LEGACY_INVOICE_STATUS = new Set(['borrador', 'emitida', 'rectificada']);
+// clinical_notes.status: draft | signed | rectified. Una nota rectificada sigue firmada; las
+// rectificaciones van en `versions`.
+export const NOTE_STATUS = Object.freeze({ draft: 'borrador', signed: 'firmada', rectified: 'firmada' });
+// invoices.status: draft | issued | paid | partially_paid | void. La interfaz guarda
+// borrador | emitida | rectificada y calcula cobrada/parcial/vencida a partir de los cobros.
+// emit_invoice pasa de 'draft' a 'issued'. 'void' (anulada) se muestra como rectificada.
+export const INVOICE_STATUS = Object.freeze({ draft: 'borrador', issued: 'emitida', paid: 'emitida', partially_paid: 'emitida', void: 'rectificada' });
+const APPROX_INVOICE_STATUS = new Set(['void']);
+// Roles de memberships.role → S.role de la interfaz.
+export const ROLE = Object.freeze({ psychologa: 'psicologa', recepcion: 'recepcion', gestoria: 'gestoria' });
 // Tipos de documento que se interpretan como consentimiento informado (vocabulario sin verificar).
 export const CONSENT_DOCUMENT_TYPES = Object.freeze(['consent', 'consentimiento', 'informed_consent']);
 // Categorías de gasto que entiende la interfaz (copia de CATS en legacy.js; un test vigila que coincidan).
@@ -104,6 +116,7 @@ export function patientFromRow(row, opts) {
   const id = row.id;
   const status = PATIENT_STATUS[row.status] ?? null;
   if (!status) r.add('patient', id, 'status', 'unknown_value', row.status ?? null);
+  else if (APPROX_PATIENT_STATUS.has(row.status)) r.add('patient', id, 'status', 'approximate_mapping', row.status);
   const profile = row.profile_data;
   const profileAlta = isObj(profile) ? dateOnly(profile.alta) : null;
   if (!profileAlta) r.add('patient', id, 'alta', 'derived_from_created_at');
@@ -234,11 +247,17 @@ export function retentionPercent(retentionCents, subtotalCents) {
   const pct = Math.round(retentionCents * 100 / subtotalCents);
   return Math.round(subtotalCents * pct / 100) === retentionCents ? pct : null;
 }
-function invoiceStatus(row, r) {
-  if (INVOICE_STATUS[row.status]) return INVOICE_STATUS[row.status];
-  if (LEGACY_INVOICE_STATUS.has(row.legacy_status)) { r.add('invoice', row.id, 'status', 'taken_from_legacy_status', row.status ?? null); return row.legacy_status; }
-  r.add('invoice', row.id, 'status', 'unknown_value', row.status ?? null);
-  return null;
+function invoiceStatus(row, payments, total, r) {
+  const status = INVOICE_STATUS[row.status] ?? null;
+  if (!status) { r.add('invoice', row.id, 'status', 'unknown_value', row.status ?? null); return null; }
+  if (APPROX_INVOICE_STATUS.has(row.status)) r.add('invoice', row.id, 'status', 'approximate_mapping', row.status);
+  // La interfaz deduce "cobrada" o "parcial" de los cobros: se avisa si no cuadra con el estado de la BD.
+  if (payments && Number.isInteger(total) && (row.status === 'paid' || row.status === 'partially_paid' || row.status === 'issued')) {
+    const paid = payments.reduce((a, p) => a + (Number.isInteger(p.amount) ? p.amount : 0), 0);
+    const derived = paid >= total ? 'paid' : paid > 0 ? 'partially_paid' : 'issued';
+    if (derived !== row.status) r.add('invoice', row.id, 'status', 'payments_disagree_with_status', row.status);
+  }
+  return status;
 }
 // lines/payments: arrays ya convertidos de esa factura, o null si no se han cargado.
 export function invoiceFromRow(row, lines, payments, opts) {
@@ -261,7 +280,7 @@ export function invoiceFromRow(row, lines, payments, opts) {
     lines, ret, retentionCents: row.retention_cents ?? 0,
     appts: [],                      // la BD no relaciona facturas con citas
     payments, sent: null, hash: null, prevHash: null,
-    status: invoiceStatus(row, r), legacyStatus: str(row.legacy_status),
+    status: invoiceStatus(row, payments, row.total_cents, r), dbStatus: str(row.status), legacyStatus: str(row.legacy_status),
     kind: row.series === 'R' ? 'R' : 'F',
     currency: str(row.currency), notes: str(row.notes),
     dbTotals: { subtotal: row.subtotal_cents, tax: row.tax_cents, retention: row.retention_cents, total: row.total_cents }
@@ -321,12 +340,16 @@ export function clinicalNoteFromRow(row, rectifications, opts) {
   const id = row.id;
   const type = NOTE_TYPE[row.note_type] ?? null;
   if (!type) r.add('clinical_note', id, 'type', 'unknown_value', row.note_type ?? null);
-  let status = null;
-  if (row.signed_at) {
+  // El estado manda. Una nota con signed_at pero en 'draft' se trata como firmada (no editable),
+  // que es la opción segura; una nota firmada sin signed_at se anota.
+  let status = NOTE_STATUS[row.status] ?? null;
+  if (!status) {
+    if (row.signed_at) status = 'firmada';
+    r.add('clinical_note', id, 'status', 'unknown_value', row.status ?? null);
+  } else if (row.status === 'draft' && row.signed_at) {
     status = 'firmada';
-    if (row.status === 'draft') r.add('clinical_note', id, 'status', 'draft_with_signed_at');
-  } else if (row.status === 'draft') status = 'borrador';
-  else r.add('clinical_note', id, 'status', 'unknown_value', row.status ?? null);
+    r.add('clinical_note', id, 'status', 'draft_with_signed_at');
+  } else if (status === 'firmada' && !row.signed_at) r.add('clinical_note', id, 'signedAt', 'missing_in_db');
   const parsed = parseNoteContent(row.content, type);
   if (!parsed.structured) r.add('clinical_note', id, 'fields', 'content_unstructured');
   if (rectifications === null) r.add('clinical_note', id, 'versions', 'not_loaded');
@@ -348,7 +371,20 @@ export function buildLegacyCollections(input = {}) {
   const report = createReport();
   const opts = { report };
   const has = k => Array.isArray(input[k]);
-  const rows = k => (has(k) ? input[k] : []);
+  // Sin duplicados: si una fila llega dos veces (por ejemplo, entre páginas), se queda la primera.
+  const deduped = {};
+  const rows = k => {
+    if (!has(k)) return [];
+    if (!deduped[k]) {
+      const seen = new Set();
+      deduped[k] = input[k].filter(x => {
+        if (!x || typeof x !== 'object') return false;
+        if (seen.has(x.id)) { report.add(k, x.id ?? null, 'id', 'duplicate_row'); return false; }
+        seen.add(x.id); return true;
+      });
+    }
+    return deduped[k];
+  };
   const group = (list, key) => { const m = new Map(); for (const x of list) { const k = x[key]; if (!m.has(k)) m.set(k, []); m.get(k).push(x); } return m; };
 
   const orgIds = new Set();

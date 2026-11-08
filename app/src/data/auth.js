@@ -55,8 +55,14 @@ export function getCurrentUser() { return currentUser; }
 export async function getMemberships() {
   const user = currentUser || await restoreSession();
   if (!user) throw new Error('Inicia sesión para continuar.');
-  return supabaseRequest('memberships?select=id,org_id,role,active&active=eq.true&order=created_at.asc');
+  if (!UUID_RE.test(String(user.id || ''))) throw new Error('Supabase no devolvió un usuario válido.');
+  // Filtro por usuario obligatorio: la política RLS de memberships deja ver a todos los miembros
+  // de la consulta, así que sin él se tomaría el rol de otra persona.
+  const rows = await supabaseRequest(`memberships?select=id,org_id,role,active,user_id&user_id=eq.${user.id}&active=eq.true&order=created_at.asc`);
+  if (!Array.isArray(rows)) throw new Error('Respuesta inesperada al leer tu perfil.');
+  return rows.filter(m => m && m.user_id === user.id);
 }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function getOrganizationContext() {
   const memberships = await getMemberships();

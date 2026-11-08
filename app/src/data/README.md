@@ -5,8 +5,8 @@
 - Sesión guardada en sessionStorage (se elimina al cerrar la sesión del navegador).
 - Contexto de organización y rol recuperado desde memberships.
 - Transformaciones explícitas para pacientes, citas, notas y facturas.
-- Adaptador de lectura BD → modelo legacy (`from-supabase.js`, sin uso todavía en la interfaz). Correspondencias e incompatibilidades en `from-supabase.md`.
-- El adaptador **no carga ni escribe el estado legacy todavía**. Se bloquea deliberadamente para evitar importar IDs ficticios, duplicar registros o perder relaciones.
+- `load()` en modo Supabase: lectura por rol de todas las tablas de negocio, conversión al modelo legacy (`from-supabase.js`, `legacy-state.js`). Correspondencias, valores de presentación e incompatibilidades en `from-supabase.md`.
+- **Solo lectura:** `persist()` no escribe. Los cambios en pantalla se pierden al recargar. El modo sigue desactivado por defecto.
 
 ## Configuración DEV
 Copia `.env.example` a `.env.local`, completa la publishable key del proyecto DEV y establece `VITE_DATA_MODE=supabase` solo para probar autenticación. No uses service_role en el navegador.

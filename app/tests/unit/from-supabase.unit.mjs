@@ -92,9 +92,14 @@ describe('pacientes', () => {
   });
   test('estado desconocido queda null y se anota', () => {
     const report = A.createReport();
-    const p = A.patientFromRow({ ...patientMin(), status: 'archived' }, { report });
+    const p = A.patientFromRow({ ...patientMin(), status: 'deleted' }, { report });
     assert.equal(p.status, null);
-    assert.deepEqual(report.entries.find(e => e.field === 'status'), { entity: 'patient', id: P2, field: 'status', issue: 'unknown_value', value: 'archived' });
+    assert.deepEqual(report.entries.find(e => e.field === 'status'), { entity: 'patient', id: P2, field: 'status', issue: 'unknown_value', value: 'deleted' });
+  });
+  test('archived (CHECK de la BD) se muestra como alta terapéutica y se anota como aproximación', () => {
+    const report = A.createReport();
+    assert.equal(A.patientFromRow({ ...patientMin(), status: 'archived' }, { report }).status, 'alta terapéutica');
+    assert.ok(report.entries.some(e => e.field === 'status' && e.issue === 'approximate_mapping' && e.value === 'archived'));
   });
   test('profile_data con tipos incorrectos no se acepta', () => {
     const report = A.createReport();
@@ -207,12 +212,27 @@ describe('facturas, líneas y cobros', () => {
     assert.equal(l.exempt, false); assert.equal(l.taxRate, 10);
     assert.ok(report.entries.some(e => e.issue === 'unsupported_rate' && e.value === 10));
   });
-  test('estados: draft, desconocido y legacy_status', () => {
+  test('estados del CHECK de la BD: draft, issued, paid, partially_paid y void', () => {
+    const pay = amount => [{ id: PAY1, invoiceId: INV1, date: '2026-11-06', amount, method: 'Bizum', ref: null }];
+    const st = (status, payments = []) => A.invoiceFromRow(invoice(INV1, { status, invoice_number: 'KOVO-2026-000001' }), [], payments).status;
+    assert.equal(st('draft'), 'borrador');
+    assert.equal(st('issued'), 'emitida');
+    assert.equal(st('paid', pay(5500)), 'emitida');           // "cobrada" la calcula la interfaz con los cobros
+    assert.equal(st('partially_paid', pay(2000)), 'emitida');
     const report = A.createReport();
-    assert.equal(A.invoiceFromRow(invoice(INV1, { status: 'issued', invoice_number: 'A2026/0001' }), [], [], { report }).status, null);
-    assert.ok(report.entries.some(e => e.field === 'status' && e.issue === 'unknown_value' && e.value === 'issued'));
-    assert.equal(A.invoiceFromRow(invoice(INV1, { status: 'issued', legacy_status: 'emitida' }), [], []).status, 'emitida');
+    assert.equal(A.invoiceFromRow(invoice(INV1, { status: 'void' }), [], [], { report }).status, 'rectificada');
+    assert.ok(report.entries.some(e => e.issue === 'approximate_mapping' && e.value === 'void'));
     assert.equal(A.invoiceFromRow(invoice(INV1, { series: 'R' }), [], []).kind, 'R');
+  });
+  test('estado desconocido queda null; estado que no cuadra con los cobros se anota', () => {
+    const report = A.createReport();
+    assert.equal(A.invoiceFromRow(invoice(INV1, { status: 'cancelled' }), [], [], { report }).status, null);
+    assert.ok(report.entries.some(e => e.issue === 'unknown_value' && e.value === 'cancelled'));
+    A.invoiceFromRow(invoice(INV1, { status: 'paid' }), [], [], { report });   // pagada sin cobros
+    assert.ok(report.entries.some(e => e.issue === 'payments_disagree_with_status' && e.value === 'paid'));
+    const clean = A.createReport();
+    A.invoiceFromRow(invoice(INV1, { status: 'paid' }), [], [{ id: PAY1, invoiceId: INV1, date: null, amount: 5500, method: null, ref: null }], { report: clean });
+    assert.ok(!clean.entries.some(e => e.issue === 'payments_disagree_with_status'));
   });
   test('líneas o cobros no cargados quedan null (no [])', () => {
     const { collections, report } = A.buildLegacyCollections({ invoices: [invoice(INV1)] });
@@ -273,6 +293,13 @@ describe('notas clínicas', () => {
     assert.equal(A.parseNoteContent('motivo: x', 'sesion').structured, false);
     assert.equal(A.parseNoteContent('motivo: x', 'inicial').structured, true);
   });
+  test('signed y rectified (CHECK de la BD) son firmadas', () => {
+    assert.equal(A.clinicalNoteFromRow(note(N1, { status: 'signed', signed_at: '2026-11-03T18:00:00Z' }), []).status, 'firmada');
+    assert.equal(A.clinicalNoteFromRow(note(N1, { status: 'rectified', signed_at: '2026-11-03T18:00:00Z' }), []).status, 'firmada');
+    const report = A.createReport();
+    assert.equal(A.clinicalNoteFromRow(note(N1, { status: 'signed', signed_at: null }), [], { report }).status, 'firmada');
+    assert.ok(report.entries.some(e => e.field === 'signedAt' && e.issue === 'missing_in_db'));
+  });
   test('estado y tipo desconocidos', () => {
     const report = A.createReport();
     const n = A.clinicalNoteFromRow(note(N1, { status: 'archived', note_type: 'phone_call' }), [], { report });
@@ -320,6 +347,15 @@ describe('relaciones e integridad del conjunto', () => {
     const { loaded, report } = A.buildLegacyCollections({ invoices: [], expenses: [] });
     assert.equal(loaded.invoices, true); assert.equal(loaded.patients, false);
     assert.ok(!report.some(e => e.issue === 'orphan_reference'));
+  });
+  test('filas duplicadas (mismo id) se cargan una sola vez y se anotan', () => {
+    const s = snapshot();
+    s.patients.push(patientFull()); s.appointments.push(s.appointments[0]); s.invoiceLines.push(s.invoiceLines[0]);
+    const { collections, report } = A.buildLegacyCollections(s);
+    assert.equal(collections.patients.length, 2);
+    assert.equal(collections.appts.length, 3);
+    assert.equal(collections.invoices[0].lines.length, 1);
+    assert.deepEqual(report.filter(e => e.issue === 'duplicate_row').map(e => e.entity).sort(), ['appointments', 'invoiceLines', 'patients']);
   });
   test('UUID reales se conservan como id', () => {
     const { collections } = A.buildLegacyCollections(snapshot());
@@ -404,6 +440,27 @@ describe('copias que no deben desincronizarse', () => {
   test('LEGACY_EXPENSE_CATEGORIES coincide con CATS de legacy.js', () => {
     const CATS = new Function(`return ${legacySrc.match(/const CATS=(\[[^\]]*\]);/)[1]}`)();
     assert.deepEqual(CATS, [...A.LEGACY_EXPENSE_CATEGORIES]);
+  });
+  // Valores de las restricciones CHECK de la BD real, copiados de
+  // supabase/recovered-schema/catalog-tables.json (rama chore/recover-supabase-migrations, 9ffb064).
+  const DB_CHECK = {
+    patients: ['active', 'inactive', 'archived'],
+    appointments: ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'],
+    clinical_notes: ['draft', 'signed', 'rectified'],
+    invoices: ['draft', 'issued', 'paid', 'partially_paid', 'void'],
+    memberships: ['psychologa', 'recepcion', 'gestoria']
+  };
+  test('cada valor permitido por la BD tiene traducción (y ninguno más)', () => {
+    assert.deepEqual(Object.keys(A.PATIENT_STATUS).sort(), DB_CHECK.patients.slice().sort());
+    assert.deepEqual(Object.keys(A.APPOINTMENT_STATUS).sort(), DB_CHECK.appointments.slice().sort());
+    assert.deepEqual(Object.keys(A.NOTE_STATUS).sort(), DB_CHECK.clinical_notes.slice().sort());
+    assert.deepEqual(Object.keys(A.INVOICE_STATUS).sort(), DB_CHECK.invoices.slice().sort());
+    assert.deepEqual(Object.keys(A.ROLE).sort(), DB_CHECK.memberships.slice().sort());
+    // y cada traducción es un estado que la interfaz conoce (claves de CHIP en legacy.js)
+    const CHIP = new Function(`return ${legacySrc.match(/const CHIP=(\{[^}]*\});/)[1]}`)();
+    for (const v of [...Object.values(A.PATIENT_STATUS), ...Object.values(A.APPOINTMENT_STATUS), ...Object.values(A.NOTE_STATUS), ...Object.values(A.INVOICE_STATUS)]) assert.ok(v in CHIP, v);
+    const ME = new Function(`return ${legacySrc.match(/const ME=(\{[^}]*\});/)[1]}`)();
+    for (const v of Object.values(A.ROLE)) assert.ok(v in ME, v);
   });
   test('los estados son el inverso exacto de mapping.js', () => {
     for (const [db, legacy] of Object.entries(A.APPOINTMENT_STATUS)) assert.equal(M.appointmentToRow({ date: '2026-11-06', start: 600, dur: 60, status: legacy }, P1, ORG).status, db);

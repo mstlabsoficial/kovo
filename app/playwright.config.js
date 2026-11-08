@@ -11,6 +11,8 @@ const movil = { viewport: { width: 375, height: 812 }, isMobile: true, hasTouch:
 
 export default defineConfig({
   testDir: 'tests',
+  // tests/supabase usa su propia configuración (playwright.supabase.config.js).
+  testIgnore: ['supabase/**'],
   // Sin el nombre del proyecto en la ruta: original y Vite comparan contra las MISMAS capturas.
   snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
   fullyParallel: false,
