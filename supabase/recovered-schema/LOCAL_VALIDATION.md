@@ -2,35 +2,42 @@
 
 ## Purpose
 
-Validate `BASELINE_CANDIDATE_NOT_TESTED.sql` against a fresh, disposable Supabase local stack. This is the final live schema snapshot, not a replay of historical migrations.
+Validate `BASELINE_CANDIDATE_NOT_TESTED.sql` against a fresh, disposable Supabase local stack, then apply the backend-gap proposal on top. The baseline is a catalog-derived final schema snapshot, not a replay of historical migrations.
 
 ## Mandatory safety rules
 
 - Never use the production project ref `otlwmrbioawjvgrrznoq` for these steps.
-- Do not run `supabase db push`, `supabase migration repair`, `supabase link`, or any remote migration command.
-- Do not copy this candidate into the main working tree's active `supabase/migrations/` directory.
-- Do not run it against the hosted project, including through the Supabase SQL Editor.
-- Keep the archived historical 001–008 migrations outside the local candidate test. The baseline already contains the final catalog state.
+- Do not run `supabase db push`, `supabase migration repair`, or `supabase link`.
+- Do not copy either file into your normal working tree's active `supabase/migrations/` directory.
+- Do not run either file against the hosted project, including through the Supabase SQL Editor.
+- Keep the archived historical 001–008 migrations out of this candidate test. The baseline already contains the final captured catalog state.
 - No production data is needed or should be copied.
 
-## Test procedure
+## Automated disposable validation
 
-Use an isolated temporary directory or disposable worktree.
+The repository now includes `scripts/validate-backend-proposal.sh` and `.github/workflows/validate-backend-proposal.yml`.
 
-1. Ensure Docker Desktop is installed and running, then install/check the Supabase CLI.
-2. Initialize a temporary local Supabase workspace with `supabase init`.
-3. Copy only `BASELINE_CANDIDATE_NOT_TESTED.sql` into that workspace's `supabase/migrations/` directory under a timestamped filename, for example `20261109000000_kovo_catalog_baseline.sql`.
-4. Start local Supabase with `supabase start`.
-5. Apply the single baseline to the fresh local database with `supabase db reset`.
-6. Confirm the migration completes without SQL errors.
-7. Capture local catalog output for tables, columns, constraints, indexes, RLS policies, functions, grants, triggers, and Storage bucket configuration.
-8. Compare it to `catalog-tables.json` and `catalog-security.json`. Investigate each difference; account for Supabase-managed defaults/roles and environment-specific objects rather than blindly copying them.
-9. Check the local Storage bucket exists and is private with the expected MIME types and 20 MiB limit.
-10. Run generated TypeScript type generation against the local project and compare business table/function definitions.
+The script:
+1. Creates a fresh temporary directory.
+2. Runs `supabase init` there.
+3. Copies the recovered baseline and proposal into that temporary workspace's migrations directory.
+4. Starts a local stack with optional services excluded.
+5. runs `supabase db reset --local`.
+6. Generates TypeScript database types against the local database.
 
-## Expected schema counts
+It fails closed when hosted Supabase credentials or URLs are present in its environment. The GitHub Actions workflow supplies no Supabase secrets and only uses a GitHub-hosted ephemeral runner. It does not link to or contact the production project.
 
-The captured hosted catalog snapshot currently contains:
+Run manually from the repository root:
+
+```bash
+bash scripts/validate-backend-proposal.sh
+```
+
+A successful run proves the SQL can be applied to the reconstructed local schema and that the local Supabase type generator can introspect it. It does not prove that application-level authorization, data semantics, legal invoice requirements or rollout safety are complete.
+
+## Expected captured schema counts
+
+The current hosted catalog snapshot contains:
 - 15 public tables and 1 private table (`private.org_counters`)
 - 79 table constraints
 - 30 non-constraint indexes
@@ -39,10 +46,17 @@ The captured hosted catalog snapshot currently contains:
 - 9 non-internal triggers
 - 1 KOVO private Storage bucket
 
-Counts may vary for Supabase-managed objects or if the project changes after the capture time.
+Counts may vary for Supabase-managed objects or if the project changes after capture.
+
+## Manual follow-up after CI passes
+
+- Capture local catalog output for tables, columns, constraints, indexes, RLS policies, functions, grants, triggers and Storage bucket configuration.
+- Compare it with `catalog-tables.json` and `catalog-security.json`; investigate differences.
+- Create test users and memberships for psychologist, reception, finance and cross-tenant actors.
+- Run positive and negative PostgREST/RLS tests for every new table and RPC.
+- Test invoice immutability, consent idempotency, concurrent appointment billing and transaction rollback.
+- Reconcile remote migration history (hosted history 001–008 vs local filenames) before any deployment.
 
 ## What passing means
 
-Passing means the candidate can reconstruct the captured business schema on a clean local Supabase stack and the catalog differences are understood. It does not authorize a production deployment.
-
-A separate production rollout plan is still required because the hosted database already records eight migrations with version IDs that differ from the three migration filenames currently in Git, and because the full current schema historically includes unrecorded/manual setup.
+Passing means the recovered baseline can be reconstructed and the proposal applies on top of it in a clean local Supabase stack. It is not a production deployment approval, legal/tax compliance certification, or proof of application-level authorization.
