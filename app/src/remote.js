@@ -2,7 +2,7 @@ import { signIn, signOut, restoreSession, getOrganizationContext } from './data/
 import { createKovoRepository } from './data/repository.js';
 import { isSupabaseConfigured } from './data/supabase-client.js';
 
-const root=document.querySelector('#view');
+const root=document.querySelector('.app');
 const repoApi=createKovoRepository();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=c=>(Number(c||0)/100).toLocaleString('es-ES',{style:'currency',currency:'EUR'});
@@ -53,7 +53,7 @@ function login(error=''){style();document.body.style.margin='0';document.body.st
 ${error?`<div class="remote-error" role="alert">${esc(error)}</div>`:''}
 <p class="remote-note">Acceso privado. Las cuentas las habilita la administración de KOVO; no existe registro público.</p>
 </form></div>`;
-document.getElementById('login-form').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;login();try{await signIn(new FormData(e.currentTarget).get('email'),new FormData(e.currentTarget).get('password'));await openWorkspace()}catch(err){busy=false;login(err.message||'No se ha podido iniciar sesión.')}})}
+document.getElementById('login-form').addEventListener('submit',async e=>{e.preventDefault();if(busy)return;const form=e.currentTarget;const email=form.elements.email.value;const password=form.elements.password.value;busy=true;login();try{await signIn(email,password);await openWorkspace()}catch(err){busy=false;login(err.message||'No se ha podido iniciar sesión.')}})}
 function menu(){const items=[['inicio','Resumen']];if(['psicologa','recepcion'].includes(context.role))items.push(['pacientes','Pacientes'],['agenda','Agenda']);if(context.role==='psicologa')items.push(['clinico','Informes clínicos']);if(['psicologa','gestoria'].includes(context.role))items.push(['finanzas','Facturación y gastos']);if(context.role==='psicologa')items.push(['equipo','Equipo']);return items}
 function nav(){return menu().map(([k,l])=>`<button data-section="${k}" class="${section===k?'active':''}">${l}</button>`).join('')}
 function stat(label,value){return `<div class="remote-card"><div class="remote-statlabel">${label}</div><div class="remote-stat">${value}</div></div>`}
