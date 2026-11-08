@@ -1,0 +1,1836 @@
+{
+    "tables": [
+        {
+            "name": "org_counters",
+            "schema": "private",
+            "columns": [
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "counter_type",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "last_value",
+                    "type": "bigint",
+                    "default": "0",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "org_counters_pkey",
+                    "definition": "CREATE UNIQUE INDEX org_counters_pkey ON private.org_counters USING btree (org_id, counter_type)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "org_counters_counter_type_check",
+                    "type": "c",
+                    "definition": "CHECK (counter_type = ANY (ARRAY['patient'::text, 'invoice'::text]))"
+                },
+                {
+                    "name": "org_counters_last_value_check",
+                    "type": "c",
+                    "definition": "CHECK (last_value >= 0)"
+                },
+                {
+                    "name": "org_counters_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "org_counters_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (org_id, counter_type)"
+                }
+            ],
+            "rls_enabled": false
+        },
+        {
+            "name": "appointments",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "patient_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "professional_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "service_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "starts_at",
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "ends_at",
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "status",
+                    "type": "text",
+                    "default": "'scheduled'::text",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "location",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "administrative_note",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "created_by",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "updated_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "legacy_id",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "modality",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "price_cents",
+                    "type": "integer",
+                    "default": "0",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "appointments_created_by_idx",
+                    "definition": "CREATE INDEX appointments_created_by_idx ON public.appointments USING btree (created_by)"
+                },
+                {
+                    "name": "appointments_org_id_id_key",
+                    "definition": "CREATE UNIQUE INDEX appointments_org_id_id_key ON public.appointments USING btree (org_id, id)"
+                },
+                {
+                    "name": "appointments_org_legacy_id_uq",
+                    "definition": "CREATE UNIQUE INDEX appointments_org_legacy_id_uq ON public.appointments USING btree (org_id, legacy_id) WHERE (legacy_id IS NOT NULL)"
+                },
+                {
+                    "name": "appointments_org_professional_idx",
+                    "definition": "CREATE INDEX appointments_org_professional_idx ON public.appointments USING btree (org_id, professional_id)"
+                },
+                {
+                    "name": "appointments_org_service_idx",
+                    "definition": "CREATE INDEX appointments_org_service_idx ON public.appointments USING btree (org_id, service_id)"
+                },
+                {
+                    "name": "appointments_org_start_idx",
+                    "definition": "CREATE INDEX appointments_org_start_idx ON public.appointments USING btree (org_id, starts_at)"
+                },
+                {
+                    "name": "appointments_patient_idx",
+                    "definition": "CREATE INDEX appointments_patient_idx ON public.appointments USING btree (org_id, patient_id, starts_at DESC)"
+                },
+                {
+                    "name": "appointments_pkey",
+                    "definition": "CREATE UNIQUE INDEX appointments_pkey ON public.appointments USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "appointments_check",
+                    "type": "c",
+                    "definition": "CHECK (ends_at > starts_at)"
+                },
+                {
+                    "name": "appointments_created_by_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+                },
+                {
+                    "name": "appointments_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "appointments_org_id_id_key",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, id)"
+                },
+                {
+                    "name": "appointments_org_id_patient_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, patient_id) REFERENCES patients(org_id, id)"
+                },
+                {
+                    "name": "appointments_org_id_professional_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, professional_id) REFERENCES professionals(org_id, id)"
+                },
+                {
+                    "name": "appointments_org_id_service_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, service_id) REFERENCES services(org_id, id)"
+                },
+                {
+                    "name": "appointments_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                },
+                {
+                    "name": "appointments_status_check",
+                    "type": "c",
+                    "definition": "CHECK (status = ANY (ARRAY['scheduled'::text, 'confirmed'::text, 'completed'::text, 'cancelled'::text, 'no_show'::text]))"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "audit_log",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "bigint",
+                    "default": null,
+                    "identity": "always",
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "actor_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "action",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "entity_type",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "entity_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "metadata",
+                    "type": "jsonb",
+                    "default": "'{}'::jsonb",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "audit_log_actor_idx",
+                    "definition": "CREATE INDEX audit_log_actor_idx ON public.audit_log USING btree (actor_id)"
+                },
+                {
+                    "name": "audit_log_pkey",
+                    "definition": "CREATE UNIQUE INDEX audit_log_pkey ON public.audit_log USING btree (id)"
+                },
+                {
+                    "name": "audit_org_created_idx",
+                    "definition": "CREATE INDEX audit_org_created_idx ON public.audit_log USING btree (org_id, created_at DESC)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "audit_log_actor_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+                },
+                {
+                    "name": "audit_log_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "audit_log_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "clinical_note_rectifications",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "note_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "author_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "reason",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "replacement_text",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "clinical_note_rectifications_pkey",
+                    "definition": "CREATE UNIQUE INDEX clinical_note_rectifications_pkey ON public.clinical_note_rectifications USING btree (id)"
+                },
+                {
+                    "name": "rectifications_author_idx",
+                    "definition": "CREATE INDEX rectifications_author_idx ON public.clinical_note_rectifications USING btree (author_id)"
+                },
+                {
+                    "name": "rectifications_note_idx",
+                    "definition": "CREATE INDEX rectifications_note_idx ON public.clinical_note_rectifications USING btree (note_id)"
+                },
+                {
+                    "name": "rectifications_org_idx",
+                    "definition": "CREATE INDEX rectifications_org_idx ON public.clinical_note_rectifications USING btree (org_id)"
+                },
+                {
+                    "name": "rectifications_org_note_idx",
+                    "definition": "CREATE INDEX rectifications_org_note_idx ON public.clinical_note_rectifications USING btree (org_id, note_id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "clinical_note_rectifications_author_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE RESTRICT"
+                },
+                {
+                    "name": "clinical_note_rectifications_note_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (note_id) REFERENCES clinical_notes(id) ON DELETE RESTRICT"
+                },
+                {
+                    "name": "clinical_note_rectifications_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "clinical_note_rectifications_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                },
+                {
+                    "name": "clinical_note_rectifications_reason_check",
+                    "type": "c",
+                    "definition": "CHECK (length(TRIM(BOTH FROM reason)) >= 10)"
+                },
+                {
+                    "name": "rectifications_note_org_fk",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, note_id) REFERENCES clinical_notes(org_id, id)"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "clinical_notes",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "patient_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "appointment_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "author_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "note_type",
+                    "type": "text",
+                    "default": "'session'::text",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "content",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "status",
+                    "type": "text",
+                    "default": "'draft'::text",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "signed_at",
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "updated_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "clinical_notes_author_idx",
+                    "definition": "CREATE INDEX clinical_notes_author_idx ON public.clinical_notes USING btree (author_id)"
+                },
+                {
+                    "name": "clinical_notes_org_appointment_idx",
+                    "definition": "CREATE INDEX clinical_notes_org_appointment_idx ON public.clinical_notes USING btree (org_id, appointment_id)"
+                },
+                {
+                    "name": "clinical_notes_org_id_id_unique",
+                    "definition": "CREATE UNIQUE INDEX clinical_notes_org_id_id_unique ON public.clinical_notes USING btree (org_id, id)"
+                },
+                {
+                    "name": "clinical_notes_pkey",
+                    "definition": "CREATE UNIQUE INDEX clinical_notes_pkey ON public.clinical_notes USING btree (id)"
+                },
+                {
+                    "name": "notes_patient_idx",
+                    "definition": "CREATE INDEX notes_patient_idx ON public.clinical_notes USING btree (org_id, patient_id, created_at DESC)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "clinical_notes_author_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (author_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+                },
+                {
+                    "name": "clinical_notes_org_id_appointment_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, appointment_id) REFERENCES appointments(org_id, id)"
+                },
+                {
+                    "name": "clinical_notes_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "clinical_notes_org_id_id_unique",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, id)"
+                },
+                {
+                    "name": "clinical_notes_org_id_patient_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, patient_id) REFERENCES patients(org_id, id)"
+                },
+                {
+                    "name": "clinical_notes_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                },
+                {
+                    "name": "clinical_notes_status_check",
+                    "type": "c",
+                    "definition": "CHECK (status = ANY (ARRAY['draft'::text, 'signed'::text, 'rectified'::text]))"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "employees",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "full_name",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "email",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "role_title",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "active",
+                    "type": "boolean",
+                    "default": "true",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "employees_org_id_id_key",
+                    "definition": "CREATE UNIQUE INDEX employees_org_id_id_key ON public.employees USING btree (org_id, id)"
+                },
+                {
+                    "name": "employees_pkey",
+                    "definition": "CREATE UNIQUE INDEX employees_pkey ON public.employees USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "employees_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "employees_org_id_id_key",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, id)"
+                },
+                {
+                    "name": "employees_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "expenses",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "description",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "category",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "amount_cents",
+                    "type": "integer",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "expense_date",
+                    "type": "date",
+                    "default": "CURRENT_DATE",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "supplier",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "document_path",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "legacy_id",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "expenses_org_idx",
+                    "definition": "CREATE INDEX expenses_org_idx ON public.expenses USING btree (org_id)"
+                },
+                {
+                    "name": "expenses_org_legacy_id_uq",
+                    "definition": "CREATE UNIQUE INDEX expenses_org_legacy_id_uq ON public.expenses USING btree (org_id, legacy_id) WHERE (legacy_id IS NOT NULL)"
+                },
+                {
+                    "name": "expenses_pkey",
+                    "definition": "CREATE UNIQUE INDEX expenses_pkey ON public.expenses USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "expenses_amount_cents_check",
+                    "type": "c",
+                    "definition": "CHECK (amount_cents >= 0)"
+                },
+                {
+                    "name": "expenses_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "expenses_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "invoice_lines",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "invoice_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "description",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "quantity",
+                    "type": "numeric(10,2)",
+                    "default": "1",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "unit_price_cents",
+                    "type": "integer",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "tax_rate",
+                    "type": "numeric(5,2)",
+                    "default": "0",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "line_total_cents",
+                    "type": "integer",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "invoice_lines_org_idx",
+                    "definition": "CREATE INDEX invoice_lines_org_idx ON public.invoice_lines USING btree (org_id)"
+                },
+                {
+                    "name": "invoice_lines_org_invoice_idx",
+                    "definition": "CREATE INDEX invoice_lines_org_invoice_idx ON public.invoice_lines USING btree (org_id, invoice_id)"
+                },
+                {
+                    "name": "invoice_lines_pkey",
+                    "definition": "CREATE UNIQUE INDEX invoice_lines_pkey ON public.invoice_lines USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "invoice_lines_line_total_cents_check",
+                    "type": "c",
+                    "definition": "CHECK (line_total_cents >= 0)"
+                },
+                {
+                    "name": "invoice_lines_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "invoice_lines_org_id_invoice_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, invoice_id) REFERENCES invoices(org_id, id)"
+                },
+                {
+                    "name": "invoice_lines_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                },
+                {
+                    "name": "invoice_lines_quantity_check",
+                    "type": "c",
+                    "definition": "CHECK (quantity > 0::numeric)"
+                },
+                {
+                    "name": "invoice_lines_tax_rate_check",
+                    "type": "c",
+                    "definition": "CHECK (tax_rate >= 0::numeric AND tax_rate <= 100::numeric)"
+                },
+                {
+                    "name": "invoice_lines_unit_price_cents_check",
+                    "type": "c",
+                    "definition": "CHECK (unit_price_cents >= 0)"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "invoices",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "patient_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "invoice_number",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "issue_date",
+                    "type": "date",
+                    "default": "CURRENT_DATE",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "due_date",
+                    "type": "date",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "status",
+                    "type": "text",
+                    "default": "'draft'::text",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "currency",
+                    "type": "character(3)",
+                    "default": "'EUR'::bpchar",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "subtotal_cents",
+                    "type": "integer",
+                    "default": "0",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "tax_cents",
+                    "type": "integer",
+                    "default": "0",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "total_cents",
+                    "type": "integer",
+                    "default": "0",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "notes",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "legacy_id",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "series",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "retention_cents",
+                    "type": "integer",
+                    "default": "0",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "legacy_status",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "invoices_org_id_id_key",
+                    "definition": "CREATE UNIQUE INDEX invoices_org_id_id_key ON public.invoices USING btree (org_id, id)"
+                },
+                {
+                    "name": "invoices_org_id_invoice_number_key",
+                    "definition": "CREATE UNIQUE INDEX invoices_org_id_invoice_number_key ON public.invoices USING btree (org_id, invoice_number)"
+                },
+                {
+                    "name": "invoices_org_legacy_id_uq",
+                    "definition": "CREATE UNIQUE INDEX invoices_org_legacy_id_uq ON public.invoices USING btree (org_id, legacy_id) WHERE (legacy_id IS NOT NULL)"
+                },
+                {
+                    "name": "invoices_patient_idx",
+                    "definition": "CREATE INDEX invoices_patient_idx ON public.invoices USING btree (org_id, patient_id, issue_date DESC)"
+                },
+                {
+                    "name": "invoices_pkey",
+                    "definition": "CREATE UNIQUE INDEX invoices_pkey ON public.invoices USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "invoices_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "invoices_org_id_id_key",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, id)"
+                },
+                {
+                    "name": "invoices_org_id_invoice_number_key",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, invoice_number)"
+                },
+                {
+                    "name": "invoices_org_id_patient_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, patient_id) REFERENCES patients(org_id, id)"
+                },
+                {
+                    "name": "invoices_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                },
+                {
+                    "name": "invoices_status_check",
+                    "type": "c",
+                    "definition": "CHECK (status = ANY (ARRAY['draft'::text, 'issued'::text, 'paid'::text, 'partially_paid'::text, 'void'::text]))"
+                },
+                {
+                    "name": "invoices_subtotal_cents_check",
+                    "type": "c",
+                    "definition": "CHECK (subtotal_cents >= 0)"
+                },
+                {
+                    "name": "invoices_tax_cents_check",
+                    "type": "c",
+                    "definition": "CHECK (tax_cents >= 0)"
+                },
+                {
+                    "name": "invoices_total_cents_check",
+                    "type": "c",
+                    "definition": "CHECK (total_cents >= 0)"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "memberships",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "user_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "role",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "active",
+                    "type": "boolean",
+                    "default": "true",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "memberships_org_idx",
+                    "definition": "CREATE INDEX memberships_org_idx ON public.memberships USING btree (org_id)"
+                },
+                {
+                    "name": "memberships_org_user_unique",
+                    "definition": "CREATE UNIQUE INDEX memberships_org_user_unique ON public.memberships USING btree (org_id, user_id)"
+                },
+                {
+                    "name": "memberships_pkey",
+                    "definition": "CREATE UNIQUE INDEX memberships_pkey ON public.memberships USING btree (id)"
+                },
+                {
+                    "name": "memberships_user_active_idx",
+                    "definition": "CREATE INDEX memberships_user_active_idx ON public.memberships USING btree (user_id, active)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "memberships_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "memberships_org_user_unique",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, user_id)"
+                },
+                {
+                    "name": "memberships_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                },
+                {
+                    "name": "memberships_role_check",
+                    "type": "c",
+                    "definition": "CHECK (role = ANY (ARRAY['psychologa'::text, 'recepcion'::text, 'gestoria'::text]))"
+                },
+                {
+                    "name": "memberships_user_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "organizations",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "name",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "is_demo",
+                    "type": "boolean",
+                    "default": "false",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "organizations_pkey",
+                    "definition": "CREATE UNIQUE INDEX organizations_pkey ON public.organizations USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "organizations_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "patient_documents",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "patient_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "storage_path",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "document_type",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "file_name",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "uploaded_by",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "patient_documents_org_id_storage_path_key",
+                    "definition": "CREATE UNIQUE INDEX patient_documents_org_id_storage_path_key ON public.patient_documents USING btree (org_id, storage_path)"
+                },
+                {
+                    "name": "patient_documents_org_patient_idx",
+                    "definition": "CREATE INDEX patient_documents_org_patient_idx ON public.patient_documents USING btree (org_id, patient_id)"
+                },
+                {
+                    "name": "patient_documents_pkey",
+                    "definition": "CREATE UNIQUE INDEX patient_documents_pkey ON public.patient_documents USING btree (id)"
+                },
+                {
+                    "name": "patient_documents_uploaded_by_idx",
+                    "definition": "CREATE INDEX patient_documents_uploaded_by_idx ON public.patient_documents USING btree (uploaded_by)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "patient_documents_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "patient_documents_org_id_patient_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, patient_id) REFERENCES patients(org_id, id)"
+                },
+                {
+                    "name": "patient_documents_org_id_storage_path_key",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, storage_path)"
+                },
+                {
+                    "name": "patient_documents_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                },
+                {
+                    "name": "patient_documents_uploaded_by_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (uploaded_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "patients",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "patient_code",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "first_name",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "last_name",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "email",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "phone",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "birth_date",
+                    "type": "date",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "address",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "emergency_contact",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "administrative_notes",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "status",
+                    "type": "text",
+                    "default": "'active'::text",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "updated_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "legacy_id",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "profile_data",
+                    "type": "jsonb",
+                    "default": "'{}'::jsonb",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "patients_org_id_id_key",
+                    "definition": "CREATE UNIQUE INDEX patients_org_id_id_key ON public.patients USING btree (org_id, id)"
+                },
+                {
+                    "name": "patients_org_id_patient_code_key",
+                    "definition": "CREATE UNIQUE INDEX patients_org_id_patient_code_key ON public.patients USING btree (org_id, patient_code)"
+                },
+                {
+                    "name": "patients_org_legacy_id_uq",
+                    "definition": "CREATE UNIQUE INDEX patients_org_legacy_id_uq ON public.patients USING btree (org_id, legacy_id) WHERE (legacy_id IS NOT NULL)"
+                },
+                {
+                    "name": "patients_org_name_idx",
+                    "definition": "CREATE INDEX patients_org_name_idx ON public.patients USING btree (org_id, last_name, first_name)"
+                },
+                {
+                    "name": "patients_pkey",
+                    "definition": "CREATE UNIQUE INDEX patients_pkey ON public.patients USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "patients_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "patients_org_id_id_key",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, id)"
+                },
+                {
+                    "name": "patients_org_id_patient_code_key",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, patient_code)"
+                },
+                {
+                    "name": "patients_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                },
+                {
+                    "name": "patients_status_check",
+                    "type": "c",
+                    "definition": "CHECK (status = ANY (ARRAY['active'::text, 'inactive'::text, 'archived'::text]))"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "payments",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "invoice_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "amount_cents",
+                    "type": "integer",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "paid_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "method",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "reference",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "payments_org_idx",
+                    "definition": "CREATE INDEX payments_org_idx ON public.payments USING btree (org_id)"
+                },
+                {
+                    "name": "payments_org_invoice_idx",
+                    "definition": "CREATE INDEX payments_org_invoice_idx ON public.payments USING btree (org_id, invoice_id)"
+                },
+                {
+                    "name": "payments_pkey",
+                    "definition": "CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "payments_amount_cents_check",
+                    "type": "c",
+                    "definition": "CHECK (amount_cents > 0)"
+                },
+                {
+                    "name": "payments_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "payments_org_id_invoice_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id, invoice_id) REFERENCES invoices(org_id, id)"
+                },
+                {
+                    "name": "payments_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "professionals",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "display_name",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "email",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "phone",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "professional_number",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "professionals_org_id_id_key",
+                    "definition": "CREATE UNIQUE INDEX professionals_org_id_id_key ON public.professionals USING btree (org_id, id)"
+                },
+                {
+                    "name": "professionals_pkey",
+                    "definition": "CREATE UNIQUE INDEX professionals_pkey ON public.professionals USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "professionals_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "professionals_org_id_id_key",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, id)"
+                },
+                {
+                    "name": "professionals_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                }
+            ],
+            "rls_enabled": true
+        },
+        {
+            "name": "services",
+            "schema": "public",
+            "columns": [
+                {
+                    "name": "id",
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "org_id",
+                    "type": "uuid",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "name",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "duration_minutes",
+                    "type": "integer",
+                    "default": null,
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "price_cents",
+                    "type": "integer",
+                    "default": "0",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "active",
+                    "type": "boolean",
+                    "default": "true",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "created_at",
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "tax_exempt",
+                    "type": "boolean",
+                    "default": "false",
+                    "identity": null,
+                    "not_null": true
+                },
+                {
+                    "name": "legacy_id",
+                    "type": "text",
+                    "default": null,
+                    "identity": null,
+                    "not_null": false
+                }
+            ],
+            "indexes": [
+                {
+                    "name": "services_org_id_id_key",
+                    "definition": "CREATE UNIQUE INDEX services_org_id_id_key ON public.services USING btree (org_id, id)"
+                },
+                {
+                    "name": "services_org_legacy_id_uq",
+                    "definition": "CREATE UNIQUE INDEX services_org_legacy_id_uq ON public.services USING btree (org_id, legacy_id) WHERE (legacy_id IS NOT NULL)"
+                },
+                {
+                    "name": "services_pkey",
+                    "definition": "CREATE UNIQUE INDEX services_pkey ON public.services USING btree (id)"
+                }
+            ],
+            "rls_forced": false,
+            "constraints": [
+                {
+                    "name": "services_duration_minutes_check",
+                    "type": "c",
+                    "definition": "CHECK (duration_minutes >= 5 AND duration_minutes <= 480)"
+                },
+                {
+                    "name": "services_org_id_fkey",
+                    "type": "f",
+                    "definition": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+                },
+                {
+                    "name": "services_org_id_id_key",
+                    "type": "u",
+                    "definition": "UNIQUE (org_id, id)"
+                },
+                {
+                    "name": "services_pkey",
+                    "type": "p",
+                    "definition": "PRIMARY KEY (id)"
+                },
+                {
+                    "name": "services_price_cents_check",
+                    "type": "c",
+                    "definition": "CHECK (price_cents >= 0)"
+                }
+            ],
+            "rls_enabled": true
+        }
+    ],
+    "captured_at": "2026-11-08T18:14:18.035271+00:00",
+    "project_ref": "otlwmrbioawjvgrrznoq"
+}
