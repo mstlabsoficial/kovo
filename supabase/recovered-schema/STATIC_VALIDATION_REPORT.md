@@ -22,13 +22,14 @@ The baseline was scanned with a SQL statement splitter that respects quoted stri
 | ENABLE ROW LEVEL SECURITY | 0 (expected 15) |
 | Dollar/quote state at EOF | balanced |
 | Unterminated SQL tail | none |
+| Top-level data changes | One Storage bucket metadata upsert; no business-table records |
 | Duplicate CREATE TABLE declarations | no |
 | Trigger function references | all resolved against catalog function list |
 | Public RLS policy table references | all resolved against catalog table list |
 
 ## Top-level data operations
 
-The only top-level data mutation in the candidate is the intended upsert of the KOVO Storage bucket metadata in storage.buckets. INSERT/UPDATE/DELETE statements inside the SQL function definitions are function bodies and are not executed during migration creation. No patient, appointment, clinical note, invoice, payment, or other business records are copied.
+After stripping leading comments from each statement, the only top-level data mutation is the intended upsert of the KOVO Storage bucket metadata in storage.buckets. INSERT/UPDATE/DELETE statements inside the SQL function definitions are function bodies and are not executed during migration creation. No patient, appointment, clinical note, invoice, payment, or other business records are copied.
 
 ## What this does not prove
 
