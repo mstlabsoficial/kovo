@@ -1,9 +1,10 @@
-// Capa de datos de KOVO. legacy.js solo habla con este objeto.
-// Modo por defecto: 'demo' (datos de demostración en este navegador, como siempre).
-// Modo 'supabase': DESACTIVADO en esta fase (ver supabase.js).
+// Capa de datos de KOVO.
+// En demo no se carga ningún módulo de Supabase ni se necesitan variables de entorno.
+// El cliente remoto solo se importa bajo demanda si VITE_DATA_MODE=supabase.
 import { createDemoSource } from './demo.js';
-import { createSupabaseSource } from './supabase.js';
 
-const MODE = import.meta.env.VITE_DATA_MODE || 'demo';
+const MODE = import.meta.env?.VITE_DATA_MODE || 'demo';
 
-export const data = MODE === 'supabase' ? createSupabaseSource() : createDemoSource();
+export const data = MODE === 'supabase'
+  ? (await import('./supabase.js')).createSupabaseSource()
+  : createDemoSource();
