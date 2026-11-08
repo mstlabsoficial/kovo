@@ -19,6 +19,10 @@ These tests have **not** been executed. Run only on a disposable local Supabase 
 | One invoice contains two different completed appointments | Success; each session has its own line |
 | Appointment belongs to another patient | RPC rejects; no invoice or line is committed |
 | Appointment belongs to another organization | FK/RPC rejects; no cross-tenant reference |
+| Authenticated client inserts/updates `invoice_lines` directly with a non-completed appointment | Table trigger rejects, even when bypassing the RPC |
+| Authenticated client links an appointment to an invoice for a different patient | Table trigger rejects |
+| Client changes appointment patient/status after it has an invoice line | Table trigger rejects |
+| Client changes invoice patient after appointment-linked lines exist | Table trigger rejects |
 | Appointment is scheduled, confirmed, cancelled or no-show | RPC rejects; only `completed` is billable in this draft |
 | Two draft invoices try to link the same appointment | Second insert fails on unique index |
 | A line has no appointment_id | Existing non-session invoice use remains compatible |
@@ -81,7 +85,7 @@ Run the complete test set for each role and for a user with no membership. For e
 
 - Cross-organization SELECT, INSERT, UPDATE and RPC invocation.
 - Missing/expired JWT and inactive membership.
-- Direct REST writes that bypass the UI.
+- Direct REST writes that bypass the UI, including appointment/invoice-line consistency checks.
 - Concurrent retries and unique-key races.
 - Transaction rollback when any part of a multi-row RPC fails.
 - Issued invoice and signed clinical-note immutability remains intact.
