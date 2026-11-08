@@ -1,0 +1,945 @@
+{
+    "policies": [
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "appointments",
+            "permissive": "PERMISSIVE",
+            "policyname": "appointments_insert",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text, 'recepcion'::text])"
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text, 'recepcion'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "appointments",
+            "permissive": "PERMISSIVE",
+            "policyname": "appointments_read",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "UPDATE",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text, 'recepcion'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "appointments",
+            "permissive": "PERMISSIVE",
+            "policyname": "appointments_update",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text, 'recepcion'::text])"
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "audit_log",
+            "permissive": "PERMISSIVE",
+            "policyname": "audit_log_psychologist_read",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "clinical_note_rectifications",
+            "permissive": "PERMISSIVE",
+            "policyname": "rectifications_psychologist_read",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "clinical_notes",
+            "permissive": "PERMISSIVE",
+            "policyname": "clinical_notes_psychologist_read",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "ALL",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "employees",
+            "permissive": "PERMISSIVE",
+            "policyname": "employees_psychologist_all",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text])"
+        },
+        {
+            "cmd": "ALL",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "expenses",
+            "permissive": "PERMISSIVE",
+            "policyname": "expenses_finance_all",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])"
+        },
+        {
+            "cmd": "ALL",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "invoice_lines",
+            "permissive": "PERMISSIVE",
+            "policyname": "invoice_lines_finance_all",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])"
+        },
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "invoices",
+            "permissive": "PERMISSIVE",
+            "policyname": "invoices_finance_insert",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])"
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "invoices",
+            "permissive": "PERMISSIVE",
+            "policyname": "invoices_finance_read",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "UPDATE",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "invoices",
+            "permissive": "PERMISSIVE",
+            "policyname": "invoices_finance_update",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])"
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(org_id IN ( SELECT private.my_orgs() AS my_orgs))",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "memberships",
+            "permissive": "PERMISSIVE",
+            "policyname": "memberships_select_org_member",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(id IN ( SELECT private.my_orgs() AS my_orgs))",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "organizations",
+            "permissive": "PERMISSIVE",
+            "policyname": "organizations_select_member",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "ALL",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "patient_documents",
+            "permissive": "PERMISSIVE",
+            "policyname": "patient_documents_psychologist",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text])"
+        },
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "patients",
+            "permissive": "PERMISSIVE",
+            "policyname": "patients_insert",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text, 'recepcion'::text])"
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text, 'recepcion'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "patients",
+            "permissive": "PERMISSIVE",
+            "policyname": "patients_read",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "UPDATE",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text, 'recepcion'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "patients",
+            "permissive": "PERMISSIVE",
+            "policyname": "patients_update",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text, 'recepcion'::text])"
+        },
+        {
+            "cmd": "ALL",
+            "qual": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "payments",
+            "permissive": "PERMISSIVE",
+            "policyname": "payments_finance_all",
+            "schemaname": "public",
+            "with_check": "private.has_role(org_id, ARRAY['psychologa'::text, 'gestoria'::text])"
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(org_id IN ( SELECT private.my_orgs() AS my_orgs))",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "professionals",
+            "permissive": "PERMISSIVE",
+            "policyname": "professionals_read",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "(org_id IN ( SELECT private.my_orgs() AS my_orgs))",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "services",
+            "permissive": "PERMISSIVE",
+            "policyname": "services_read",
+            "schemaname": "public",
+            "with_check": null
+        },
+        {
+            "cmd": "DELETE",
+            "qual": "((bucket_id = 'kovo-patient-documents'::text) AND ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND private.has_role(((storage.foldername(name))[1])::uuid, ARRAY['psychologa'::text]))",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "objects",
+            "permissive": "PERMISSIVE",
+            "policyname": "kovo_documents_delete",
+            "schemaname": "storage",
+            "with_check": null
+        },
+        {
+            "cmd": "INSERT",
+            "qual": null,
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "objects",
+            "permissive": "PERMISSIVE",
+            "policyname": "kovo_documents_insert",
+            "schemaname": "storage",
+            "with_check": "((bucket_id = 'kovo-patient-documents'::text) AND ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND private.has_role(((storage.foldername(name))[1])::uuid, ARRAY['psychologa'::text]))"
+        },
+        {
+            "cmd": "SELECT",
+            "qual": "((bucket_id = 'kovo-patient-documents'::text) AND ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND private.has_role(((storage.foldername(name))[1])::uuid, ARRAY['psychologa'::text]))",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "objects",
+            "permissive": "PERMISSIVE",
+            "policyname": "kovo_documents_read",
+            "schemaname": "storage",
+            "with_check": null
+        },
+        {
+            "cmd": "UPDATE",
+            "qual": "((bucket_id = 'kovo-patient-documents'::text) AND ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND private.has_role(((storage.foldername(name))[1])::uuid, ARRAY['psychologa'::text]))",
+            "roles": [
+                "authenticated"
+            ],
+            "tablename": "objects",
+            "permissive": "PERMISSIVE",
+            "policyname": "kovo_documents_update",
+            "schemaname": "storage",
+            "with_check": "((bucket_id = 'kovo-patient-documents'::text) AND ((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND private.has_role(((storage.foldername(name))[1])::uuid, ARRAY['psychologa'::text]))"
+        }
+    ],
+    "triggers": [
+        {
+            "name": "audit_appointments",
+            "table": "appointments",
+            "schema": "public",
+            "definition": "CREATE TRIGGER audit_appointments AFTER INSERT OR DELETE OR UPDATE ON appointments FOR EACH ROW EXECUTE FUNCTION private.write_audit_event()"
+        },
+        {
+            "name": "clinical_notes_immutable",
+            "table": "clinical_notes",
+            "schema": "public",
+            "definition": "CREATE TRIGGER clinical_notes_immutable BEFORE DELETE OR UPDATE ON clinical_notes FOR EACH ROW EXECUTE FUNCTION private.prevent_signed_note_mutation()"
+        },
+        {
+            "name": "audit_expenses",
+            "table": "expenses",
+            "schema": "public",
+            "definition": "CREATE TRIGGER audit_expenses AFTER INSERT OR DELETE OR UPDATE ON expenses FOR EACH ROW EXECUTE FUNCTION private.write_audit_event()"
+        },
+        {
+            "name": "invoice_lines_immutable_after_issue",
+            "table": "invoice_lines",
+            "schema": "public",
+            "definition": "CREATE TRIGGER invoice_lines_immutable_after_issue BEFORE INSERT OR DELETE OR UPDATE ON invoice_lines FOR EACH ROW EXECUTE FUNCTION private.prevent_issued_invoice_line_mutation()"
+        },
+        {
+            "name": "audit_invoices",
+            "table": "invoices",
+            "schema": "public",
+            "definition": "CREATE TRIGGER audit_invoices AFTER INSERT OR DELETE OR UPDATE ON invoices FOR EACH ROW EXECUTE FUNCTION private.write_audit_event()"
+        },
+        {
+            "name": "invoices_immutable_after_issue",
+            "table": "invoices",
+            "schema": "public",
+            "definition": "CREATE TRIGGER invoices_immutable_after_issue BEFORE DELETE OR UPDATE ON invoices FOR EACH ROW EXECUTE FUNCTION private.prevent_issued_invoice_mutation()"
+        },
+        {
+            "name": "audit_patients",
+            "table": "patients",
+            "schema": "public",
+            "definition": "CREATE TRIGGER audit_patients AFTER INSERT OR DELETE OR UPDATE ON patients FOR EACH ROW EXECUTE FUNCTION private.write_audit_event()"
+        },
+        {
+            "name": "patients_assign_code",
+            "table": "patients",
+            "schema": "public",
+            "definition": "CREATE TRIGGER patients_assign_code BEFORE INSERT ON patients FOR EACH ROW EXECUTE FUNCTION private.assign_patient_code()"
+        },
+        {
+            "name": "audit_payments",
+            "table": "payments",
+            "schema": "public",
+            "definition": "CREATE TRIGGER audit_payments AFTER INSERT OR DELETE OR UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION private.write_audit_event()"
+        }
+    ],
+    "functions": [
+        {
+            "acl": null,
+            "name": "assign_patient_code",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "trigger",
+            "language": "plpgsql",
+            "arguments": "",
+            "definition": "CREATE OR REPLACE FUNCTION private.assign_patient_code()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v bigint;\nbegin\n if new.patient_code is null or btrim(new.patient_code)='' or new.patient_code='AUTO' then\n   insert into private.org_counters(org_id,counter_type,last_value)\n   values(new.org_id,'patient',1)\n   on conflict(org_id,counter_type) do update\n   set last_value=private.org_counters.last_value+1 returning last_value into v;\n   new.patient_code := 'P-' || lpad(v::text,5,'0');\n end if;\n return new;\nend; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres"
+            ],
+            "name": "emit_invoice",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "invoices",
+            "language": "plpgsql",
+            "arguments": "p_invoice uuid",
+            "definition": "CREATE OR REPLACE FUNCTION private.emit_invoice(p_invoice uuid)\n RETURNS invoices\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v public.invoices; n bigint;\nbegin\n select * into v from public.invoices where id=p_invoice for update;\n if not found or not private.has_role(v.org_id,array['psychologa','gestoria']) then raise exception 'Not authorized'; end if;\n if v.status <> 'draft' then raise exception 'Only draft invoices can be issued'; end if;\n n := private.next_counter(v.org_id,'invoice');\n update public.invoices set invoice_number='KOVO-'||to_char(issue_date,'YYYY')||'-'||lpad(n::text,6,'0'),\n status='issued' where id=p_invoice returning * into v;\n insert into public.audit_log(org_id,actor_id,action,entity_type,entity_id,metadata)\n values(v.org_id,auth.uid(),'emit','invoice',v.id,jsonb_build_object('invoice_number',v.invoice_number));\n return v;\nend; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres"
+            ],
+            "name": "has_role",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "boolean",
+            "language": "sql",
+            "arguments": "target_org uuid, allowed_roles text[]",
+            "definition": "CREATE OR REPLACE FUNCTION private.has_role(target_org uuid, allowed_roles text[])\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$ select exists (select 1 from public.memberships m where m.org_id=target_org and m.user_id=(select auth.uid()) and m.active and m.role=any(allowed_roles)); $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres"
+            ],
+            "name": "my_orgs",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "SETOF uuid",
+            "language": "sql",
+            "arguments": "",
+            "definition": "CREATE OR REPLACE FUNCTION private.my_orgs()\n RETURNS SETOF uuid\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO ''\nAS $function$ select m.org_id from public.memberships m where m.user_id = (select auth.uid()) and m.active; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres"
+            ],
+            "name": "next_counter",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "bigint",
+            "language": "plpgsql",
+            "arguments": "p_org uuid, p_type text",
+            "definition": "CREATE OR REPLACE FUNCTION private.next_counter(p_org uuid, p_type text)\n RETURNS bigint\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v bigint;\nbegin\n if auth.uid() is null or not exists (\n   select 1 from public.memberships m where m.org_id=p_org and m.user_id=auth.uid() and m.active\n ) then raise exception 'Not authorized'; end if;\n insert into private.org_counters(org_id,counter_type,last_value)\n values(p_org,p_type,1)\n on conflict(org_id,counter_type) do update\n set last_value=private.org_counters.last_value+1\n returning last_value into v;\n return v;\nend; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": null,
+            "name": "prevent_issued_invoice_line_mutation",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "trigger",
+            "language": "plpgsql",
+            "arguments": "",
+            "definition": "CREATE OR REPLACE FUNCTION private.prevent_issued_invoice_line_mutation()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nDECLARE\n  v_old_status text;\n  v_new_status text;\nBEGIN\n  IF TG_OP IN ('UPDATE','DELETE') THEN\n    SELECT status INTO v_old_status\n    FROM public.invoices\n    WHERE id = OLD.invoice_id AND org_id = OLD.org_id;\n    IF v_old_status IS DISTINCT FROM 'draft' THEN\n      RAISE EXCEPTION 'Invoice lines cannot be changed or removed after issue.';\n    END IF;\n  END IF;\n\n  IF TG_OP IN ('INSERT','UPDATE') THEN\n    SELECT status INTO v_new_status\n    FROM public.invoices\n    WHERE id = NEW.invoice_id AND org_id = NEW.org_id;\n    IF v_new_status IS DISTINCT FROM 'draft' THEN\n      RAISE EXCEPTION 'Invoice lines can only be added to draft invoices.';\n    END IF;\n  END IF;\n\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND;\n$function$\n",
+            "security_definer": false
+        },
+        {
+            "acl": null,
+            "name": "prevent_issued_invoice_mutation",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "trigger",
+            "language": "plpgsql",
+            "arguments": "",
+            "definition": "CREATE OR REPLACE FUNCTION private.prevent_issued_invoice_mutation()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nBEGIN\n  IF OLD.status <> 'draft' THEN\n    RAISE EXCEPTION 'An issued invoice is immutable; use an authorized correction workflow.';\n  END IF;\n  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n  RETURN NEW;\nEND;\n$function$\n",
+            "security_definer": false
+        },
+        {
+            "acl": null,
+            "name": "prevent_signed_note_mutation",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "trigger",
+            "language": "plpgsql",
+            "arguments": "",
+            "definition": "CREATE OR REPLACE FUNCTION private.prevent_signed_note_mutation()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO ''\nAS $function$\nbegin\n if old.status in ('signed','rectified') then\n   raise exception 'A signed clinical note cannot be modified or deleted; use a rectification.';\n end if;\n if tg_op='DELETE' then return old; end if;\n return new;\nend; $function$\n",
+            "security_definer": false
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres"
+            ],
+            "name": "rectify_clinical_note",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "uuid",
+            "language": "plpgsql",
+            "arguments": "p_note uuid, p_reason text, p_replacement text",
+            "definition": "CREATE OR REPLACE FUNCTION private.rectify_clinical_note(p_note uuid, p_reason text, p_replacement text)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v public.clinical_notes; new_id uuid;\nbegin\n select * into v from public.clinical_notes where id=p_note for update;\n if not found or not private.has_role(v.org_id,array['psychologa']) then raise exception 'Not authorized'; end if;\n if v.status <> 'signed' then raise exception 'Only signed notes can be rectified'; end if;\n if length(trim(coalesce(p_reason,''))) < 10 or length(trim(coalesce(p_replacement,'')))=0 then\n   raise exception 'A reason and replacement text are required';\n end if;\n insert into public.clinical_note_rectifications(org_id,note_id,author_id,reason,replacement_text)\n values(v.org_id,v.id,auth.uid(),p_reason,p_replacement) returning id into new_id;\n insert into public.audit_log(org_id,actor_id,action,entity_type,entity_id,metadata)\n values(v.org_id,auth.uid(),'rectify','clinical_note',v.id,jsonb_build_object('rectification_id',new_id));\n return new_id;\nend; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres"
+            ],
+            "name": "sign_clinical_note",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "clinical_notes",
+            "language": "plpgsql",
+            "arguments": "p_note uuid",
+            "definition": "CREATE OR REPLACE FUNCTION private.sign_clinical_note(p_note uuid)\n RETURNS clinical_notes\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v public.clinical_notes;\nbegin\n select * into v from public.clinical_notes where id=p_note for update;\n if not found or not private.has_role(v.org_id,array['psychologa']) then raise exception 'Not authorized'; end if;\n if v.status <> 'draft' then raise exception 'Only draft notes can be signed'; end if;\n update public.clinical_notes set status='signed', signed_at=now(), author_id=auth.uid(), updated_at=now()\n where id=p_note returning * into v;\n insert into public.audit_log(org_id,actor_id,action,entity_type,entity_id)\n values(v.org_id,auth.uid(),'sign','clinical_note',v.id);\n return v;\nend; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres"
+            ],
+            "name": "write_audit_event",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "private",
+            "returns": "trigger",
+            "language": "plpgsql",
+            "arguments": "",
+            "definition": "CREATE OR REPLACE FUNCTION private.write_audit_event()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare v_org uuid; v_id uuid; v_action text;\nbegin\n if tg_op='DELETE' then v_org:=old.org_id; v_id:=old.id; v_action:='delete';\n elsif tg_op='INSERT' then v_org:=new.org_id; v_id:=new.id; v_action:='insert';\n else v_org:=new.org_id; v_id:=new.id; v_action:='update';\n end if;\n insert into public.audit_log(org_id,actor_id,action,entity_type,entity_id,metadata)\n values(v_org,auth.uid(),v_action,tg_table_name,v_id,\n   jsonb_build_object('source','database_trigger'));\n if tg_op='DELETE' then return old; else return new; end if;\nend; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres",
+                "service_role=X/postgres"
+            ],
+            "name": "delete_clinical_note_draft",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "public",
+            "returns": "void",
+            "language": "plpgsql",
+            "arguments": "p_org_id uuid, p_note_id uuid",
+            "definition": "CREATE OR REPLACE FUNCTION public.delete_clinical_note_draft(p_org_id uuid, p_note_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nBEGIN\n  IF auth.uid() IS NULL OR NOT private.has_role(p_org_id, ARRAY['psychologa']) THEN\n    RAISE EXCEPTION 'Not authorized to manage clinical notes' USING ERRCODE='42501';\n  END IF;\n  DELETE FROM public.clinical_notes\n  WHERE id=p_note_id AND org_id=p_org_id AND author_id=auth.uid() AND status='draft';\n  IF NOT FOUND THEN RAISE EXCEPTION 'Draft not found or not deletable'; END IF;\nEND; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres",
+                "service_role=X/postgres"
+            ],
+            "name": "emit_invoice",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "public",
+            "returns": "invoices",
+            "language": "plpgsql",
+            "arguments": "p_invoice uuid",
+            "definition": "CREATE OR REPLACE FUNCTION public.emit_invoice(p_invoice uuid)\n RETURNS invoices\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nDECLARE v public.invoices;\nBEGIN\n  SELECT * INTO v FROM public.invoices WHERE id=p_invoice FOR UPDATE;\n  IF NOT FOUND OR NOT private.has_role(v.org_id,ARRAY['psychologa','gestoria']) THEN RAISE EXCEPTION 'Not authorized'; END IF;\n  RETURN private.emit_invoice(p_invoice);\nEND; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres",
+                "service_role=X/postgres"
+            ],
+            "name": "rectify_clinical_note",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "public",
+            "returns": "uuid",
+            "language": "plpgsql",
+            "arguments": "p_note uuid, p_reason text, p_replacement text",
+            "definition": "CREATE OR REPLACE FUNCTION public.rectify_clinical_note(p_note uuid, p_reason text, p_replacement text)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nDECLARE v public.clinical_notes;\nBEGIN\n  SELECT * INTO v FROM public.clinical_notes WHERE id=p_note;\n  IF NOT FOUND OR NOT private.has_role(v.org_id,ARRAY['psychologa']) THEN RAISE EXCEPTION 'Not authorized'; END IF;\n  RETURN private.rectify_clinical_note(p_note,p_reason,p_replacement);\nEND; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres",
+                "service_role=X/postgres"
+            ],
+            "name": "save_clinical_note_draft",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "public",
+            "returns": "uuid",
+            "language": "plpgsql",
+            "arguments": "p_org_id uuid, p_patient_id uuid, p_appointment_id uuid, p_note_type text, p_content text, p_note_id uuid",
+            "definition": "CREATE OR REPLACE FUNCTION public.save_clinical_note_draft(p_org_id uuid, p_patient_id uuid, p_appointment_id uuid, p_note_type text, p_content text, p_note_id uuid DEFAULT NULL::uuid)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nDECLARE v_id uuid;\nBEGIN\n  IF auth.uid() IS NULL OR NOT private.has_role(p_org_id, ARRAY['psychologa']) THEN\n    RAISE EXCEPTION 'Not authorized to manage clinical notes' USING ERRCODE='42501';\n  END IF;\n  IF p_content IS NULL OR length(trim(p_content))=0 THEN\n    RAISE EXCEPTION 'Clinical note content cannot be empty';\n  END IF;\n  IF p_note_id IS NULL THEN\n    INSERT INTO public.clinical_notes(org_id,patient_id,appointment_id,author_id,note_type,content,status)\n    VALUES(p_org_id,p_patient_id,p_appointment_id,auth.uid(),coalesce(nullif(p_note_type,''),'session'),p_content,'draft')\n    RETURNING id INTO v_id;\n  ELSE\n    UPDATE public.clinical_notes\n      SET content=p_content,note_type=coalesce(nullif(p_note_type,''),'session'),updated_at=now()\n      WHERE id=p_note_id AND org_id=p_org_id AND author_id=auth.uid() AND status='draft'\n      RETURNING id INTO v_id;\n    IF v_id IS NULL THEN RAISE EXCEPTION 'Draft not found or not editable'; END IF;\n  END IF;\n  RETURN v_id;\nEND; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres",
+                "service_role=X/postgres"
+            ],
+            "name": "save_invoice_draft",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "public",
+            "returns": "uuid",
+            "language": "plpgsql",
+            "arguments": "p_org_id uuid, p_patient_id uuid, p_issue_date date, p_due_date date, p_lines jsonb, p_legacy_id text, p_retention_cents integer",
+            "definition": "CREATE OR REPLACE FUNCTION public.save_invoice_draft(p_org_id uuid, p_patient_id uuid, p_issue_date date, p_due_date date, p_lines jsonb, p_legacy_id text DEFAULT NULL::text, p_retention_cents integer DEFAULT 0)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nDECLARE v_id uuid; v_subtotal bigint:=0; v_tax bigint:=0; v_total bigint:=0; v_line jsonb; v_qty numeric; v_unit integer; v_rate numeric; v_base bigint; v_line_total bigint;\nBEGIN\n IF auth.uid() IS NULL OR NOT private.has_role(p_org_id,ARRAY['psychologa','gestoria']) THEN RAISE EXCEPTION 'Not authorized' USING ERRCODE='42501'; END IF;\n IF p_lines IS NULL OR jsonb_typeof(p_lines)<>'array' OR jsonb_array_length(p_lines)=0 THEN RAISE EXCEPTION 'At least one invoice line is required'; END IF;\n INSERT INTO public.invoices(org_id,patient_id,invoice_number,issue_date,due_date,status,subtotal_cents,tax_cents,total_cents,retention_cents,legacy_id)\n VALUES(p_org_id,p_patient_id,NULL,coalesce(p_issue_date,current_date),p_due_date,'draft',0,0,0,greatest(coalesce(p_retention_cents,0),0),p_legacy_id)\n RETURNING id INTO v_id;\n FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines) LOOP\n   v_qty:=(v_line->>'quantity')::numeric;\n   v_unit:=(v_line->>'unit_price_cents')::integer;\n   v_rate:=coalesce((v_line->>'tax_rate')::numeric,0);\n   IF v_qty<=0 OR v_unit<0 OR v_rate<0 OR v_rate>100 THEN RAISE EXCEPTION 'Invalid invoice line'; END IF;\n   v_base:=round(v_qty*v_unit);\n   v_line_total:=round(v_base*(1+v_rate/100));\n   v_subtotal:=v_subtotal+v_base; v_tax:=v_tax+(v_line_total-v_base);\n   INSERT INTO public.invoice_lines(org_id,invoice_id,description,quantity,unit_price_cents,tax_rate,line_total_cents)\n   VALUES(p_org_id,v_id,coalesce(v_line->>'description','Servicio'),v_qty,v_unit,v_rate,v_line_total);\n END LOOP;\n v_total:=v_subtotal+v_tax-greatest(coalesce(p_retention_cents,0),0);\n IF v_total<0 THEN RAISE EXCEPTION 'Invoice total cannot be negative'; END IF;\n UPDATE public.invoices SET subtotal_cents=v_subtotal,tax_cents=v_tax,total_cents=v_total WHERE id=v_id;\n RETURN v_id;\nEND; $function$\n",
+            "security_definer": true
+        },
+        {
+            "acl": [
+                "postgres=X/postgres",
+                "authenticated=X/postgres",
+                "service_role=X/postgres"
+            ],
+            "name": "sign_clinical_note",
+            "config": [
+                "search_path=\"\""
+            ],
+            "schema": "public",
+            "returns": "clinical_notes",
+            "language": "plpgsql",
+            "arguments": "p_note uuid",
+            "definition": "CREATE OR REPLACE FUNCTION public.sign_clinical_note(p_note uuid)\n RETURNS clinical_notes\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nDECLARE v public.clinical_notes;\nBEGIN\n  SELECT * INTO v FROM public.clinical_notes WHERE id=p_note FOR UPDATE;\n  IF NOT FOUND OR NOT private.has_role(v.org_id,ARRAY['psychologa']) THEN RAISE EXCEPTION 'Not authorized'; END IF;\n  RETURN private.sign_clinical_note(p_note);\nEND; $function$\n",
+            "security_definer": true
+        }
+    ],
+    "extensions": [
+        {
+            "name": "pg_stat_statements",
+            "schema": "extensions",
+            "version": "1.11"
+        },
+        {
+            "name": "pgcrypto",
+            "schema": "extensions",
+            "version": "1.3"
+        },
+        {
+            "name": "plpgsql",
+            "schema": "pg_catalog",
+            "version": "1.0"
+        },
+        {
+            "name": "supabase_vault",
+            "schema": "vault",
+            "version": "0.3.1"
+        },
+        {
+            "name": "uuid-ossp",
+            "schema": "extensions",
+            "version": "1.1"
+        }
+    ],
+    "captured_at": "2026-11-08T18:14:31.731068+00:00",
+    "table_grants": [
+        {
+            "table": "org_counters",
+            "schema": "private",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "appointments",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "appointments",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "appointments",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "audit_log",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "SELECT"
+        },
+        {
+            "table": "audit_log",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "audit_log",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "clinical_note_rectifications",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "SELECT"
+        },
+        {
+            "table": "clinical_note_rectifications",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "clinical_note_rectifications",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "clinical_notes",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "SELECT"
+        },
+        {
+            "table": "clinical_notes",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "clinical_notes",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "employees",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "employees",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "employees",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "expenses",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "expenses",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "expenses",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "invoice_lines",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "invoice_lines",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "invoice_lines",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "invoices",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "invoices",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "invoices",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "memberships",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "SELECT"
+        },
+        {
+            "table": "memberships",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "memberships",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "organizations",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "SELECT"
+        },
+        {
+            "table": "organizations",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "organizations",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "patient_documents",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "patient_documents",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "patient_documents",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "patients",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "patients",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "patients",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "payments",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "payments",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "payments",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "professionals",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "professionals",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "professionals",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "services",
+            "schema": "public",
+            "grantee": "authenticated",
+            "privileges": "INSERT, SELECT, UPDATE"
+        },
+        {
+            "table": "services",
+            "schema": "public",
+            "grantee": "postgres",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        },
+        {
+            "table": "services",
+            "schema": "public",
+            "grantee": "service_role",
+            "privileges": "DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE"
+        }
+    ],
+    "storage_buckets": [
+        {
+            "id": "kovo-patient-documents",
+            "name": "kovo-patient-documents",
+            "public": false,
+            "file_size_limit": 20971520,
+            "allowed_mime_types": [
+                "application/pdf",
+                "image/jpeg",
+                "image/png"
+            ]
+        }
+    ]
+}
