@@ -7,8 +7,9 @@ set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASELINE="${ROOT_DIR}/supabase/recovered-schema/BASELINE_CANDIDATE_NOT_TESTED.sql"
 PROPOSAL="${ROOT_DIR}/docs/backend/proposed-migrations/PROPOSAL_ONLY_20261108.sql"
+SECURITY_TEST="${ROOT_DIR}/supabase/tests/database/kovo_backend_security_test.sql"
 
-for file in "$BASELINE" "$PROPOSAL"; do
+for file in "$BASELINE" "$PROPOSAL" "$SECURITY_TEST"; do
   if [[ ! -s "$file" ]]; then
     echo "Required SQL file missing or empty: $file" >&2
     exit 2
@@ -35,9 +36,10 @@ trap cleanup EXIT
 
 cd "$WORK_DIR"
 supabase init
-mkdir -p supabase/migrations
+mkdir -p supabase/migrations supabase/tests/database
 cp "$BASELINE" supabase/migrations/20261108000000_kovo_recovered_schema.sql
 cp "$PROPOSAL" supabase/migrations/20261108000100_kovo_backend_gap_proposal.sql
+cp "$SECURITY_TEST" supabase/tests/database/kovo_backend_security_test.sql
 
 echo "Starting isolated local Supabase stack..."
 supabase start -x realtime,imgproxy,mailpit,studio,edge-runtime,logflare,vector,supavisor
@@ -48,4 +50,7 @@ supabase db reset --local
 echo "Checking generated TypeScript schema types..."
 supabase gen types typescript --local >/dev/null
 
-echo "PASS: baseline + proposal applied to a disposable local Supabase database."
+echo "Running pgTAP role, tenant-isolation and write-boundary tests..."
+supabase test db --local
+
+echo "PASS: schema reconstruction, proposal application, type generation and database security tests."
