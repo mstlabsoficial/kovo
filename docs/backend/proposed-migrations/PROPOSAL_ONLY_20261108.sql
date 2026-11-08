@@ -136,6 +136,133 @@ BEGIN
 END;
 $function$;
 
+-- Direct authenticated REST writes to invoice_lines are currently granted
+-- in the live schema. Enforce the same billing invariants at the table boundary,
+-- not just inside save_invoice_draft().
+CREATE OR REPLACE FUNCTION private.guard_invoice_line_appointment()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_appointment_patient uuid;
+  v_appointment_status text;
+  v_invoice_patient uuid;
+  v_invoice_status text;
+BEGIN
+  IF NEW.appointment_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT a.patient_id, a.status
+  INTO v_appointment_patient, v_appointment_status
+  FROM public.appointments a
+  WHERE a.org_id = NEW.org_id
+    AND a.id = NEW.appointment_id
+  FOR UPDATE;
+
+  IF NOT FOUND OR v_appointment_status <> 'completed' THEN
+    RAISE EXCEPTION 'Only a completed appointment can be linked to an invoice line';
+  END IF;
+
+  SELECT i.patient_id, i.status
+  INTO v_invoice_patient, v_invoice_status
+  FROM public.invoices i
+  WHERE i.org_id = NEW.org_id
+    AND i.id = NEW.invoice_id
+  FOR UPDATE;
+
+  IF NOT FOUND OR v_invoice_status <> 'draft' THEN
+    RAISE EXCEPTION 'Appointment links can only be added to draft invoices';
+  END IF;
+
+  IF v_invoice_patient IS DISTINCT FROM v_appointment_patient THEN
+    RAISE EXCEPTION 'Invoice patient must match the appointment patient';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION private.guard_invoice_line_appointment()
+  FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE TRIGGER invoice_lines_appointment_guard
+  BEFORE INSERT OR UPDATE OF org_id, invoice_id, appointment_id
+  ON public.invoice_lines
+  FOR EACH ROW EXECUTE FUNCTION private.guard_invoice_line_appointment();
+
+-- Once a session is allocated to an invoice line, changing its patient or
+-- completion state would invalidate billing history. The invoice correction
+-- workflow must handle this explicitly rather than silently detaching the session.
+CREATE OR REPLACE FUNCTION private.guard_billed_appointment_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+BEGIN
+  IF (
+    NEW.patient_id IS DISTINCT FROM OLD.patient_id
+    OR NEW.status IS DISTINCT FROM OLD.status
+  ) AND EXISTS (
+    SELECT 1
+    FROM public.invoice_lines l
+    WHERE l.org_id = OLD.org_id
+      AND l.appointment_id = OLD.id
+  ) THEN
+    RAISE EXCEPTION 'A billed appointment cannot change patient or status; use the invoice correction workflow';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION private.guard_billed_appointment_update()
+  FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE TRIGGER appointments_billing_guard
+  BEFORE UPDATE OF patient_id, status
+  ON public.appointments
+  FOR EACH ROW EXECUTE FUNCTION private.guard_billed_appointment_update();
+
+-- Protect the other side of the relationship: a draft invoice's patient must
+-- not be changed after it contains appointment-linked lines.
+CREATE OR REPLACE FUNCTION private.guard_invoice_patient_update()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+BEGIN
+  IF NEW.patient_id IS DISTINCT FROM OLD.patient_id
+     AND EXISTS (
+       SELECT 1
+       FROM public.invoice_lines l
+       JOIN public.appointments a
+         ON a.org_id = l.org_id
+        AND a.id = l.appointment_id
+       WHERE l.org_id = OLD.org_id
+         AND l.invoice_id = OLD.id
+         AND l.appointment_id IS NOT NULL
+         AND a.patient_id IS DISTINCT FROM NEW.patient_id
+     ) THEN
+    RAISE EXCEPTION 'Invoice patient cannot change while it contains appointment-linked lines';
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION private.guard_invoice_patient_update()
+  FROM PUBLIC, anon, authenticated, service_role;
+
+CREATE TRIGGER invoices_billing_patient_guard
+  BEFORE UPDATE OF patient_id
+  ON public.invoices
+  FOR EACH ROW EXECUTE FUNCTION private.guard_invoice_patient_update();
+
 -- ============================================================================
 -- PHASE 2 — fiscal profiles and immutable invoice snapshots
 -- ============================================================================
