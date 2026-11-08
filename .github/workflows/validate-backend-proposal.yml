@@ -8,6 +8,7 @@ on:
       - "docs/backend/**"
       - "supabase/recovered-schema/BASELINE_CANDIDATE_NOT_TESTED.sql"
       - "scripts/validate-backend-proposal.sh"
+      - "supabase/tests/database/**"
       - ".github/workflows/validate-backend-proposal.yml"
   workflow_dispatch:
 
