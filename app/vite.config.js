@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 // La build usa explícitamente el modo demo; no conecta datos remotos.
 export default defineConfig({
   root: '.',
-  base: '/kovo/',
+  base: process.env.GITHUB_ACTIONS ? '/kovo/' : '/',
   server: { port: 5173, strictPort: true },
   preview: { port: 4173, strictPort: true },
   build: { outDir: 'dist', emptyOutDir: true }
