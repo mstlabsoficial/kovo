@@ -1,7 +1,6 @@
 # KOVO — isolated backend-gap test plan
 
-Status: test specification for the SQL proposal in `PROPOSAL_ONLY_20261108.sql`.
-These tests have **not** been executed. Run only on a disposable local Supabase stack.
+Status: the automated subset below has been executed successfully in a disposable Supabase local stack. The remaining cases in this specification are still pending. See `supabase/tests/database/kovo_backend_security_test.sql` and [validation run #16](https://github.com/mstlabsoficial/kovo/actions/runs/42535033875).
 
 ## Test prerequisites
 
@@ -9,7 +8,14 @@ These tests have **not** been executed. Run only on a disposable local Supabase 
 - Apply the proposal file only after a successful baseline reset.
 - Create at least two organizations and test users for `psychologa`, `recepcion`, and `gestoria` in each organization.
 - Use a fresh database for each run; do not point the local CLI at the hosted project.
-- Set JWT claims and database role as the Supabase test harness normally does. Verify results through authenticated PostgREST requests as well as SQL assertions.
+- The current pgTAP suite sets the Postgres `authenticated` role and `request.jwt.claim.sub` to simulate actor context for RLS/grant/trigger assertions.
+- The current suite is a database-level test, not a full HTTP/PostgREST integration test. Add Auth-issued sessions and real PostgREST requests before production approval.
+
+## Automated coverage already executed (38/38 passing)
+
+The current suite covers psychologist/reception/gestoría visibility and write restrictions, two-organization isolation, clinical-note privacy, the consent status projection, psychologist-only consent recording and idempotency, direct invoice status escalation, appointment overlap prevention and adjacent intervals, appointment-to-invoice-line patient matching, and protection of billed appointment/invoice relationships.
+
+The automated test file is `supabase/tests/database/kovo_backend_security_test.sql`. It runs as part of `scripts/validate-backend-proposal.sh`.
 
 ## 0. Database-enforced appointment scheduling
 
@@ -114,7 +120,7 @@ The proposal is ready for a reviewed migration only when:
 1. Baseline reset succeeds.
 2. The proposal applies cleanly to that local baseline.
 3. Catalog diff is understood and the new policies/grants match the role matrix.
-4. The tests above pass against local PostgREST and database access.
+4. The automated 38-test subset remains green and the remaining scenarios above are tested, including real local PostgREST/Auth sessions and concurrent requests.
 5. The clinic confirms the billing, recipient and expense semantics.
 6. Migration-history reconciliation is completed separately.
 
