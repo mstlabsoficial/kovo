@@ -11,6 +11,20 @@ These tests have **not** been executed. Run only on a disposable local Supabase 
 - Use a fresh database for each run; do not point the local CLI at the hosted project.
 - Set JWT claims and database role as the Supabase test harness normally does. Verify results through authenticated PostgREST requests as well as SQL assertions.
 
+## 0. Database-enforced appointment scheduling
+
+| Scenario | Expected result |
+|---|---|
+| New scheduled appointment overlaps another scheduled appointment for same professional and organization | Database exclusion constraint rejects |
+| Two concurrent requests try to book the same professional/time range | Exactly one transaction succeeds |
+| Same time range for two different professionals | Allowed |
+| Same professional, intervals meet exactly at the endpoint (e.g. 10:00–10:50 and 10:50–11:40) | Allowed; intervals are half-open `[start,end)` |
+| Existing cancelled/no-show appointment overlaps a new active appointment | Allowed |
+| Appointment has no assigned professional | Not covered by this constraint; application must display that scheduling conflict cannot be resolved without an assignee |
+| Existing overlapping active appointments exist before migration | Preflight raises an exception and migration stops; data must be reconciled first |
+
+The constraint only applies to `scheduled` and `confirmed` appointments with a non-null professional. Confirm whether the clinic also needs room/resource-level conflict rules before extending it.
+
 ## 1. Appointment ↔ invoice line
 
 | Scenario | Expected result |
