@@ -495,10 +495,14 @@ const concurrentBookings = await Promise.all([
     },
   }),
 ]);
+console.log("booking concurrency responses:", JSON.stringify(concurrentBookings.map(x => ({
+  status: x.status,
+  body: x.data ?? x.raw,
+}))));
 check(
   concurrentBookings.filter(x => x.status === 201).length === 1
     && concurrentBookings.filter(x => [400, 409].includes(x.status)).length === 1,
-  "two concurrent booking requests for the same professional/time yield exactly one winner"
+  `two concurrent booking requests yield one winner (HTTP ${concurrentBookings.map(x => x.status).join("/")})`
 );
 
 console.log(`PASS: ${checks} HTTP/Auth/PostgREST integration assertions passed against local Supabase.`);
