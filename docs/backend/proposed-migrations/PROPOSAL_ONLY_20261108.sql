@@ -58,6 +58,87 @@ ALTER TABLE public.appointments
   );
 
 -- ============================================================================
+-- PHASE 0.5 — clinical-note draft relationship guard
+-- ============================================================================
+-- The current draft RPC scopes writes by author and organization, but its
+-- original implementation does not verify that a supplied appointment belongs
+-- to the same patient. Keep the existing RPC contract and enforce that link.
+CREATE OR REPLACE FUNCTION public.save_clinical_note_draft(
+  p_org_id uuid,
+  p_patient_id uuid,
+  p_appointment_id uuid,
+  p_note_type text,
+  p_content text,
+  p_note_id uuid DEFAULT NULL::uuid
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+DECLARE
+  v_id uuid;
+BEGIN
+  IF auth.uid() IS NULL
+     OR NOT private.has_role(p_org_id, ARRAY['psychologa']) THEN
+    RAISE EXCEPTION 'Not authorized to manage clinical notes' USING ERRCODE='42501';
+  END IF;
+
+  IF p_content IS NULL OR length(btrim(p_content)) = 0 THEN
+    RAISE EXCEPTION 'Clinical note content cannot be empty';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.patients p
+    WHERE p.org_id = p_org_id
+      AND p.id = p_patient_id
+  ) THEN
+    RAISE EXCEPTION 'Patient does not belong to this organization';
+  END IF;
+
+  IF p_appointment_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1
+    FROM public.appointments a
+    WHERE a.org_id = p_org_id
+      AND a.id = p_appointment_id
+      AND a.patient_id = p_patient_id
+  ) THEN
+    RAISE EXCEPTION 'Appointment must belong to the same patient and organization';
+  END IF;
+
+  IF p_note_id IS NULL THEN
+    INSERT INTO public.clinical_notes(
+      org_id, patient_id, appointment_id, author_id, note_type, content, status
+    )
+    VALUES (
+      p_org_id, p_patient_id, p_appointment_id, auth.uid(),
+      coalesce(nullif(p_note_type, ''), 'session'), p_content, 'draft'
+    )
+    RETURNING id INTO v_id;
+  ELSE
+    UPDATE public.clinical_notes
+    SET content = p_content,
+        note_type = coalesce(nullif(p_note_type, ''), 'session'),
+        updated_at = now()
+    WHERE id = p_note_id
+      AND org_id = p_org_id
+      AND patient_id = p_patient_id
+      AND appointment_id IS NOT DISTINCT FROM p_appointment_id
+      AND author_id = auth.uid()
+      AND status = 'draft'
+    RETURNING id INTO v_id;
+
+    IF v_id IS NULL THEN
+      RAISE EXCEPTION 'Draft not found or not editable';
+    END IF;
+  END IF;
+
+  RETURN v_id;
+END;
+$function$;
+
+-- ============================================================================
 -- PHASE 1 — appointment to invoice-line traceability
 -- ============================================================================
 
