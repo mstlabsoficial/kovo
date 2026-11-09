@@ -16,8 +16,8 @@ The remote project has migration-history drift and a recovered candidate baselin
 
 ## Files
 
-- `PROPOSAL_ONLY_20261108.sql`: additive DDL and RPC updates. Not run.
-- `ISOLATED_TEST_PLAN.md`: role, tenant, idempotency, billing and immutability test matrix. Not run.
+- `PROPOSAL_ONLY_20261108.sql`: additive DDL and RPC updates. Applied only to a disposable local Supabase stack by CI; not an active/deployable migration.
+- `ISOLATED_TEST_PLAN.md`: role, tenant, idempotency, billing and immutability test matrix, with executed and pending coverage distinguished.
 - `BACKEND_GAPS_AND_NEXT_MIGRATIONS.md`: current evidence and delivery sequence.
 
 ## Remaining decisions before adoption
@@ -30,7 +30,13 @@ The remote project has migration-history drift and a recovered candidate baselin
 
 ## Validation status
 
-Static review only. No PostgreSQL/Supabase execution has been performed for this proposal. No production schema, data, policies, functions, users or Storage settings have been changed.
+[GitHub Actions run #36](https://github.com/mstlabsoficial/kovo/actions/runs/42724127524) passed in a fresh disposable local Supabase stack:
+- 43/43 pgTAP assertions.
+- 129/129 Auth/PostgREST HTTP assertions.
+- Private Storage PDF upload/download and patient-document metadata role/tenant restrictions.
+- Concurrent appointment booking and duplicate invoice-line allocation each produce one winner.
+
+This confirms application of the baseline and proposal to the reconstructed local schema and the selected local integration tests. It does not validate production migration safety, legal/tax correctness, the complete UI integration or every scenario in the test plan. No production schema, data, policies, functions, users or Storage settings have been changed.
 
 
 ## Additional security finding — direct invoice status escalation
@@ -57,3 +63,10 @@ The proposal replaces `public.save_clinical_note_draft` while preserving its six
 For network-retry safety, the RPC also supports a caller-generated stable UUID in `p_note_id` on the **first create**. The client should generate that UUID once, persist it with the pending editor state, and send the same value for the initial request and every retry. On retry, the RPC updates/returns that same draft rather than creating a second row. Passing `NULL` remains backward-compatible for older clients but does not provide client-controlled idempotency after a lost response.
 
 Claude's T2C implementation should use this stable-ID contract and test: first save, retry with identical ID, edit with identical ID, appointment/patient mismatch, cross-organization denial, role denial and signed/rectified note immutability.
+
+
+## Private patient-document Storage validation
+
+The local HTTP integration harness uploads and downloads a synthetic PDF through the private `kovo-patient-documents` bucket using an Auth-issued psychologist session. It verifies that reception, gestoría and a psychologist from another organization cannot download that file, and that reception cannot create or read patient-document metadata. The workflow uses only a temporary local bucket/object; no hosted Storage objects are touched.
+
+Expense tax-line CRUD/tenant isolation, consent evidence-document linkage and broad transactional rollback tests remain outstanding.
