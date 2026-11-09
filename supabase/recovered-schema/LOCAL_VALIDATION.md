@@ -38,13 +38,14 @@ bash scripts/validate-backend-proposal.sh
 
 ### Latest result
 
-[GitHub Actions run #30 passed on 2026-11-09](https://github.com/mstlabsoficial/kovo/actions/runs/42723026089).
+[GitHub Actions run #36 passed on 2026-11-09](https://github.com/mstlabsoficial/kovo/actions/runs/42724127524).
 
 The log confirms:
 - Recovered baseline and proposal migrations applied in a fresh disposable local stack.
 - Local TypeScript database types generated.
 - pgTAP suite passed: **43 assertions**.
-- Auth/PostgREST suite passed: **113 HTTP assertions**, using six users created by local Supabase Auth and their issued sessions.
+- Auth/PostgREST suite passed: **129 HTTP assertions**, using six users created by local Supabase Auth and their issued sessions.
+- Psychologist-only private Storage upload/download and metadata access passed; reception, gestoría and another organization were denied.
 - Both concurrent booking and concurrent invoice-allocation tests produced exactly one winner.
 
 The HTTP suite covers tenant and role isolation, inactive/no-membership users, anonymous and invalid JWT requests, patient writes, clinical draft create/edit/retry with stable client UUID, appointment/patient mismatch denial, signed-note immutability, consent RPC/idempotency, authorized invoice issuance and snapshots, direct REST escalation denial, and scheduling/billing integrity checks.
@@ -61,6 +62,7 @@ The pgTAP tests use Postgres role/JWT subject context; the HTTP suite goes furth
 - Database-level appointment overlap prevention and back-to-back sessions, including concurrent booking.
 - Same-patient appointment billing links, duplicate-billing race prevention and protection against changing a billed appointment or invoice patient.
 - Auth-issued PostgREST sessions, no-membership and inactive-membership denial, patient create/update, clinical draft create/edit/retry, note immutability, consent RPC/idempotency and invoice issue/snapshot flow.
+- Private patient PDF upload/download and metadata: psychologist allowed; reception, gestoría and a psychologist from another organization denied.
 
 ## Expected captured schema counts
 
@@ -78,8 +80,8 @@ Counts may vary for Supabase-managed objects or if the project changes after cap
 ## Remaining manual follow-up
 
 - Exercise the integrated UI with Claude's T2C branch, including reload and lost-response recovery.
-- Expand tests for expense tax breakdown, consent evidence and private Storage upload/download authorization.
-- Add multi-row RPC rollback tests and a simultaneous consent idempotency race.
+- Add HTTP tests for expense tax-line CRUD and tenant isolation, consent evidence-document linkage and multi-row RPC rollback.
+- Test simultaneous consent idempotency if concurrent retries are expected in the clinic.
 - Capture local catalog output for tables, columns, constraints, indexes, RLS policies, functions, grants, triggers and Storage bucket configuration.
 - Compare it with `catalog-tables.json` and `catalog-security.json`; investigate differences.
 - Reconcile hosted migration history (001–008) with local filenames before any deployment.
