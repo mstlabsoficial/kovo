@@ -6,7 +6,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = extensions, public;
 
-SELECT plan(42);
+SELECT plan(43);
 
 -- Deterministic test actors: psychologist, reception and finance in Org A,
 -- plus a psychologist in Org B to prove tenant isolation.
@@ -111,10 +111,20 @@ SELECT isnt(
     '11111111-1111-1111-1111-111111111111',
     'cccccccc-cccc-cccc-cccc-ccccccccccc1',
     'ffffffff-ffff-ffff-ffff-fffffffffff1',
-    'session', 'TAP created clinical draft', NULL
+    'session', 'TAP created clinical draft', '77777777-7777-7777-7777-777777777771'
   ),
   NULL::uuid,
   'psychologist can create a draft linked to the same patient appointment'
+);
+SELECT is(
+  public.save_clinical_note_draft(
+    '11111111-1111-1111-1111-111111111111',
+    'cccccccc-cccc-cccc-cccc-ccccccccccc1',
+    'ffffffff-ffff-ffff-ffff-fffffffffff1',
+    'session', 'TAP created clinical draft', '77777777-7777-7777-7777-777777777771'
+  )::text,
+  '77777777-7777-7777-7777-777777777771'::text,
+  'retry with the same client draft UUID returns the same note id'
 );
 SELECT isnt(
   public.save_clinical_note_draft(
@@ -122,7 +132,7 @@ SELECT isnt(
     'cccccccc-cccc-cccc-cccc-ccccccccccc1',
     'ffffffff-ffff-ffff-ffff-fffffffffff1',
     'session', 'TAP edited clinical draft',
-    (SELECT id FROM public.clinical_notes WHERE content = 'TAP created clinical draft')
+    '77777777-7777-7777-7777-777777777771'
   ),
   NULL::uuid,
   'psychologist can edit their own draft'
