@@ -133,12 +133,12 @@ SELECT is(
   'clinical draft edit persists its new content'
 );
 SELECT throws_ok(
-  $SELECT public.save_clinical_note_draft(
+  $$SELECT public.save_clinical_note_draft(
     '11111111-1111-1111-1111-111111111111',
     'cccccccc-cccc-cccc-cccc-ccccccccccc1',
     'ffffffff-ffff-ffff-ffff-fffffffffff3',
     'session', 'Invalid patient appointment combination', NULL
-  )$,
+  )$$,
   'P0001', NULL, 'clinical draft RPC rejects an appointment belonging to a different patient'
 );
 SELECT is((SELECT count(*)::bigint FROM public.organization_billing_profiles WHERE org_id = '11111111-1111-1111-1111-111111111111'), 1::bigint, 'psychologist reads organization billing profile');
