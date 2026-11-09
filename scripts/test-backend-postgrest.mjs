@@ -174,26 +174,37 @@ await seed("appointments", [
     ends_at: "2030-01-10T10:50:00+01:00", status: "scheduled",
   },
 ]);
-await seed("organization_billing_profiles", [
-  {
+// Finance-specific profiles are intentionally written through authorized user
+// sessions; the proposal revokes direct service-role table grants for these tables.
+const organizationBilling = await http("/rest/v1/organization_billing_profiles", {
+  token: users.psychA.token, method: "POST", prefer: "return=minimal",
+  body: {
     org_id: ids.orgA, legal_name: "KOVO Test Clinic", tax_id: "X0000000T",
     address_line: "Calle de Prueba 1", postal_code: "29001", city: "Malaga",
     country_code: "ES", invoice_series: "HTTP",
   },
-]);
-await seed("patient_billing_profiles", [
-  {
+});
+expectStatus(organizationBilling, [201], "psychologist creates organization billing profile through RLS");
+
+const patientBilling = await http("/rest/v1/patient_billing_profiles", {
+  token: users.financeA.token, method: "POST", prefer: "return=minimal",
+  body: {
     org_id: ids.orgA, patient_id: ids.patientA1, legal_name: "Paciente Uno",
     tax_id: "12345678Z", address_line: "Calle Ficticia 2", postal_code: "29002",
     city: "Malaga", country_code: "ES",
   },
-]);
-await seed("patient_consent_status", [
-  {
-    org_id: ids.orgA, patient_id: ids.patientA1, consent_type: "privacy",
-    document_version: "v1", status: "granted",
-  },
-]);
+});
+expectStatus(patientBilling, [201], "gestoría creates patient billing profile through RLS");
+
+const consentArgs = {
+  p_org_id: ids.orgA, p_patient_id: ids.patientA1,
+  p_consent_type: "privacy", p_document_version: "http-v1",
+  p_status: "granted", p_signed_at: "2030-01-10T09:00:00+01:00",
+  p_withdrawn_at: null, p_evidence_document_id: null,
+  p_request_key: "88888888-8888-8888-8888-888888888881",
+};
+const consentCreate = await rpc(users.psychA, "record_patient_consent", consentArgs);
+expectStatus(consentCreate, [200], "psychologist creates consent status through authorized RPC");
 
 // Read boundaries and tenant isolation, using real Auth-issued access tokens.
 check((await rows(users.psychA, "patients", `org_id=eq.${ids.orgA}`)).length === 2, "psychologist reads own organization's patients");
@@ -287,15 +298,6 @@ await denied(await rpc(users.psychA, "save_clinical_note_draft", { ...noteArgs, 
 check((await rows(users.receptionA, "clinical_notes", `id=eq.${noteId}`)).length === 0, "reception still cannot read note after signing");
 
 // Consent writes are scoped to the psychologist role and idempotency key.
-const consentArgs = {
-  p_org_id: ids.orgA, p_patient_id: ids.patientA1,
-  p_consent_type: "privacy", p_document_version: "http-v1",
-  p_status: "granted", p_signed_at: "2030-01-10T09:00:00+01:00",
-  p_withdrawn_at: null, p_evidence_document_id: null,
-  p_request_key: "88888888-8888-8888-8888-888888888881",
-};
-const consentCreate = await rpc(users.psychA, "record_patient_consent", consentArgs);
-expectStatus(consentCreate, [200], "psychologist can record consent through PostgREST RPC");
 const consentRetry = await rpc(users.psychA, "record_patient_consent", consentArgs);
 expectStatus(consentRetry, [200], "identical consent retry is accepted");
 check(consentRetry.data === consentCreate.data, "consent retry returns the same event UUID");
