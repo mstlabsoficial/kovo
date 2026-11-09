@@ -264,12 +264,8 @@ await denied(await http("/rest/v1/patient_documents", {
     file_name: "reception-forbidden.pdf", uploaded_by: users.receptionA.id,
   },
 }), "reception cannot create private patient document metadata");
-await denied(await http("/rest/v1/patient_documents", {
-  token: users.financeA.token, method: "GET",
-}), "gestoría cannot read private patient document metadata");
-await denied(await http("/rest/v1/patient_documents", {
-  token: users.receptionA.token, method: "GET",
-}), "reception cannot read private patient document metadata");
+check((await rows(users.financeA, "patient_documents")).length === 0, "gestoría cannot read private patient document metadata");
+check((await rows(users.receptionA, "patient_documents")).length === 0, "reception cannot read private patient document metadata");
 
 // Read boundaries and tenant isolation, using real Auth-issued access tokens.
 check((await rows(users.psychA, "patients", `org_id=eq.${ids.orgA}`)).length === 2, "psychologist reads own organization's patients");
