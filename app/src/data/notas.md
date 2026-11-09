@@ -77,6 +77,12 @@ Solo `psychologa`. Recepción y gestoría no leen notas (RLS). Aunque cambien la
 guardado se rechaza con el rol real de la sesión sin enviar nada, y la BD lo rechazaría igualmente (42501).
 Solo la autora edita su borrador (igual que la RPC).
 
+**La organización no se acepta del navegador como autorización.** El `p_org_id` que se envía sale de la
+membresía de la sesión (`memberships` filtrada por la usuaria autenticada), nunca de la nota, del
+formulario ni de la URL. Aun así la BD no se fía: la RPC exige `has_role(p_org_id, 'psychologa')` para
+`auth.uid()`. Una consulta manipulada en el navegador se rechaza con 42501 (probado).
+
+
 `WriteError.code`: `validation`, `forbidden`, `auth`, `network`, `http`, `invalid_reference`, `not_found`,
 `not_editable`, `locked` (firmada o rectificada), `conflict`, `unexpected_response`.
 
@@ -112,9 +118,16 @@ Solo la autora edita su borrador (igual que la RPC).
 
 ## Pruebas
 
+**Todas las pruebas usan Supabase SIMULADO** (servidor en memoria, `tests/fixtures/supabase-fake.mjs`). Reproduce
+la RPC con sus comprobaciones y errores (42501, P0001, 23503), la RLS de lectura y la falta de INSERT/UPDATE
+directos. **No hay pruebas contra un Supabase local real:** en este equipo no están Docker, la CLI de
+Supabase ni `psql`. Además, el esquema recuperado aún no es una base reproducible (ver
+`MIGRATION_RECONCILIATION_PLAN.md`). Antes de habilitar el modo, conviene repetir estos casos contra un
+Supabase local con el esquema reconciliado, sobre todo la RLS, la RPC y los triggers reales.
+
 ```
-npm run test:unit          # tests/unit/notes.unit.mjs (36) + el resto
-sh scripts/pw.sh supabase  # tests/supabase/notas.spec.js (10) + el resto
+npm run test:unit          # tests/unit/notes.unit.mjs (38) + el resto      — simulado
+sh scripts/pw.sh supabase  # tests/supabase/notas.spec.js (11) + el resto   — simulado, interfaz real
+sh scripts/pw.sh smoke     # demo
+sh scripts/pw.sh visual    # demo: capturas, tolerancia 0 píxeles
 ```
-El servidor simulado (`tests/fixtures/supabase-fake.mjs`) reproduce la RPC con sus comprobaciones y
-errores (42501, P0001, 23503), la RLS de lectura y la falta de INSERT/UPDATE directos.

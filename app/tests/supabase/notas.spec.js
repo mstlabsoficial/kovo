@@ -207,3 +207,44 @@ test('lo que se escribe mientras se guarda no se pierde: queda en el editor como
   expect(fieldsOf(newDrafts(log)[0]).plan).toBe('Escrito durante el guardado');
   expect(newDrafts(log)).toHaveLength(1);
 });
+
+test('flujo completo persistente: paciente nuevo → cita → sesión realizada → nota → recargar', async ({ page }) => {
+  const log = await mockSupabase(page, 'psychologa');
+  const errors = await open(page);
+  // 1. Paciente
+  await act(page, 'newPatient');
+  await fill(page, { 'np-n': 'Paciente Flujo Ficticio', 'np-e': 'flujo@correo-ejemplo.test', 'np-t': '600000077', 'np-s': uuid(10), 'np-m': 'presencial' });
+  await click(page, '.mod [data-act="savePatient"]');
+  await expect(toast(page)).toContainText('creado');
+  const patient = log.server.db.patients.find(p => p.first_name === 'Paciente' && p.last_name === 'Flujo Ficticio');
+  // 2. Cita ya pasada (ayer) para poder cerrarla
+  await act(page, 'newAppt');
+  await fill(page, { 'f-p': patient.id, 'f-d': '2026-11-05', 'f-t': '10:00', 'f-s': uuid(10), 'f-dur': '50' });
+  await click(page, '.mod [data-act="saveAppt"]');
+  await expect(toast(page)).toContainText('Cita creada');
+  const appt = log.server.db.appointments.find(a => a.patient_id === patient.id);
+  // 3. Cerrar la sesión y escribir la nota
+  await act(page, 'fillNote', { id: appt.id });
+  await expect(page.locator('[data-act="saveNote"]')).toBeVisible();
+  await fill(page, { 'nf-objetivos': 'Objetivo del flujo', 'nf-plan': 'Plan del flujo' });
+  await click(page, '[data-act="saveNote"]');
+  await expect(toast(page)).toContainText('Borrador guardado');
+  const note = log.server.db.clinical_notes.find(n => n.patient_id === patient.id);
+  expect(note).toMatchObject({ org_id: ORG, appointment_id: appt.id, author_id: USER, status: 'draft' });
+  expect(log.server.db.appointments.find(a => a.id === appt.id).status).toBe('completed');
+  // 4. Recargar: todo sigue ahí
+  await page.reload();
+  await waitView(page);
+  await click(page, '[data-act="go"][data-v="pacientes"]');
+  await expect(page.locator('#view')).toContainText('Paciente Flujo Ficticio');
+  await act(page, 'openAppt', { id: appt.id });
+  await expect(page.locator('.mod')).toContainText('Realizada');
+  await expect(page.locator('.mod')).toContainText('Borrador');            // fila «Nota»: ya tiene borrador
+  await act(page, 'close');
+  await act(page, 'fillNote', { id: appt.id });                             // lo que hace «Continuar»
+  await expect(page.locator('#nf-objetivos')).toHaveValue('Objetivo del flujo');
+  await expect(page.locator('#nf-plan')).toHaveValue('Plan del flujo');
+  expect(log.server.db.clinical_notes.filter(n => n.patient_id === patient.id)).toHaveLength(1);
+  expect(log.requests.filter(r => r.method !== 'GET' && r.path.startsWith('/rest/v1/clinical_notes'))).toEqual([]);
+  expect(errors, errors.join('\n')).toEqual([]);
+});

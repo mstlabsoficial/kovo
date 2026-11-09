@@ -270,6 +270,18 @@ describe('organización, paciente y cita', () => {
     assert.equal(server.db.patients.find(p => p.id === ORG2_PATIENT)?.org_id, ORG2);
     assert.equal(server.db.appointments.find(a => a.id === ORG2_APPT)?.org_id, ORG2);
   });
+  test('la organización sale de la membresía de la sesión, nunca de los datos del navegador', async () => {
+    const { server, S, N } = await setup();
+    await save(S, N, newNote({ orgId: ORG2, org_id: ORG2 }), { objetivos: 'x' });
+    assert.equal(rpcCalls(server)[0].body.p_org_id, ORG);
+    assert.equal(myNewDrafts(server)[0].org_id, ORG);
+  });
+  test('una organización manipulada en el navegador no autoriza nada: la BD exige el rol en esa consulta', async () => {
+    const server = createFakeServer({ role: 'psychologa' });   // psicóloga de ORG
+    const w = createNoteWriter({ request: server.request, getContext: async () => ctxOf('psychologa', { id: ORG2 }) });
+    await rejectsCode(w.saveDraft({ patientId: ORG2_PATIENT, type: 'sesion', fields: { objetivos: 'x' } }), 'forbidden');
+    assert.equal(server.db.clinical_notes.filter(n => n.org_id === ORG2 && n.content === 'objetivos: x').length, 0);
+  });
   test('paciente de otra consulta: rechazado antes de llamar a la RPC', async () => {
     const { server, S, N } = await setup();
     await rejectsCode(save(S, N, newNote({ patientId: ORG2_PATIENT, apptId: null }), { objetivos: 'x' }), 'invalid_reference');
