@@ -26,11 +26,17 @@ async function http(path, { key = anonKey, token = key, method = "GET", body, pr
   };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (prefer) headers.Prefer = prefer;
-  const response = await fetch(`${apiUrl}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch (error) {
+    throw new Error(`Local Supabase request failed or timed out: ${method} ${path}: ${error}`);
+  }
   const raw = await response.text();
   let data = null;
   if (raw) {
@@ -115,6 +121,7 @@ const ids = {
 
 const suffix = process.env.GITHUB_RUN_ID || String(Date.now());
 const password = `Kovo-Local-Test-${suffix}-Strong!9`;
+console.log("Creating six test users through local Supabase Auth...");
 const users = {
   psychA: await createUser(`psych-a-${suffix}@kovo.test`, password),
   receptionA: await createUser(`reception-a-${suffix}@kovo.test`, password),
@@ -125,6 +132,7 @@ const users = {
 };
 for (const key of Object.keys(users)) users[key] = await signIn(users[key]);
 
+console.log("Seeding two organizations, memberships and synthetic clinic data with the local service role...");
 await seed("organizations", [
   { id: ids.orgA, name: "KOVO HTTP Test Clinic A", is_demo: false },
   { id: ids.orgB, name: "KOVO HTTP Test Clinic B", is_demo: false },
