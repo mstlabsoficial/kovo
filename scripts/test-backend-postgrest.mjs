@@ -117,6 +117,7 @@ const ids = {
   completedA1: "ffffffff-ffff-ffff-ffff-fffffffffff2",
   completedA2: "ffffffff-ffff-ffff-ffff-fffffffffff3",
   scheduledB1: "ffffffff-ffff-ffff-ffff-fffffffffff4",
+  completedA3: "ffffffff-ffff-ffff-ffff-fffffffffff5",
 };
 
 const suffix = process.env.GITHUB_RUN_ID || String(Date.now());
@@ -172,6 +173,11 @@ await seed("appointments", [
     id: ids.scheduledB1, org_id: ids.orgB, patient_id: ids.patientB1,
     professional_id: null, starts_at: "2030-01-10T10:00:00+01:00",
     ends_at: "2030-01-10T10:50:00+01:00", status: "scheduled",
+  },
+  {
+    id: ids.completedA3, org_id: ids.orgA, patient_id: ids.patientA1,
+    professional_id: null, starts_at: "2030-01-10T14:00:00+01:00",
+    ends_at: "2030-01-10T14:50:00+01:00", status: "completed",
   },
 ]);
 // Finance-specific profiles are intentionally written through authorized user
@@ -353,6 +359,51 @@ await denied(await http(`/rest/v1/invoices?id=eq.${validInvoiceId}`, {
   token: users.psychA.token, method: "PATCH", body: { total_cents: 1 },
 }), "issued invoice is immutable through direct REST update");
 
+// Direct PostgREST writes must enforce session-to-line patient coherence.
+const raceInvoiceOne = await http("/rest/v1/invoices", {
+  token: users.psychA.token, method: "POST", prefer: "return=representation",
+  body: { org_id: ids.orgA, patient_id: ids.patientA1, status: "draft", issue_date: "2030-01-10" },
+});
+expectStatus(raceInvoiceOne, [201], "first direct-REST draft invoice for billing-race fixture is created");
+const raceInvoiceTwo = await http("/rest/v1/invoices", {
+  token: users.psychA.token, method: "POST", prefer: "return=representation",
+  body: { org_id: ids.orgA, patient_id: ids.patientA1, status: "draft", issue_date: "2030-01-10" },
+});
+expectStatus(raceInvoiceTwo, [201], "second direct-REST draft invoice for billing-race fixture is created");
+const lineBody = invoiceId => ({
+  org_id: ids.orgA, invoice_id: invoiceId, appointment_id: ids.completedA3,
+  description: "Sesión completada", quantity: 1, unit_price_cents: 6000,
+  tax_rate: 0, line_total_cents: 6000,
+});
+const concurrentBilling = await Promise.all([
+  http("/rest/v1/invoice_lines", { token: users.psychA.token, method: "POST", body: lineBody(raceInvoiceOne.data[0].id) }),
+  http("/rest/v1/invoice_lines", { token: users.psychA.token, method: "POST", body: lineBody(raceInvoiceTwo.data[0].id) }),
+]);
+check(
+  concurrentBilling.filter(x => x.status === 201).length === 1
+    && concurrentBilling.filter(x => [400, 409].includes(x.status)).length === 1,
+  "two concurrent invoice requests cannot bill the same appointment twice"
+);
+const linkedLine = (await rows(users.psychA, "invoice_lines", `appointment_id=eq.${ids.completedA3}`))[0];
+check(Boolean(linkedLine), "the winning concurrent invoice request retains the appointment link");
+await denied(await http(`/rest/v1/invoice_lines?appointment_id=eq.${ids.completedA3}`, {
+  token: users.psychA.token, method: "POST", body: lineBody(raceInvoiceTwo.data[0].id),
+}), "a later duplicate invoice-line insert is rejected");
+await denied(await http(`/rest/v1/appointments?id=eq.${ids.completedA3}`, {
+  token: users.psychA.token, method: "PATCH", body: { status: "cancelled" },
+}), "a billed appointment cannot be cancelled through direct REST");
+await denied(await http(`/rest/v1/invoices?id=eq.${linkedLine.invoice_id}`, {
+  token: users.psychA.token, method: "PATCH", body: { patient_id: ids.patientA2 },
+}), "an invoice patient cannot be changed after an appointment line is linked");
+await denied(await http("/rest/v1/invoice_lines", {
+  token: users.psychA.token, method: "POST",
+  body: {
+    org_id: ids.orgA, invoice_id: raceInvoiceOne.data[0].id,
+    appointment_id: ids.completedA2, description: "Paciente incorrecto",
+    quantity: 1, unit_price_cents: 6000, tax_rate: 0, line_total_cents: 6000,
+  },
+}), "direct invoice-line insert rejects an appointment for a different patient");
+
 // Appointment overlap prevention via HTTP (not just SQL assertions).
 await denied(await http("/rest/v1/appointments", {
   token: users.psychA.token, method: "POST",
@@ -371,5 +422,28 @@ const adjacentAppointment = await http("/rest/v1/appointments", {
   },
 });
 expectStatus(adjacentAppointment, [201], "PostgREST allows back-to-back appointment intervals");
+const concurrentBookings = await Promise.all([
+  http("/rest/v1/appointments", {
+    token: users.psychA.token, method: "POST",
+    body: {
+      org_id: ids.orgA, patient_id: ids.patientA1, professional_id: ids.professionalA,
+      starts_at: "2030-01-10T15:00:00+01:00", ends_at: "2030-01-10T15:50:00+01:00",
+      status: "scheduled",
+    },
+  }),
+  http("/rest/v1/appointments", {
+    token: users.psychA.token, method: "POST",
+    body: {
+      org_id: ids.orgA, patient_id: ids.patientA2, professional_id: ids.professionalA,
+      starts_at: "2030-01-10T15:00:00+01:00", ends_at: "2030-01-10T15:50:00+01:00",
+      status: "scheduled",
+    },
+  }),
+]);
+check(
+  concurrentBookings.filter(x => x.status === 201).length === 1
+    && concurrentBookings.filter(x => [400, 409].includes(x.status)).length === 1,
+  "two concurrent booking requests for the same professional/time yield exactly one winner"
+);
 
 console.log(`PASS: ${checks} HTTP/Auth/PostgREST integration assertions passed against local Supabase.`);
