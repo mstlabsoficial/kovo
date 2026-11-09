@@ -8,8 +8,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BASELINE="${ROOT_DIR}/supabase/recovered-schema/BASELINE_CANDIDATE_NOT_TESTED.sql"
 PROPOSAL="${ROOT_DIR}/docs/backend/proposed-migrations/PROPOSAL_ONLY_20261108.sql"
 SECURITY_TEST="${ROOT_DIR}/supabase/tests/database/kovo_backend_security_test.sql"
+HTTP_TEST="${ROOT_DIR}/scripts/test-backend-postgrest.mjs"
 
-for file in "$BASELINE" "$PROPOSAL" "$SECURITY_TEST"; do
+for file in "$BASELINE" "$PROPOSAL" "$SECURITY_TEST" "$HTTP_TEST"; do
   if [[ ! -s "$file" ]]; then
     echo "Required SQL file missing or empty: $file" >&2
     exit 2
@@ -53,4 +54,15 @@ supabase gen types typescript --local >/dev/null
 echo "Running pgTAP role, tenant-isolation and write-boundary tests..."
 supabase test db --local
 
-echo "PASS: schema reconstruction, proposal application, type generation and database security tests."
+echo "Exporting LOCAL Auth and API connection details..."
+LOCAL_ENV="$WORK_DIR/supabase-local.env"
+supabase status -o env > "$LOCAL_ENV"
+set -a
+# shellcheck disable=SC1090
+source "$LOCAL_ENV"
+set +a
+
+echo "Running Auth-issued session and real PostgREST integration tests..."
+node "$HTTP_TEST"
+
+echo "PASS: schema reconstruction, proposal application, type generation, pgTAP and Auth/PostgREST integration tests."
