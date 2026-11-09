@@ -6,7 +6,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = extensions, public;
 
-SELECT plan(38);
+SELECT plan(42);
 
 -- Deterministic test actors: psychologist, reception and finance in Org A,
 -- plus a psychologist in Org B to prove tenant isolation.
@@ -106,6 +106,41 @@ SELECT is((SELECT count(*)::bigint FROM public.patients WHERE id = 'cccccccc-ccc
 SELECT is((SELECT count(*)::bigint FROM public.patients WHERE id = 'dddddddd-dddd-dddd-dddd-ddddddddddd1'), 0::bigint, 'psychologist cannot read another organization patient');
 SELECT is((SELECT count(*)::bigint FROM public.appointments WHERE id = 'ffffffff-ffff-ffff-ffff-fffffffffff1'), 1::bigint, 'psychologist reads their own appointment');
 SELECT is((SELECT count(*)::bigint FROM public.clinical_notes WHERE patient_id = 'cccccccc-cccc-cccc-cccc-ccccccccccc1'), 1::bigint, 'psychologist reads clinical notes');
+SELECT isnt(
+  public.save_clinical_note_draft(
+    '11111111-1111-1111-1111-111111111111',
+    'cccccccc-cccc-cccc-cccc-ccccccccccc1',
+    'ffffffff-ffff-ffff-ffff-fffffffffff1',
+    'session', 'TAP created clinical draft', NULL
+  ),
+  NULL::uuid,
+  'psychologist can create a draft linked to the same patient appointment'
+);
+SELECT isnt(
+  public.save_clinical_note_draft(
+    '11111111-1111-1111-1111-111111111111',
+    'cccccccc-cccc-cccc-cccc-ccccccccccc1',
+    'ffffffff-ffff-ffff-ffff-fffffffffff1',
+    'session', 'TAP edited clinical draft',
+    (SELECT id FROM public.clinical_notes WHERE content = 'TAP created clinical draft')
+  ),
+  NULL::uuid,
+  'psychologist can edit their own draft'
+);
+SELECT is(
+  (SELECT count(*)::bigint FROM public.clinical_notes WHERE content = 'TAP edited clinical draft'),
+  1::bigint,
+  'clinical draft edit persists its new content'
+);
+SELECT throws_ok(
+  $SELECT public.save_clinical_note_draft(
+    '11111111-1111-1111-1111-111111111111',
+    'cccccccc-cccc-cccc-cccc-ccccccccccc1',
+    'ffffffff-ffff-ffff-ffff-fffffffffff3',
+    'session', 'Invalid patient appointment combination', NULL
+  )$,
+  'P0001', NULL, 'clinical draft RPC rejects an appointment belonging to a different patient'
+);
 SELECT is((SELECT count(*)::bigint FROM public.organization_billing_profiles WHERE org_id = '11111111-1111-1111-1111-111111111111'), 1::bigint, 'psychologist reads organization billing profile');
 SELECT is((SELECT count(*)::bigint FROM public.patient_billing_profiles WHERE patient_id = 'cccccccc-cccc-cccc-cccc-ccccccccccc1'), 1::bigint, 'psychologist reads patient billing profile');
 
