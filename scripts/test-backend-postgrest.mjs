@@ -273,12 +273,17 @@ const noteArgs = {
   p_appointment_id: ids.scheduledA1,
   p_note_type: "session",
   p_content: "HTTP integration test draft",
-  p_note_id: null,
+  // Stable caller-generated draft UUID makes a retry after a lost response idempotent.
+  p_note_id: "77777777-7777-7777-7777-777777777771",
 };
 const noteCreate = await rpc(users.psychA, "save_clinical_note_draft", noteArgs);
 expectStatus(noteCreate, [200], "psychologist can create a clinical draft through PostgREST");
 const noteId = noteCreate.data;
-check(typeof noteId === "string" && /^[0-9a-f-]{36}$/i.test(noteId), "clinical draft RPC returns UUID");
+check(noteId === noteArgs.p_note_id, "clinical draft uses the stable client-generated UUID");
+const noteRetry = await rpc(users.psychA, "save_clinical_note_draft", noteArgs);
+expectStatus(noteRetry, [200], "retry after a simulated lost response is accepted");
+check(noteRetry.data === noteId, "clinical draft retry returns the same UUID");
+check((await rows(users.psychA, "clinical_notes", `id=eq.${noteId}`)).length === 1, "clinical draft retry does not create a duplicate");
 check((await rows(users.psychA, "clinical_notes", `id=eq.${noteId}`))[0]?.content === noteArgs.p_content, "clinical draft is readable by its author");
 const noteUpdate = await rpc(users.psychA, "save_clinical_note_draft", { ...noteArgs, p_content: "HTTP integration test updated", p_note_id: noteId });
 expectStatus(noteUpdate, [200], "psychologist can edit own clinical draft through PostgREST");
