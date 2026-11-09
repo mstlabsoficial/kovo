@@ -7,7 +7,7 @@ on:
     paths:
       - "docs/backend/**"
       - "supabase/recovered-schema/BASELINE_CANDIDATE_NOT_TESTED.sql"
-      - "scripts/validate-backend-proposal.sh"
+      - "scripts/**"
       - "supabase/tests/database/**"
       - ".github/workflows/validate-backend-proposal.yml"
   workflow_dispatch:
@@ -32,6 +32,11 @@ jobs:
         uses: supabase/setup-cli@v3
         with:
           version: latest
+
+      - name: Set up Node.js for HTTP integration tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - name: Apply recovered baseline and proposal in an isolated stack
         run: bash scripts/validate-backend-proposal.sh
