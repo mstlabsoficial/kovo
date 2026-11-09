@@ -1,6 +1,6 @@
 # KOVO — isolated backend-gap test plan
 
-Status: the current automated subset has passed in a disposable Supabase local stack: **43/43 pgTAP assertions and 113/113 HTTP/Auth/PostgREST assertions**. See [validation run #30](https://github.com/mstlabsoficial/kovo/actions/runs/42723026089), `supabase/tests/database/kovo_backend_security_test.sql` and `scripts/test-backend-postgrest.mjs`. Remaining cases are still pending.
+Status: the current automated subset has passed in a disposable Supabase local stack: **43/43 pgTAP assertions and 129/129 HTTP/Auth/PostgREST assertions**. See [validation run #36](https://github.com/mstlabsoficial/kovo/actions/runs/42724127524), `supabase/tests/database/kovo_backend_security_test.sql` and `scripts/test-backend-postgrest.mjs`. Remaining cases are still pending.
 
 ## Test prerequisites
 
@@ -15,10 +15,10 @@ Status: the current automated subset has passed in a disposable Supabase local s
 
 The current successful run reports:
 - **43/43 pgTAP assertions** in `supabase/tests/database/kovo_backend_security_test.sql`.
-- **113/113 HTTP/Auth/PostgREST assertions** in `scripts/test-backend-postgrest.mjs`.
-- Run: [GitHub Actions #30](https://github.com/mstlabsoficial/kovo/actions/runs/42723026089).
+- **129/129 HTTP/Auth/PostgREST assertions** in `scripts/test-backend-postgrest.mjs`.
+- Run: [GitHub Actions #36](https://github.com/mstlabsoficial/kovo/actions/runs/42724127524).
 
-The HTTP suite covers six local Auth users (psychologist, reception, gestoría, second-organization psychologist, inactive membership and no membership), two organizations, tenant and role checks, anonymous/invalid sessions, patient create/update, clinical draft create/edit with stable client UUID retry, mismatched appointment denial, signed-note immutability, consent RPC/idempotency, direct invoice status escalation denial, authorized invoice issuance and fiscal snapshots, billing relation guards, duplicate billing race, appointment overlap and concurrent booking.
+The HTTP suite covers six local Auth users (psychologist, reception, gestoría, second-organization psychologist, inactive membership and no membership), two organizations, tenant and role checks, anonymous/invalid sessions, patient create/update, clinical draft create/edit with stable client UUID retry, mismatched appointment denial, signed-note immutability, consent RPC/idempotency, direct invoice status escalation denial, authorized invoice issuance and fiscal snapshots, billing relation guards, duplicate billing race, appointment overlap and concurrent booking, and private patient document upload/download plus metadata visibility.
 
 The tests do not use production identities or secrets. The test runner uses only a disposable local Supabase URL and API keys.
 
@@ -125,8 +125,8 @@ The proposal is ready for a reviewed migration only when:
 1. Baseline reset succeeds.
 2. The proposal applies cleanly to that local baseline.
 3. Catalog diff is understood and the new policies/grants match the role matrix.
-4. The current 43 pgTAP + 113 HTTP integration assertions remain green.
-5. Storage/evidence access, expense tax CRUD, broad rollback cases and integrated UI behavior are tested.
+4. The current 43 pgTAP + 129 HTTP integration assertions remain green.
+5. Expense tax-line CRUD/tenant isolation, consent evidence-document linkage, broader rollback cases and integrated UI behavior are tested.
 6. The clinic confirms billing, recipient and expense semantics.
 7. Migration-history reconciliation is completed separately.
 
