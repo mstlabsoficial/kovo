@@ -228,7 +228,7 @@ expectStatus(consentCreate, [200], "psychologist creates consent status through 
 
 // Private document storage: upload, download and metadata must remain psychologist-only.
 const storagePath = `${ids.orgA}/${ids.patientA1}/http-test-${suffix}.pdf`;
-const pdfBytes = new TextEncoder().encode("%PDF-1.4\\nKOVO synthetic storage test\\n%%EOF\\n");
+const pdfBytes = new TextEncoder().encode("%PDF-1.4\nKOVO synthetic storage test\n%%EOF\n");
 const upload = await storageRequest(`/storage/v1/object/kovo-patient-documents/${storagePath}`, users.psychA, {
   method: "POST",
   body: pdfBytes,
