@@ -1,6 +1,6 @@
 # KOVO — isolated backend-gap test plan
 
-Status: the automated subset below has been executed successfully in a disposable Supabase local stack. The remaining cases in this specification are still pending. See `supabase/tests/database/kovo_backend_security_test.sql` and [validation run #16](https://github.com/mstlabsoficial/kovo/actions/runs/42535033875).
+Status: the current automated subset has passed in a disposable Supabase local stack: **43/43 pgTAP assertions and 113/113 HTTP/Auth/PostgREST assertions**. See [validation run #30](https://github.com/mstlabsoficial/kovo/actions/runs/42723026089), `supabase/tests/database/kovo_backend_security_test.sql` and `scripts/test-backend-postgrest.mjs`. Remaining cases are still pending.
 
 ## Test prerequisites
 
@@ -9,13 +9,18 @@ Status: the automated subset below has been executed successfully in a disposabl
 - Create at least two organizations and test users for `psychologa`, `recepcion`, and `gestoria` in each organization.
 - Use a fresh database for each run; do not point the local CLI at the hosted project.
 - The current pgTAP suite sets the Postgres `authenticated` role and `request.jwt.claim.sub` to simulate actor context for RLS/grant/trigger assertions.
-- The current suite is a database-level test, not a full HTTP/PostgREST integration test. Add Auth-issued sessions and real PostgREST requests before production approval.
+- The separate Node integration harness creates users through local Supabase Auth, obtains password-grant sessions and runs HTTP requests against local PostgREST. It refuses non-local API URLs.
 
-## Automated coverage already executed (38/38 passing)
+## Automated coverage already executed
 
-The current suite covers psychologist/reception/gestoría visibility and write restrictions, two-organization isolation, clinical-note privacy, the consent status projection, psychologist-only consent recording and idempotency, direct invoice status escalation, appointment overlap prevention and adjacent intervals, appointment-to-invoice-line patient matching, and protection of billed appointment/invoice relationships.
+The current successful run reports:
+- **43/43 pgTAP assertions** in `supabase/tests/database/kovo_backend_security_test.sql`.
+- **113/113 HTTP/Auth/PostgREST assertions** in `scripts/test-backend-postgrest.mjs`.
+- Run: [GitHub Actions #30](https://github.com/mstlabsoficial/kovo/actions/runs/42723026089).
 
-The automated test file is `supabase/tests/database/kovo_backend_security_test.sql`. It runs as part of `scripts/validate-backend-proposal.sh`.
+The HTTP suite covers six local Auth users (psychologist, reception, gestoría, second-organization psychologist, inactive membership and no membership), two organizations, tenant and role checks, anonymous/invalid sessions, patient create/update, clinical draft create/edit with stable client UUID retry, mismatched appointment denial, signed-note immutability, consent RPC/idempotency, direct invoice status escalation denial, authorized invoice issuance and fiscal snapshots, billing relation guards, duplicate billing race, appointment overlap and concurrent booking.
+
+The tests do not use production identities or secrets. The test runner uses only a disposable local Supabase URL and API keys.
 
 ## 0. Database-enforced appointment scheduling
 
@@ -120,8 +125,9 @@ The proposal is ready for a reviewed migration only when:
 1. Baseline reset succeeds.
 2. The proposal applies cleanly to that local baseline.
 3. Catalog diff is understood and the new policies/grants match the role matrix.
-4. The automated 38-test subset remains green and the remaining scenarios above are tested, including real local PostgREST/Auth sessions and concurrent requests.
-5. The clinic confirms the billing, recipient and expense semantics.
-6. Migration-history reconciliation is completed separately.
+4. The current 43 pgTAP + 113 HTTP integration assertions remain green.
+5. Storage/evidence access, expense tax CRUD, broad rollback cases and integrated UI behavior are tested.
+6. The clinic confirms billing, recipient and expense semantics.
+7. Migration-history reconciliation is completed separately.
 
 Passing local tests does not authorize production deployment.
