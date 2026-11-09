@@ -112,3 +112,49 @@ This is stronger than static SQL review and database-role-only tests: it exercis
 6. Reconcile hosted migration history 001–008 with active local migration filenames before preparing any deployment migration.
 
 No production database, data, policies, functions, users or Storage configuration was changed. Passing local CI tests does not authorize a production deployment.
+
+
+## Run 5 — 2026-11-09, GitHub Actions run #36
+
+**Result: passed — 43/43 pgTAP assertions and 129/129 HTTP/Auth/PostgREST assertions.**
+
+- [Workflow run #36](https://github.com/mstlabsoficial/kovo/actions/runs/42724127524)
+- Tested branch head: `e34761f5734d2de05dfbf78810f3f8d65a518060`
+- Test files: `supabase/tests/database/kovo_backend_security_test.sql` and `scripts/test-backend-postgrest.mjs`.
+
+The job rebuilt the disposable local Supabase stack, applied the recovered baseline and proposal, generated TypeScript database types, passed pgTAP and then performed HTTP requests with Auth-issued local sessions.
+
+The final log reports:
+
+```
+Files=1, Tests=43
+Result: PASS
+PASS: 129 HTTP/Auth/PostgREST integration assertions passed against local Supabase.
+PASS: schema reconstruction, proposal application, type generation, pgTAP and Auth/PostgREST integration tests.
+```
+
+### Additional private-document coverage in this run
+
+- Psychologist uploads and downloads a PDF from the private `kovo-patient-documents` bucket.
+- Psychologist creates and reads the matching `patient_documents` metadata row.
+- Reception and gestoría cannot download the document or read metadata rows.
+- A psychologist from another organization cannot download the file.
+- A psychologist cannot upload to another organization's storage path.
+- Reception cannot create document metadata.
+
+The database returns HTTP 200 with an empty result set when RLS hides metadata rows; the test now checks row visibility rather than expecting an HTTP error.
+
+### Concurrency diagnostic
+
+The run logs both booking-race responses: one request receives HTTP 201 and the competing request receives PostgreSQL exclusion error `23P01` for `appointments_no_professional_overlap`. Exactly one booking is accepted. The simultaneous invoice-line allocation test also passes with exactly one winner.
+
+### Remaining gates
+
+1. Exercise the integrated UI with Claude's T2C branch, including page reload and lost-response recovery against the updated RPC implementation.
+2. Add HTTP coverage for expense tax-line CRUD/tenant isolation, evidence-document linkage to consent records, and multi-row RPC rollback.
+3. Test simultaneous consent idempotency if concurrent consent retries are expected in the client.
+4. Compare reconstructed local catalog output against the captured catalog and investigate every difference.
+5. Confirm payer identity, invoice series/corrections, expense amount semantics, consent evidence and room/resource scheduling with the clinic and its gestor/a.
+6. Reconcile hosted migration history 001–008 with active local migration filenames before preparing any deployment migration.
+
+All tests ran against a disposable local Supabase stack with synthetic identities and fixture data. No production database, data, users, policies, functions or Storage configuration was changed. Passing local CI does not authorize production deployment.
