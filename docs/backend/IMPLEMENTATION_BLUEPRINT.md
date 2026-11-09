@@ -45,3 +45,15 @@ This is a catalog-based code finding, not evidence that anyone exploited the pat
 ## Additional scheduling control — database-level overlap prevention
 
 Claude's T2B report confirms that overlapping appointments are currently checked in the UI only. The proposal adds a PostgreSQL GiST exclusion constraint over organization, professional and the appointment time range for active `scheduled`/`confirmed` records. It uses half-open time ranges so one appointment may start exactly when another ends, and it remains safe under concurrent requests. A preflight check aborts the migration when historical overlapping active bookings need reconciliation. Appointments without an assigned professional are not covered; the interface must make that limitation explicit until a professional is selected.
+
+
+## Clinical-note draft RPC integration contract
+
+The proposal replaces `public.save_clinical_note_draft` while preserving its six-argument RPC signature. In addition to the existing psychologist-only authorization and draft-only edit guard, it validates that:
+- The patient belongs to `p_org_id`.
+- A non-null appointment belongs to that same organization and patient.
+- An update targets the same author, patient and appointment, and only a row still in `draft` status.
+
+For network-retry safety, the RPC also supports a caller-generated stable UUID in `p_note_id` on the **first create**. The client should generate that UUID once, persist it with the pending editor state, and send the same value for the initial request and every retry. On retry, the RPC updates/returns that same draft rather than creating a second row. Passing `NULL` remains backward-compatible for older clients but does not provide client-controlled idempotency after a lost response.
+
+Claude's T2C implementation should use this stable-ID contract and test: first save, retry with identical ID, edit with identical ID, appointment/patient mismatch, cross-organization denial, role denial and signed/rectified note immutability.
