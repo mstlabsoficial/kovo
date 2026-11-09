@@ -98,6 +98,20 @@ async function denied(result, label) {
   expectStatus(result, [400, 401, 403, 409, 422], label);
 }
 
+async function storageRequest(path, actor, { method = "GET", body } = {}) {
+  const response = await fetch(`${apiUrl}${path}`, {
+    method,
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${actor.token}`,
+      "Content-Type": "application/pdf",
+    },
+    body,
+    signal: AbortSignal.timeout(20_000),
+  });
+  return { status: response.status, text: await response.text() };
+}
+
 async function rpc(actor, name, body) {
   return http(`/rest/v1/rpc/${name}`, {
     token: actor.token,
@@ -211,6 +225,51 @@ const consentArgs = {
 };
 const consentCreate = await rpc(users.psychA, "record_patient_consent", consentArgs);
 expectStatus(consentCreate, [200], "psychologist creates consent status through authorized RPC");
+
+// Private document storage: upload, download and metadata must remain psychologist-only.
+const storagePath = `${ids.orgA}/${ids.patientA1}/http-test-${suffix}.pdf`;
+const pdfBytes = new TextEncoder().encode("%PDF-1.4\\nKOVO synthetic storage test\\n%%EOF\\n");
+const upload = await storageRequest(`/storage/v1/object/kovo-patient-documents/${storagePath}`, users.psychA, {
+  method: "POST",
+  body: pdfBytes,
+});
+expectStatus(upload, [200, 201], "psychologist can upload a private patient PDF");
+const download = await storageRequest(`/storage/v1/object/authenticated/kovo-patient-documents/${storagePath}`, users.psychA);
+expectStatus(download, [200], "psychologist can download a private patient PDF");
+check(download.text.includes("KOVO synthetic storage test"), "download returns the uploaded private document bytes");
+
+const documentMetadata = await http("/rest/v1/patient_documents", {
+  token: users.psychA.token, method: "POST", prefer: "return=representation",
+  body: {
+    org_id: ids.orgA, patient_id: ids.patientA1,
+    storage_path: storagePath, document_type: "other",
+    file_name: `http-test-${suffix}.pdf`, uploaded_by: users.psychA.id,
+  },
+});
+expectStatus(documentMetadata, [201], "psychologist can create patient document metadata");
+check(Boolean(documentMetadata.data?.[0]?.id), "patient document metadata returns a database UUID");
+check((await rows(users.psychA, "patient_documents", `id=eq.${documentMetadata.data[0].id}`)).length === 1, "psychologist can read own patient's document metadata");
+
+await denied(await storageRequest(`/storage/v1/object/authenticated/kovo-patient-documents/${storagePath}`, users.receptionA), "reception cannot download private patient documents");
+await denied(await storageRequest(`/storage/v1/object/authenticated/kovo-patient-documents/${storagePath}`, users.financeA), "gestoría cannot download private patient documents");
+await denied(await storageRequest(`/storage/v1/object/authenticated/kovo-patient-documents/${storagePath}`, users.psychB), "another organization cannot download private patient documents");
+await denied(await storageRequest(`/storage/v1/object/kovo-patient-documents/${ids.orgB}/${ids.patientB1}/forbidden.pdf`, users.psychA, {
+  method: "POST", body: pdfBytes,
+}), "psychologist cannot upload a private document into another organization path");
+await denied(await http("/rest/v1/patient_documents", {
+  token: users.receptionA.token, method: "POST",
+  body: {
+    org_id: ids.orgA, patient_id: ids.patientA1,
+    storage_path: storagePath, document_type: "other",
+    file_name: "reception-forbidden.pdf", uploaded_by: users.receptionA.id,
+  },
+}), "reception cannot create private patient document metadata");
+await denied(await http("/rest/v1/patient_documents", {
+  token: users.financeA.token, method: "GET",
+}), "gestoría cannot read private patient document metadata");
+await denied(await http("/rest/v1/patient_documents", {
+  token: users.receptionA.token, method: "GET",
+}), "reception cannot read private patient document metadata");
 
 // Read boundaries and tenant isolation, using real Auth-issued access tokens.
 check((await rows(users.psychA, "patients", `org_id=eq.${ids.orgA}`)).length === 2, "psychologist reads own organization's patients");
