@@ -108,6 +108,8 @@ BEGIN
   END IF;
 
   IF p_note_id IS NULL THEN
+    -- Backward-compatible create path. New clients should send one stable UUID
+    -- in p_note_id so a retry after a lost response cannot create a duplicate.
     INSERT INTO public.clinical_notes(
       org_id, patient_id, appointment_id, author_id, note_type, content, status
     )
@@ -117,6 +119,8 @@ BEGIN
     )
     RETURNING id INTO v_id;
   ELSE
+    -- Treat a caller-generated p_note_id as the stable draft identity:
+    -- update an existing owned draft, or insert that id on first use.
     UPDATE public.clinical_notes
     SET content = p_content,
         note_type = coalesce(nullif(p_note_type, ''), 'session'),
@@ -128,6 +132,35 @@ BEGIN
       AND author_id = auth.uid()
       AND status = 'draft'
     RETURNING id INTO v_id;
+
+    IF v_id IS NULL THEN
+      INSERT INTO public.clinical_notes(
+        id, org_id, patient_id, appointment_id, author_id, note_type, content, status
+      )
+      VALUES (
+        p_note_id, p_org_id, p_patient_id, p_appointment_id, auth.uid(),
+        coalesce(nullif(p_note_type, ''), 'session'), p_content, 'draft'
+      )
+      ON CONFLICT (id) DO NOTHING
+      RETURNING id INTO v_id;
+    END IF;
+
+    -- Concurrent duplicate create requests may both miss the initial UPDATE.
+    -- If the other transaction inserted the same stable id first, update only
+    -- that same author's draft with identical tenant/patient/appointment scope.
+    IF v_id IS NULL THEN
+      UPDATE public.clinical_notes
+      SET content = p_content,
+          note_type = coalesce(nullif(p_note_type, ''), 'session'),
+          updated_at = now()
+      WHERE id = p_note_id
+        AND org_id = p_org_id
+        AND patient_id = p_patient_id
+        AND appointment_id IS NOT DISTINCT FROM p_appointment_id
+        AND author_id = auth.uid()
+        AND status = 'draft'
+      RETURNING id INTO v_id;
+    END IF;
 
     IF v_id IS NULL THEN
       RAISE EXCEPTION 'Draft not found or not editable';
