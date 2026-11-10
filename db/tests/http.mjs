@@ -1,0 +1,229 @@
+// KOVO — HTTP tests against the full local stack with REAL Supabase Auth tokens, REAL PostgREST and
+// REAL Supabase Storage. Two clinics, one user per role, KOVO staff. Synthetic data only.
+import { randomUUID } from 'node:crypto';
+import { client, suite, newUser, minimalPdf } from './client.mjs';
+
+export async function runHttp(stack) {
+  const api = client(stack);
+  const s = suite('http');
+  const { check } = s;
+  const err = r => `${r.status} ${typeof r.json === 'object' ? JSON.stringify(r.json) : r.text}`.slice(0, 300);
+
+  // ---------------------------------------------------------------- Auth: sign-up, policy, sessions
+  const weak = await api.signUp('debil@kovo.test', 'corta');
+  check('Auth: contraseñas de menos de 10 caracteres rechazadas', weak.status === 422 || weak.status === 400, err(weak));
+  const titA = await newUser(api, 'titular-a@kovo.test', undefined, { full_name: 'Titular Ficticia A' });
+  const titB = await newUser(api, 'titular-b@kovo.test');
+  const dup = await api.signUp('titular-a@kovo.test', 'Prueba-sintetica-2026');
+  check('Auth: no se crea una segunda cuenta con el mismo correo', !dup.json?.access_token || dup.json?.user?.id !== titA.id, err(dup));
+  const me = await api.user(titA.token);
+  check('Auth: el token emitido por Supabase Auth identifica al usuario', me.ok && me.json.id === titA.id, err(me));
+
+  // ---------------------------------------------------------------- Sign-up of two clinics
+  const orgA = await api.rpc(titA.token, 'create_organization', { p_name: 'Clínica Ficticia A', p_plan_code: 'professional', p_display_name: 'Titular A' });
+  const orgB = await api.rpc(titB.token, 'create_organization', { p_name: 'Clínica Ficticia B', p_plan_code: 'starter' });
+  check('Alta: una persona registrada crea su clínica (RPC)', orgA.ok && typeof orgA.json === 'string', err(orgA));
+  check('Alta: una segunda clínica independiente', orgB.ok && orgB.json !== orgA.json, err(orgB));
+  const A = orgA.json, B = orgB.json;
+  const myA = await api.rpc(titA.token, 'my_organizations');
+  check('Alta: la titular es psicóloga y administradora, plan en prueba', myA.ok && myA.json.length === 1 && myA.json[0].is_admin && myA.json[0].role === 'psychologa' && myA.json[0].subscription_status === 'trialing', err(myA));
+  const anonOrg = await api.rpc(undefined, 'create_organization', { p_name: 'Sin sesión' });
+  check('Alta: sin sesión no se puede crear una clínica', !anonOrg.ok, err(anonOrg));
+
+  // ---------------------------------------------------------------- Patients and codes
+  const p1 = await api.insert(titA.token, 'patients', { org_id: A, patient_code: 'AUTO', first_name: 'Paciente', last_name: 'Sintético Uno' });
+  check('Pacientes: alta con código automático P-00001', p1.status === 201 && p1.json[0].patient_code === 'P-00001', err(p1));
+  const p7 = await api.insert(titA.token, 'patients', { org_id: A, patient_code: 'P-00007', first_name: 'Paciente', last_name: 'Importado' });
+  const p8 = await api.insert(titA.token, 'patients', { org_id: A, patient_code: 'AUTO', first_name: 'Paciente', last_name: 'Siguiente' });
+  check('Pacientes: tras un código explícito P-00007 el siguiente es P-00008 (sin colisión)', p7.status === 201 && p8.json?.[0]?.patient_code === 'P-00008', err(p8));
+  const P1 = p1.json[0].id;
+  const pB = await api.insert(titB.token, 'patients', { org_id: B, patient_code: 'AUTO', first_name: 'Paciente', last_name: 'De B' });
+  check('Pacientes: cada clínica numera por separado (B empieza en P-00001)', pB.json?.[0]?.patient_code === 'P-00001', err(pB));
+  const PB = pB.json[0].id;
+
+  // ---------------------------------------------------------------- Isolation between clinics
+  const leak = await api.get(titB.token, `patients?org_id=eq.${A}&select=id`);
+  check('Aislamiento: B no ve pacientes de A por REST', leak.ok && leak.json.length === 0, err(leak));
+  const byId = await api.get(titB.token, `patients?id=eq.${P1}&select=id`);
+  check('Aislamiento: B no lee un paciente de A aunque conozca su id', byId.ok && byId.json.length === 0, err(byId));
+  const forged = await api.insert(titB.token, 'patients', { org_id: A, patient_code: 'AUTO', first_name: 'X', last_name: 'Y' });
+  check('Aislamiento: B no puede escribir en A cambiando org_id', forged.status === 403, err(forged));
+  const moveAway = await api.patch(titB.token, `patients?id=eq.${PB}`, { org_id: A });
+  check('Aislamiento: B no puede mover su paciente a la clínica A', !moveAway.ok, err(moveAway));
+  const teamLeak = await api.rpc(titB.token, 'list_team', { p_org_id: A });
+  check('Aislamiento: B no lista el equipo de A', !teamLeak.ok, err(teamLeak));
+  const apptCross = await api.insert(titB.token, 'appointments', { org_id: B, patient_id: P1, starts_at: '2026-12-01T10:00:00+01:00', ends_at: '2026-12-01T10:50:00+01:00' });
+  check('Aislamiento: una cita de B no puede apuntar a un paciente de A (FK compuesta)', !apptCross.ok, err(apptCross));
+
+  // ---------------------------------------------------------------- Invitations and roles
+  const inv = await api.rpc(titA.token, 'invite_member', { p_org_id: A, p_email: 'recepcion-a@kovo.test', p_role: 'recepcion' });
+  check('Equipo: la administradora invita a recepción', inv.ok && inv.json.token?.length === 48, err(inv));
+  const invG = await api.rpc(titA.token, 'invite_member', { p_org_id: A, p_email: 'gestoria-a@kovo.test', p_role: 'gestoria' });
+  const invP = await api.rpc(titA.token, 'invite_member', { p_org_id: A, p_email: 'psico-a2@kovo.test', p_role: 'psychologa' });
+  const rec = await newUser(api, 'recepcion-a@kovo.test');
+  const ges = await newUser(api, 'gestoria-a@kovo.test');
+  const ps2 = await newUser(api, 'psico-a2@kovo.test');
+  const intruso = await newUser(api, 'intruso@kovo.test');
+  const wrong = await api.rpc(intruso.token, 'accept_invitation', { p_token: inv.json.token });
+  check('Equipo: otra cuenta no puede usar la invitación', !wrong.ok && wrong.json?.code === 'KT004', err(wrong));
+  const acc = await api.rpc(rec.token, 'accept_invitation', { p_token: inv.json.token });
+  check('Equipo: la persona invitada acepta con su cuenta', acc.ok && acc.json.role === 'recepcion', err(acc));
+  await api.rpc(ges.token, 'accept_invitation', { p_token: invG.json.token });
+  await api.rpc(ps2.token, 'accept_invitation', { p_token: invP.json.token });
+  const again = await api.rpc(rec.token, 'accept_invitation', { p_token: inv.json.token });
+  check('Equipo: la invitación es de un solo uso', !again.ok && again.json?.code === 'KT003', err(again));
+  const team = await api.rpc(titA.token, 'list_team', { p_org_id: A });
+  check('Equipo: la administradora ve 4 personas con su correo', team.ok && team.json.length === 4 && team.json.every(m => m.email), err(team));
+
+  const recPatients = await api.get(rec.token, 'patients?select=id');
+  check('Roles: recepción ve pacientes', recPatients.ok && recPatients.json.length === 3, err(recPatients));
+  const recNotes = await api.get(rec.token, 'clinical_notes?select=id');
+  check('Roles: recepción no ve notas clínicas', recNotes.ok && recNotes.json.length === 0, err(recNotes));
+  const recInv = await api.get(rec.token, 'invoices?select=id');
+  check('Roles: recepción no ve facturas', recInv.ok && recInv.json.length === 0, err(recInv));
+  const recSvc = await api.insert(rec.token, 'services', { org_id: A, name: 'Servicio de recepción', duration_minutes: 30 });
+  check('Roles: recepción no crea servicios', recSvc.status === 403, err(recSvc));
+  const recAdmin = await api.rpc(rec.token, 'invite_member', { p_org_id: A, p_email: 'x@kovo.test', p_role: 'psychologa' });
+  check('Roles: recepción no puede invitar (escalada de privilegios)', !recAdmin.ok, err(recAdmin));
+  const selfPromote = await api.patch(rec.token, `memberships?user_id=eq.${rec.id}`, { role: 'psychologa', is_admin: true });
+  check('Roles: nadie se cambia el rol a sí mismo por REST', !selfPromote.ok || selfPromote.json.length === 0, err(selfPromote));
+  const gesPatients = await api.get(ges.token, 'patients?select=id');
+  check('Roles: gestoría no ve pacientes', gesPatients.ok && gesPatients.json.length === 0, err(gesPatients));
+  const svc = await api.insert(ps2.token, 'services', { org_id: A, name: 'Terapia de pareja', duration_minutes: 80, price_cents: 9000 });
+  check('Configuración: una psicóloga crea un servicio', svc.status === 201, err(svc));
+  const rename = await api.patch(ps2.token, `organizations?id=eq.${A}`, { name: 'Cambio no autorizado' });
+  check('Configuración: una psicóloga no administradora no cambia los datos de la clínica', rename.ok && rename.json.length === 0, err(rename));
+  const rename2 = await api.patch(titA.token, `organizations?id=eq.${A}`, { name: 'Clínica Ficticia A (centro)', settings: { dueDays: 15 } });
+  check('Configuración: la administradora cambia nombre y preferencias', rename2.ok && rename2.json[0]?.name === 'Clínica Ficticia A (centro)', err(rename2));
+  const statusHack = await api.patch(titA.token, `organizations?id=eq.${A}`, { account_status: 'active', is_demo: true });
+  check('Configuración: el estado de la cuenta no es editable por la clínica', !statusHack.ok, err(statusHack));
+  const subHack = await api.patch(titA.token, `subscriptions?org_id=eq.${A}`, { plan_code: 'clinic', status: 'active' });
+  check('Suscripción: la clínica no puede cambiarse el plan/estado por REST', !subHack.ok, err(subHack));
+
+  // ---------------------------------------------------------------- Storage (real Supabase Storage)
+  const docName = `${randomUUID()}-consentimiento.pdf`;
+  const docPath = `${A}/${P1}/${docName}`;
+  const pdf = minimalPdf('A1');
+  const up = await api.upload(titA.token, docPath, pdf, 'application/pdf');
+  check('Documentos: la psicóloga sube un PDF al bucket privado', up.ok, err(up));
+  const row = await api.insert(titA.token, 'patient_documents', { org_id: A, patient_id: P1, storage_path: docPath, document_type: 'consentimiento', file_name: 'consentimiento.pdf', mime_type: 'application/pdf', size_bytes: pdf.length });
+  check('Documentos: se registra el documento del paciente', row.status === 201 && row.json[0].uploaded_by === titA.id, err(row));
+  const dl = await api.download(titA.token, docPath);
+  const bytes = dl.ok ? new Uint8Array(await dl.arrayBuffer()) : null;
+  check('Documentos: la psicóloga lo descarga íntegro', dl.ok && bytes.length === pdf.length && bytes.every((b, i) => b === pdf[i]), `${dl.status}`);
+  const dlRec = await api.download(rec.token, docPath);
+  check('Documentos: recepción no puede descargarlo', !dlRec.ok, `${dlRec.status}`);
+  const dlB = await api.download(titB.token, docPath);
+  check('Documentos: otra clínica no puede descargarlo', !dlB.ok, `${dlB.status}`);
+  const dlAnon = await fetch(`${stack.url}/storage/v1/object/public/kovo-patient-documents/${docPath}`);
+  check('Documentos: el bucket no es público', !dlAnon.ok, `${dlAnon.status}`);
+  const upCross = await api.upload(titA.token, `${B}/${PB}/${randomUUID()}-x.pdf`, pdf, 'application/pdf');
+  check('Documentos: no se sube a la carpeta de otra clínica', !upCross.ok, err(upCross));
+  const upFake = await api.upload(titA.token, `${A}/${randomUUID()}/${randomUUID()}-x.pdf`, pdf, 'application/pdf');
+  check('Documentos: no se sube a un paciente inexistente (ruta manipulada)', !upFake.ok, err(upFake));
+  const upExe = await api.upload(titA.token, `${A}/${P1}/${randomUUID()}-x.exe`, pdf, 'application/x-msdownload');
+  check('Documentos: tipos no permitidos rechazados por Storage', !upExe.ok, err(upExe));
+  const big = new Uint8Array(21 * 1024 * 1024); big.set(pdf);
+  const upBig = await api.upload(titA.token, `${A}/${P1}/${randomUUID()}-grande.pdf`, big, 'application/pdf');
+  check('Documentos: más de 20 MB rechazado por Storage', !upBig.ok, err(upBig));
+  const overwrite = await api.upload(titA.token, docPath, minimalPdf('otro'), 'application/pdf', true);
+  check('Documentos: un documento no se sobrescribe', !overwrite.ok, err(overwrite));
+  await api.removeObject(titA.token, docPath);
+  const still = await api.download(titA.token, docPath);
+  check('Documentos: la app no puede borrar el objeto (conservación)', still.ok, `${still.status}`);
+  const upRec = await api.upload(rec.token, `${A}/${P1}/${randomUUID()}-r.pdf`, pdf, 'application/pdf');
+  check('Documentos: recepción no sube documentos clínicos', !upRec.ok, err(upRec));
+
+  // ---------------------------------------------------------------- Sessions and tokens
+  const second = await api.signIn(titA.email, titA.password);
+  check('Sesiones: inicio de sesión con contraseña', second.ok && second.json.access_token, err(second));
+  const out = await api.logout(titA.token);
+  check('Sesiones: cierre de sesión', out.status === 204, err(out));
+  const afterOut = await api.get(titA.token, 'patients?select=id');
+  check('Sesiones: tras cerrar sesión el token anterior deja de dar acceso a datos al instante', afterOut.ok ? afterOut.json.length === 0 : true, err(afterOut));
+  const afterOutRpc = await api.rpc(titA.token, 'list_team', { p_org_id: A });
+  check('Sesiones: …y tampoco a las RPC', !afterOutRpc.ok, err(afterOutRpc));
+  const oldRefresh = await api.refresh(titA.refresh);
+  check('Sesiones: el refresh token de la sesión cerrada no sirve', !oldRefresh.ok, err(oldRefresh));
+  titA.token = second.json.access_token; titA.refresh = second.json.refresh_token;
+  const stillIn = await api.get(titA.token, 'patients?select=id');
+  check('Sesiones: la otra sesión sigue activa', stillIn.ok && stillIn.json.length === 3, err(stillIn));
+  const rot = await api.refresh(titA.refresh);
+  check('Sesiones: renovación del token (rotación)', rot.ok && rot.json.refresh_token !== titA.refresh, err(rot));
+  const rot2 = await api.refresh(rot.json.refresh_token);
+  // Reuse detection: once the next token in the chain has been used, presenting an older one is
+  // treated as theft and the whole session is revoked (Supabase Auth behaviour).
+  const reuse = await api.refresh(titA.refresh);
+  check('Sesiones: reutilizar un refresh token antiguo se rechaza', !reuse.ok, err(reuse));
+  const afterTheft = await api.refresh(rot2.json.refresh_token);
+  check('Sesiones: …y revoca la sesión entera (detección de robo)', !afterTheft.ok, err(afterTheft));
+  const fresh = await api.signIn(titA.email, titA.password);
+  titA.token = fresh.json.access_token; titA.refresh = fresh.json.refresh_token;
+  const expired = api.forge({ sub: titA.id, exp: Math.floor(Date.now() / 1000) - 60 });
+  const exp = await api.get(expired, 'patients?select=id');
+  check('Tokens: un JWT caducado se rechaza (401)', exp.status === 401, err(exp));
+  const wrongSig = await api.get(api.forgeWrongSecret({ sub: titA.id }), 'patients?select=id');
+  check('Tokens: un JWT firmado con otro secreto se rechaza (401)', wrongSig.status === 401, err(wrongSig));
+  const anonRead = await api.get(undefined, 'patients?select=id');
+  check('Tokens: la clave pública sin sesión no lee datos', !anonRead.ok || anonRead.json.length === 0, err(anonRead));
+  const roleHack = await api.get(api.forge({ sub: titA.id, role: 'service_role', session_id: randomUUID() }).replace(/\..*$/, '') + '.x', 'patients');
+  check('Tokens: un JWT manipulado se rechaza', roleHack.status === 401, err(roleHack));
+
+  // ---------------------------------------------------------------- Billing to patients (gestoría)
+  await api.insert(titA.token, 'organization_billing_profiles', { org_id: A, legal_name: 'Clínica Ficticia A SL', tax_id: 'B00000000', address_line: 'Calle Ficticia 1', postal_code: '29001', city: 'Málaga' });
+  await api.insert(ges.token, 'patient_billing_profiles', { org_id: A, patient_id: P1, legal_name: 'Paciente Sintético Uno', address_line: 'Calle Inventada 2' });
+  const draft = await api.rpc(ges.token, 'save_invoice_draft', { p_org_id: A, p_patient_id: P1, p_issue_date: '2026-11-10', p_due_date: null,
+    p_lines: [{ description: 'Sesión individual', quantity: 1, unit_price_cents: 6000, tax_rate: 0 }] });
+  check('Facturación: gestoría crea un borrador', draft.ok, err(draft));
+  const direct = await api.insert(ges.token, 'invoices', { org_id: A, patient_id: P1, status: 'issued', invoice_number: 'FALSA-1' });
+  check('Facturación: no se puede crear una factura ya emitida por REST', !direct.ok, err(direct));
+  const emitted = await api.rpc(ges.token, 'emit_invoice', { p_invoice: draft.json });
+  check('Facturación: emisión con número y datos fiscales congelados', emitted.ok && /^KOVO-2026-\d{6}$/.test(emitted.json.invoice_number) && emitted.json.recipient_snapshot, err(emitted));
+  const edit = await api.patch(ges.token, `invoices?id=eq.${draft.json}`, { total_cents: 1 });
+  check('Facturación: una factura emitida es inmutable', !edit.ok, err(edit));
+  const pay = await api.rpc(ges.token, 'record_invoice_payment', { p_invoice_id: draft.json, p_amount_cents: 6000, p_method: 'bizum' });
+  check('Facturación: cobro registrado y factura cobrada', pay.ok && pay.json.status === 'paid', err(pay));
+  const recPay = await api.rpc(rec.token, 'record_invoice_payment', { p_invoice_id: draft.json, p_amount_cents: 1, p_method: 'bizum' });
+  check('Facturación: recepción no registra cobros', !recPay.ok, err(recPay));
+
+  // ---------------------------------------------------------------- KOVO staff (platform)
+  const staffUser = await stack.createUser('staff@kovo.test', 'Prueba-sintetica-2026');
+  const addStaff = await api.call('/rest/v1/platform_admins', { method: 'POST', token: api.service, body: { user_id: staffUser.id, note: 'pruebas' }, headers: { apikey: api.service } });
+  check('Plataforma: el operador da de alta personal de KOVO (servidor, service role)', addStaff.status === 201, err(addStaff));
+  const selfStaff = await api.insert(titB.token, 'platform_admins', { user_id: titB.id });
+  check('Plataforma: una clínica no puede hacerse personal de KOVO', !selfStaff.ok, err(selfStaff));
+  const staff = (await api.signIn('staff@kovo.test', 'Prueba-sintetica-2026')).json.access_token;
+  const orgs = await api.rpc(staff, 'platform_list_organizations');
+  check('Plataforma: el personal ve todas las clínicas (solo datos de cuenta)', orgs.ok && orgs.json.length === 2 && orgs.json.every(o => !('first_name' in o)), err(orgs));
+  const staffPatients = await api.get(staff, 'patients?select=id');
+  check('Plataforma: el personal de KOVO no ve pacientes', staffPatients.ok && staffPatients.json.length === 0, err(staffPatients));
+  const clinicStaff = await api.rpc(titA.token, 'platform_list_organizations');
+  check('Plataforma: una administradora de clínica no accede al panel de KOVO', !clinicStaff.ok, err(clinicStaff));
+  const susp = await api.rpc(staff, 'platform_set_account_status', { p_org_id: B, p_status: 'suspended', p_reason: 'Prueba HTTP de suspensión' });
+  check('Plataforma: suspensión de una clínica', susp.ok, err(susp));
+  const bWrite = await api.insert(titB.token, 'patients', { org_id: B, patient_code: 'AUTO', first_name: 'X', last_name: 'Y' });
+  check('Cuenta suspendida: la base de datos rechaza escrituras (KS001)', !bWrite.ok && bWrite.json?.code === 'KS001', err(bWrite));
+  const bRead = await api.get(titB.token, 'patients?select=id');
+  check('Cuenta suspendida: los datos siguen legibles para exportarlos', bRead.ok && bRead.json.length === 1, err(bRead));
+  const bUpload = await api.upload(titB.token, `${B}/${PB}/${randomUUID()}-x.pdf`, pdf, 'application/pdf');
+  check('Cuenta suspendida: tampoco se suben documentos', !bUpload.ok, err(bUpload));
+  const ticket = await api.insert(titB.token, 'support_tickets', { org_id: B, subject: 'Cuenta suspendida', body: 'Mensaje sintético de prueba' });
+  check('Soporte: una clínica suspendida puede abrir un ticket', ticket.status === 201, err(ticket));
+  const react = await api.rpc(staff, 'platform_set_account_status', { p_org_id: B, p_status: 'active', p_reason: 'Fin de la prueba HTTP' });
+  check('Plataforma: reactivación', react.ok, err(react));
+
+  // ---------------------------------------------------------------- Payment provider webhook (server only)
+  const evt = { org_id: B, plan_code: 'professional', status: 'active', provider_subscription_id: 'sub_sintetico_1' };
+  const fromBrowser = await api.rpc(titB.token, 'apply_billing_event', { p_provider: 'stripe', p_event_id: 'evt_x', p_event_type: 'x', p_payload: evt });
+  check('Pasarela: el navegador no puede inyectar eventos de pago', !fromBrowser.ok, err(fromBrowser));
+  const fromServer = await api.call('/rest/v1/rpc/apply_billing_event', { method: 'POST', token: api.service, headers: { apikey: api.service },
+    body: { p_provider: 'stripe', p_event_id: 'evt_sintetico_1', p_event_type: 'customer.subscription.updated', p_payload: evt } });
+  check('Pasarela: el servidor (service role) registra el evento', fromServer.ok && fromServer.json === 'processed', err(fromServer));
+  const redelivery = await api.call('/rest/v1/rpc/apply_billing_event', { method: 'POST', token: api.service, headers: { apikey: api.service },
+    body: { p_provider: 'stripe', p_event_id: 'evt_sintetico_1', p_event_type: 'customer.subscription.updated', p_payload: evt } });
+  check('Pasarela: los reenvíos del proveedor son idempotentes', redelivery.json === 'duplicate', err(redelivery));
+  const subB = await api.get(titB.token, 'subscriptions?select=plan_code,status');
+  check('Pasarela: la suscripción de la clínica refleja el evento', subB.ok && subB.json[0]?.plan_code === 'professional' && subB.json[0]?.status === 'active', err(subB));
+
+  return s;
+}
