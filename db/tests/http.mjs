@@ -2,6 +2,7 @@
 // REAL Supabase Storage. Two clinics, one user per role, KOVO staff. Synthetic data only.
 import { randomUUID } from 'node:crypto';
 import { client, suite, newUser, minimalPdf } from './client.mjs';
+import { handleWebhook, hmacHex } from '../../supabase/functions/billing-webhook/core.js';
 
 export async function runHttp(stack) {
   const api = client(stack);
@@ -100,6 +101,25 @@ export async function runHttp(stack) {
   const subHack = await api.patch(titA.token, `subscriptions?org_id=eq.${A}`, { plan_code: 'clinic', status: 'active' });
   check('Suscripción: la clínica no puede cambiarse el plan/estado por REST', !subHack.ok, err(subHack));
 
+  // ---------------------------------------------------------------- RPC de la aplicación (horario, perfil propio)
+  const myPro = await api.rpc(ps2.token, 'ensure_my_professional', { p_org_id: A, p_display_name: 'Psicóloga A2' });
+  const myPro2 = await api.rpc(ps2.token, 'ensure_my_professional', { p_org_id: A });
+  check('Perfil: una psicóloga crea su ficha profesional vinculada (idempotente)', myPro.ok && myPro2.ok && myPro.json === myPro2.json, err(myPro2));
+  const recPro = await api.rpc(rec.token, 'ensure_my_professional', { p_org_id: A });
+  check('Perfil: recepción no crea fichas profesionales', !recPro.ok, err(recPro));
+  const week = [{ weekday: 1, start_minute: 540, end_minute: 840 }, { weekday: 1, start_minute: 960, end_minute: 1200 }, { weekday: 3, start_minute: 600, end_minute: 900 }];
+  const setAv = await api.rpc(ps2.token, 'set_professional_availability', { p_org_id: A, p_professional_id: myPro.json, p_ranges: week });
+  const avRows = await api.get(ps2.token, `professional_availability?select=weekday&professional_id=eq.${myPro.json}`);
+  check('Horario: la profesional guarda su semana completa de una vez', setAv.ok && setAv.json === 3 && avRows.json.length === 3, err(setAv));
+  const overlapAv = await api.rpc(ps2.token, 'set_professional_availability', { p_org_id: A, p_professional_id: myPro.json, p_ranges: [...week, { weekday: 1, start_minute: 800, end_minute: 900 }] });
+  const avAfter = await api.get(ps2.token, `professional_availability?select=weekday&professional_id=eq.${myPro.json}`);
+  check('Horario: franjas solapadas se rechazan y no se pierde lo guardado (atómico)', !overlapAv.ok && overlapAv.json?.code === '23P01' && avAfter.json.length === 3, err(overlapAv));
+  const titPro = (await api.get(titA.token, `professionals?select=id&user_id=eq.${titA.id}`)).json[0]?.id;
+  const otherAv = await api.rpc(ps2.token, 'set_professional_availability', { p_org_id: A, p_professional_id: titPro, p_ranges: [] });
+  check('Horario: una psicóloga no administradora no cambia el horario de otra', !otherAv.ok, err(otherAv));
+  const recAv = await api.rpc(rec.token, 'set_professional_availability', { p_org_id: A, p_professional_id: myPro.json, p_ranges: [] });
+  check('Horario: recepción no cambia horarios', !recAv.ok, err(recAv));
+
   // ---------------------------------------------------------------- Storage (real Supabase Storage)
   const docName = `${randomUUID()}-consentimiento.pdf`;
   const docPath = `${A}/${P1}/${docName}`;
@@ -175,6 +195,11 @@ export async function runHttp(stack) {
   const draft = await api.rpc(ges.token, 'save_invoice_draft', { p_org_id: A, p_patient_id: P1, p_issue_date: '2026-11-10', p_due_date: null,
     p_lines: [{ description: 'Sesión individual', quantity: 1, unit_price_cents: 6000, tax_rate: 0 }] });
   check('Facturación: gestoría crea un borrador', draft.ok, err(draft));
+  const upd = await api.rpc(ges.token, 'update_invoice_draft', { p_invoice_id: draft.json, p_lines: [{ description: 'Sesión individual', quantity: 1, unit_price_cents: 6000, tax_rate: 0 }, { description: 'Informe', quantity: 1, unit_price_cents: 1000, tax_rate: 21 }] });
+  const updRow = await api.get(ges.token, `invoices?select=subtotal_cents,tax_cents,total_cents&id=eq.${draft.json}`);
+  check('Facturación: editar el borrador recalcula los totales en el servidor', upd.ok && updRow.json[0]?.subtotal_cents === 7000 && updRow.json[0]?.tax_cents === 210 && updRow.json[0]?.total_cents === 7210, err(updRow));
+  const back = await api.rpc(ges.token, 'update_invoice_draft', { p_invoice_id: draft.json, p_lines: [{ description: 'Sesión individual', quantity: 1, unit_price_cents: 6000, tax_rate: 0 }] });
+  check('Facturación: el borrador vuelve a una línea', back.ok, err(back));
   const direct = await api.insert(ges.token, 'invoices', { org_id: A, patient_id: P1, status: 'issued', invoice_number: 'FALSA-1' });
   check('Facturación: no se puede crear una factura ya emitida por REST', !direct.ok, err(direct));
   const emitted = await api.rpc(ges.token, 'emit_invoice', { p_invoice: draft.json });
@@ -185,6 +210,8 @@ export async function runHttp(stack) {
   check('Facturación: cobro registrado y factura cobrada', pay.ok && pay.json.status === 'paid', err(pay));
   const recPay = await api.rpc(rec.token, 'record_invoice_payment', { p_invoice_id: draft.json, p_amount_cents: 1, p_method: 'bizum' });
   check('Facturación: recepción no registra cobros', !recPay.ok, err(recPay));
+  const updIssued = await api.rpc(ges.token, 'update_invoice_draft', { p_invoice_id: draft.json, p_lines: [{ description: 'x', quantity: 1, unit_price_cents: 1, tax_rate: 0 }] });
+  check('Facturación: una factura emitida no se edita como borrador (KB003)', !updIssued.ok && updIssued.json?.code === 'KB003', err(updIssued));
 
   // ---------------------------------------------------------------- KOVO staff (platform)
   const staffUser = await stack.createUser('staff@kovo.test', 'Prueba-sintetica-2026');
@@ -224,6 +251,33 @@ export async function runHttp(stack) {
   check('Pasarela: los reenvíos del proveedor son idempotentes', redelivery.json === 'duplicate', err(redelivery));
   const subB = await api.get(titB.token, 'subscriptions?select=plan_code,status');
   check('Pasarela: la suscripción de la clínica refleja el evento', subB.ok && subB.json[0]?.plan_code === 'professional' && subB.json[0]?.status === 'active', err(subB));
+
+  // Manejador del webhook (supabase/functions/billing-webhook/core.js) contra la RPC real con la clave de servicio.
+  {
+  const SECRET = 'secreto-sintetico-de-pruebas';
+  const rpcSvc = async (fn, args) => (await api.call(`/rest/v1/rpc/${fn}`, { method: 'POST', token: api.service, headers: { apikey: api.service }, body: args })).json;
+  const deliver = async (event, { secret = SECRET, t = Math.floor(Date.now() / 1000) } = {}) => {
+    const body = JSON.stringify(event);
+    const sig = `t=${t},v1=${await hmacHex(secret, `${t}.${body}`)}`;
+    const req = new Request('http://local/billing-webhook', { method: 'POST', body, headers: { 'x-kovo-signature': sig } });
+    return handleWebhook(req, { secret: SECRET, provider: 'pruebas', rpc: rpcSvc });
+  };
+  const unpaid = { id: 'evt_sintetico_2', type: 'customer.subscription.updated', data: { object: { id: 'sub_sintetico_1', customer: 'cus_sintetico', status: 'unpaid', metadata: { org_id: B, plan_code: 'professional' } } } };
+  const whForged = await deliver(unpaid, { secret: 'otro-secreto' });
+  check('Webhook: firma falsa rechazada (400) sin tocar la suscripción', whForged.status === 400, JSON.stringify(whForged));
+  const stale = await deliver(unpaid, { t: Math.floor(Date.now() / 1000) - 3600 });
+  check('Webhook: evento firmado hace una hora rechazado (repetición)', stale.status === 400, JSON.stringify(stale));
+  const ok1 = await deliver(unpaid);
+  const accB = (await api.call(`/rest/v1/organizations?select=account_status,status_reason&id=eq.${B}`, { token: api.service, headers: { apikey: api.service } })).json[0];
+  check('Webhook: impago → suscripción impagada y cuenta suspendida por facturación', ok1.status === 200 && ok1.body.result === 'processed' && accB.account_status === 'suspended' && accB.status_reason === 'billing:unpaid', JSON.stringify([ok1, accB]));
+  const dup = await deliver(unpaid);
+  check('Webhook: reenvío del mismo evento → duplicado, sin efectos', dup.body.result === 'duplicate', JSON.stringify(dup));
+  const paid = await deliver({ ...unpaid, id: 'evt_sintetico_3', data: { object: { ...unpaid.data.object, status: 'active' } } });
+  const accB2 = (await api.call(`/rest/v1/organizations?select=account_status&id=eq.${B}`, { token: api.service, headers: { apikey: api.service } })).json[0];
+  check('Webhook: pago al día → cuenta reactivada', paid.body.result === 'processed' && accB2.account_status === 'active', JSON.stringify([paid, accB2]));
+  const ignored = await deliver({ id: 'evt_sintetico_4', type: 'invoice.created', data: { object: {} } });
+  check('Webhook: eventos que no son de suscripción se ignoran', ignored.status === 200 && ignored.body.result === 'ignored', JSON.stringify(ignored));
+  }
 
   return s;
 }

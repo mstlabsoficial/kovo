@@ -162,6 +162,26 @@ export function createKovoRepository({ request = supabaseRequest, getContext = n
     // tablas que el rol no puede leer no aparecen (no cargadas ≠ vacías). Todo o nada: si falla
     // una tabla, falla la carga y no se devuelve un estado parcial.
     // Se cargan todos los servicios, también los inactivos, porque citas antiguas los usan.
+    // Ajustes de la clínica y horario de la profesional (cadena consolidada). Con el esquema
+    // anterior (sin esa tabla o columna) se devuelven vacíos y la interfaz usa los valores por defecto.
+    async loadExtras(ctx, professionalId){
+      const optional = async path => {
+        try { return await request(path); }
+        catch (e) { if ([400, 404].includes(e?.status) || ['PGRST205', 'PGRST204', '42703', '42P01'].includes(e?.details?.code)) return null; throw classify(e, path.split('?')[0]); }
+      };
+      const out = {};
+      const org = await optional(`organizations?select=id,name,settings&id=eq.${ctx.id}`);
+      if (Array.isArray(org) && org[0]?.id === ctx.id) { out.settings = org[0].settings || null; out.name = org[0].name || null; }
+      if (['psychologa', 'gestoria'].includes(ctx.role)) {
+        const bp = await optional(`organization_billing_profiles?select=legal_name,tax_id,address_line,postal_code,city,region,billing_email,invoice_series&org_id=eq.${ctx.id}`);
+        if (Array.isArray(bp)) out.billingProfile = bp[0] || null;
+      }
+      if (professionalId) {
+        const av = await optional(`professional_availability?select=weekday,start_minute,end_minute&org_id=eq.${ctx.id}&professional_id=eq.${professionalId}&order=weekday.asc,start_minute.asc`);
+        if (Array.isArray(av)) out.availability = av;
+      }
+      return out;
+    },
     async loadSnapshot(){
       let ctx;
       try { ctx=await requireContext(); } catch (error) { throw classify(error, 'memberships'); }

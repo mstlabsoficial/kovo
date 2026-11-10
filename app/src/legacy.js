@@ -234,6 +234,11 @@ const nid=p=>data.newId(p,S);
 // Modo Supabase: altas y cambios de pacientes y citas se guardan uno a uno y el estado local solo
 // cambia cuando Supabase confirma. En modo demo W es null y todo funciona como siempre.
 const W=data.writes||null;let BUSY=false;
+// Modo conectado: ajustes, equipo, suscripción, documentos y facturación contra el servidor (saas/connected.js).
+let CN=null;
+async function reloadS(){const keep={view:S.view,sel:S.sel,cal:S.cal,theme:S.settings.theme};const n=await data.load({seed,today:TODAY});
+  n.avail=n.avail||JSON.parse(JSON.stringify(DEF_AVAIL));n.settings=Object.assign({accent:'azul',h0:9,h1:21},n.settings,keep.theme?{theme:keep.theme}:{});n.pro.loc=n.pro.loc||'Despacho Málaga Centro';
+  Object.assign(n,{view:keep.view,sel:keep.sel,cal:keep.cal});S=n;AVAIL=S.avail;REVEAL={};if(CN)CN.refresh();render()}
 function remote(btn,op,ok,fail){if(BUSY)return;BUSY=true;if(btn)btn.disabled=true;op().then(r=>{BUSY=false;ok(r)},e=>{BUSY=false;if(btn)btn.disabled=false;(fail||(x=>toast(x.message||'No se ha podido guardar')))(e)})}
 // Guardar el borrador en Supabase. La interfaz solo da por guardado lo que confirma el servidor; el
 // texto escrito durante el guardado se conserva. En un conflicto no se sobrescribe nada: el editor
@@ -356,7 +361,8 @@ function renderTop(){
       <div class="pm-h"><span class="av">${esc(initials(who))}</span><div><b>${esc(who)}</b><span>${psi?'Psicóloga · titular':ME[S.role]}</span></div></div>
       ${psi?`<button data-act="goProfile">${SVG(IC.user)}Perfil profesional</button><button data-act="goSettings">${SVG(NAVI.config)}Ajustes</button>`:''}
       <button data-act="goHelp">${SVG(NAVI.ayuda)}Ayuda y soporte</button>
-      <label class="field pm-role"><span>Ver como (prototipo)</span><select id="role3">${[['psicologa','Psicóloga'],['recepcion','Recepción'],['gestoria','Gestoría']].map(([v,l])=>`<option value="${v}" ${S.role===v?'selected':''}>${l}</option>`).join('')}</select></label>
+      ${CN?`<div class="cn-sep"></div><div class="pm-h" style="padding-top:2px"><div><b>${esc(S.org.name||'Clínica')}</b><span>${esc(S.org.userEmail||'')}</span></div></div>${S.org.multi?`<button data-act="cnSwitch">${SVG(IC.users)}Cambiar de clínica</button>`:''}<button data-act="cnLogout">${SVG(IC.lock)}Cerrar sesión</button>`:
+      `<label class="field pm-role"><span>Ver como (prototipo)</span><select id="role3">${[['psicologa','Psicóloga'],['recepcion','Recepción'],['gestoria','Gestoría']].map(([v,l])=>`<option value="${v}" ${S.role===v?'selected':''}>${l}</option>`).join('')}</select></label>`}
     </div></div></div>`;
 }
 let LASTV=null;
@@ -574,14 +580,15 @@ function ficha(p){
     content=`<section class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Número</th><th>Fecha</th><th class="r">Total</th><th class="r">Pendiente</th><th>Estado</th></tr></thead><tbody>${inv.map(i=>`<tr class="click" data-act="openInv" data-id="${i.id}"><td class="mono">${i.num||'Borrador'}</td><td>${fD(i.date)}</td><td class="r">${eur(tot(i).total)}</td><td class="r">${eur(Math.max(0,tot(i).pending))}</td><td>${chip(invStatus(i))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Sin facturas.</td></tr>'}</tbody></table></div></section>`;
   }else{
     const isImg=u=>u&&/^data:image|\.(png|jpe?g|webp)$|image/i.test(u);
+    if(CN&&S.role!=='psicologa')content=`<section class="panel"><p style="margin:0">La documentación clínica (consentimientos e informes) solo la ve la psicóloga.</p></section>`;else
     content=`<section class="panel"><header><h2>Consentimiento informado</h2>${p.consent?chip('firmada'):'<span class="chip warn">Pendiente</span>'}</header>
-      ${p.consent?`<div class="row"><span class="thumb">${p.consent.url&&isImg(p.consent.url)?`<img src="${esc(p.consent.url)}" alt="" class="thumb">`:SVG(IC.doc)}</span><div class="m"><b>${esc(p.consent.file)}</b><span>Subido el ${fD(p.consent.at)} · almacenamiento privado</span></div><label class="btn sm">Sustituir<input type="file" hidden accept="application/pdf,image/*" data-up="consent" data-p="${p.id}"></label></div>
+      ${p.consent?`<div class="row"><span class="thumb">${p.consent.url&&isImg(p.consent.url)?`<img src="${esc(p.consent.url)}" alt="" class="thumb">`:SVG(IC.doc)}</span><div class="m"><b>${esc(p.consent.file)}</b><span>Subido el ${fD(p.consent.at)} · almacenamiento privado</span></div>${CN&&p.consent.storagePath?`<button class="btn sm" data-act="cnOpenDoc" data-path="${esc(p.consent.storagePath)}" data-name="${esc(p.consent.file)}">Abrir</button>`:''}<label class="btn sm">Sustituir<input type="file" hidden accept="application/pdf,image/*" data-up="consent" data-p="${p.id}"></label></div>
       ${p.consent.url&&isImg(p.consent.url)?`<img class="preview" src="${esc(p.consent.url)}" alt="Consentimiento firmado">`:''}`:
       `<div class="drop">${SVG(IC.upload)}<b>Sube el consentimiento firmado</b><span class="muted small">PDF o foto. Desde el móvil puedes hacer la foto directamente.</span>
       <div class="actions" style="justify-content:center"><label class="btn primary">${SVG(IC.cam)}Hacer foto<input type="file" hidden accept="image/*" capture="environment" data-up="consent" data-p="${p.id}"></label><label class="btn">${SVG(IC.upload)}Elegir archivo<input type="file" hidden accept="application/pdf,image/*" data-up="consent" data-p="${p.id}"></label></div></div>`}
     </section>
     <section class="panel"><header><h2>Documentación adjunta</h2><label class="btn sm">${SVG(IC.upload)}Adjuntar<input type="file" hidden accept="application/pdf,image/*" data-up="doc" data-p="${p.id}"></label></header><div class="list">
-      ${(p.docs||[]).map(d=>`<div class="row"><span class="thumb">${SVG(IC.doc)}</span><div class="m"><b>${esc(d.name)}</b><span>Subido el ${fD(d.at)}</span></div></div>`).join('')||'<div class="empty">Sin documentos adicionales.</div>'}
+      ${(p.docs||[]).map(d=>`<div class="row"><span class="thumb">${SVG(IC.doc)}</span><div class="m"><b>${esc(d.name)}</b><span>Subido el ${fD(d.at)}</span></div>${CN&&d.storagePath?`<button class="btn sm" data-act="cnOpenDoc" data-path="${esc(d.storagePath)}" data-name="${esc(d.name)}">Abrir</button><button class="btn sm ghost" data-act="cnWithdrawDoc" data-id="${d.id}">Retirar</button>`:''}</div>`).join('')||'<div class="empty">Sin documentos adicionales.</div>'}
     </div></section>`;
   }
   const TABS=[['resumen','Resumen'],['sesiones','Historial de sesiones'],['clinico','Informes clínicos'],['seguimiento','Seguimiento'],['evolucion','Evolución'],['citas','Citas'],['facturas','Facturas'],['docs','Documentación']];
@@ -668,7 +675,7 @@ async function pdfInv(i){
   let y=22;doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text(`Factura ${i.num||'(borrador)'}`,20,y);
   doc.setFontSize(10);doc.setFont('helvetica','normal');doc.text(`Fecha: ${fD(i.date)}`,190,y-6,{align:'right'});doc.text(`Vence: ${fD(i.due)}`,190,y,{align:'right'});
   y+=12;doc.setFont('helvetica','bold');doc.text('Emisor',20,y);doc.setFont('helvetica','normal');y+=5;
-  [S.pro.name,'NIF '+S.pro.nif,S.pro.addr,'Colegiada '+S.pro.col].forEach(l=>{doc.text(String(l),20,y);y+=5});
+  [issuerOf(i).name,'NIF '+issuerOf(i).nif,issuerOf(i).addr,'Colegiada '+S.pro.col].forEach(l=>{doc.text(String(l),20,y);y+=5});
   y+=4;doc.setFont('helvetica','bold');doc.text('Destinatario',20,y);doc.setFont('helvetica','normal');y+=5;
   [i.to.name,i.to.nif,i.to.addr].filter(Boolean).forEach(l=>{doc.text(String(l),20,y);y+=5});
   y+=8;doc.setFont('helvetica','bold');doc.text('Concepto',20,y);doc.text('Cant.',120,y,{align:'right'});doc.text('Precio',152,y,{align:'right'});doc.text('Importe',190,y,{align:'right'});y+=2;doc.line(20,y,190,y);y+=6;doc.setFont('helvetica','normal');
@@ -726,7 +733,7 @@ VIEWS.contabilidad=()=>{
   };
   const secs=ACC_SECS.filter(s=>!(rec&&s[0]==='gestoria'));
   return `${roleBanner()}<div class="head"><div><div class="eyebrow">Gestión económica</div><h1>Facturación</h1><p>Todo lo económico de la consulta en un solo sitio.</p></div></div>
-  ${ro?'':`<section class="addbar"><div><h2>Añadir facturas</h2><p>Haz una foto a una factura recibida y se registra como gasto, o crea una factura para un paciente.</p></div>
+  ${ro?'':CN?`<section class="addbar"><div><h2>Añadir</h2><p>Registra un gasto o crea una factura para un paciente.</p></div><div class="actions"><button class="btn" data-act="cnNewExp">${SVG(IC.plus)}Nuevo gasto</button><button class="btn primary" data-act="newInvoice">${SVG(IC.plus)}Nueva factura</button></div></section>`:`<section class="addbar"><div><h2>Añadir facturas</h2><p>Haz una foto a una factura recibida y se registra como gasto, o crea una factura para un paciente.</p></div>
     <div class="actions"><label class="btn primary">${SVG(IC.cam)}Foto de factura<input type="file" hidden accept="image/*" capture="environment" data-up="scan"></label><label class="btn">${SVG(IC.upload)}Subir archivo<input type="file" hidden accept="image/*,application/pdf" data-up="scan"></label><button class="btn" data-act="newInvoice">${SVG(IC.plus)}Nueva factura</button></div></section>`}
   ${rec?'':`<section class="stack" style="gap:16px"><div class="ph" style="margin:0"><h2 style="font-size:1.0625rem">Resumen de ${monthLong(pk)}</h2><span class="muted small">Mes cerrado</span></div>
   <div class="kpis"><div class="kpi"><div class="l">Ingresos</div><div class="v">${eur0(cur.inc)}</div><div class="s">${dl(cur.inc,prev.inc)}</div></div><div class="kpi"><div class="l">Gastos</div><div class="v">${eur0(cur.gas)}</div><div class="s">${dl(cur.gas,prev.gas,true)}</div></div><div class="kpi"><div class="l">Beneficio</div><div class="v" style="color:var(--ok-ink)">${eur0(cur.res)}</div><div class="s">Margen ${cur.inc?Math.round(cur.res/cur.inc*100):0} %</div></div><div class="kpi"><div class="l">Cobrado</div><div class="v">${eur0(cur.cob)}</div><div class="s">${cur.n} facturas emitidas</div></div></div>
@@ -900,21 +907,26 @@ function occChart(weeks){
 VIEWS.config=()=>{
   const s=S.settings;const tg=(k,t,d)=>`<div class="toggle"><div><b>${t}</b><small>${d}</small></div><input type="checkbox" class="sw" id="set-${k}" data-set="${k}" ${s[k]?'checked':''} aria-label="${esc(t)}"></div>`;
   const tab=S.sel.ctab||'auto';let c='';
-  if(tab==='auto')c=`<div class="grid2"><section class="panel"><header><h2>Automatizaciones</h2></header>
+  if(CN&&CN.isPanel(tab))c=CN.panel(tab);
+  else if(tab==='auto')c=`<div class="grid2"><section class="panel"><header><h2>Automatizaciones</h2></header>
+    ${CN?`<div class="box" style="margin-bottom:12px">KOVO todavía no tiene proveedor de correo: estas preferencias se guardan para la clínica, pero no se envía ningún email.${CN.isAdmin()?'':' Solo la administración puede cambiarlas.'}</div>`:''}
     ${tg('confirmEmail','Confirmación al crear una cita','Email con fecha, hora y lugar. Nunca incluye datos clínicos.')}
     ${tg('reminder','Recordatorio antes de la sesión',`Se envía ${s.reminderH} h antes. Se puede desactivar por paciente.`)}
     ${tg('noteTask','Aviso de nota al cerrar una sesión','Aparece en «Pendiente». La nota nunca se firma sola.')}
     ${tg('sendInvoice','Enviar la factura al emitirla','El paciente la recibe por email y queda registrado.')}
-    ${tg('aiScan','Leer facturas escaneadas con IA','Extrae fecha, número e importes de la foto. Requiere permitir a Claude en este visor.')}
+    ${CN?'':tg('aiScan','Leer facturas escaneadas con IA','Extrae fecha, número e importes de la foto. Requiere permitir a Claude en este visor.')}
     <label class="field" style="margin-top:14px"><span>Horas de antelación del recordatorio</span><input type="number" id="reminderH" min="1" max="168" value="${s.reminderH}"></label></section>
     <section class="panel"><header><h2>Facturación al cerrar una sesión</h2></header><div class="stack">
     ${[['auto','Emitir automáticamente','Recomendado para servicios con IVA y retenciones ya configurados.'],['borrador','Crear borrador para revisar','Revisas destinatario e importes antes de emitir.'],['manual','No hacer nada','La sesión queda en «sin facturar».']].map(([k,t,d])=>`<label class="toggle" style="cursor:pointer"><div><b>${t}</b><small>${d}</small></div><input type="radio" name="invmode" value="${k}" ${s.invoiceMode===k?'checked':''}></label>`).join('')}
     <label class="field"><span>Días de vencimiento de las facturas</span><input type="number" id="dueDays" min="0" max="90" value="${s.dueDays}"></label></div></section></div>`;
-  else if(tab==='servicios')c=`<section class="panel flush"><header><h2>Servicios y tarifas</h2><button class="btn sm primary" data-act="addSvc">+ Añadir servicio</button></header><div class="tbl-wrap"><table><thead><tr><th>Servicio</th><th>Duración (min)</th><th class="r">Precio (€)</th><th>IVA</th><th></th></tr></thead><tbody>${S.services.map(sv=>`<tr><td style="min-width:220px"><input type="text" value="${esc(sv.name)}" data-sv="${sv.id}" data-f="name" aria-label="Nombre del servicio"></td><td><input type="number" min="5" step="5" value="${sv.dur}" data-sv="${sv.id}" data-f="dur" style="width:96px" aria-label="Duración de ${esc(sv.name)}"></td><td class="r"><input type="number" step="0.5" min="0" value="${sv.price/100}" data-sv="${sv.id}" data-f="price" style="width:110px;text-align:right" aria-label="Precio de ${esc(sv.name)}"></td><td style="min-width:170px"><select data-sv="${sv.id}" data-f="exempt" aria-label="IVA de ${esc(sv.name)}"><option value="1" ${sv.exempt?'selected':''}>Exento de IVA</option><option value="0" ${sv.exempt?'':'selected'}>IVA 21 %</option></select></td><td class="r"><button class="btn sm danger" data-act="delSvc" data-id="${sv.id}">Eliminar</button></td></tr>`).join('')}</tbody></table></div></section>
+  else if(tab==='servicios')c=`<section class="panel flush"><header><h2>Servicios y tarifas</h2><button class="btn sm primary" data-act="addSvc">+ Añadir servicio</button></header><div class="tbl-wrap"><table><thead><tr><th>Servicio</th><th>Duración (min)</th><th class="r">Precio (€)</th><th>IVA</th><th></th></tr></thead><tbody>${S.services.filter(sv=>sv.active!==false&&!sv.placeholder).map(sv=>`<tr><td style="min-width:220px"><input type="text" value="${esc(sv.name)}" data-sv="${sv.id}" data-f="name" aria-label="Nombre del servicio"></td><td><input type="number" min="5" step="5" value="${sv.dur}" data-sv="${sv.id}" data-f="dur" style="width:96px" aria-label="Duración de ${esc(sv.name)}"></td><td class="r"><input type="number" step="0.5" min="0" value="${sv.price/100}" data-sv="${sv.id}" data-f="price" style="width:110px;text-align:right" aria-label="Precio de ${esc(sv.name)}"></td><td style="min-width:170px"><select data-sv="${sv.id}" data-f="exempt" aria-label="IVA de ${esc(sv.name)}"><option value="1" ${sv.exempt?'selected':''}>Exento de IVA</option><option value="0" ${sv.exempt?'':'selected'}>IVA 21 %</option></select></td><td class="r"><button class="btn sm danger" data-act="delSvc" data-id="${sv.id}">Eliminar</button></td></tr>`).join('')}</tbody></table></div></section>
     <div class="box">Los cambios de tarifa se aplican a las citas nuevas; las citas ya creadas conservan su precio. La exención de IVA aplica a la asistencia sanitaria de profesionales con habilitación sanitaria. Talleres o formación tributan al 21 %. Si el destinatario es una empresa, la factura lleva retención de IRPF.</div>`;
+  else if(tab==='perfil'&&CN)c=S.pro.id?`<section class="panel"><div class="form">${[['name','Nombre y apellidos'],['col','Nº de colegiada'],['email','Email profesional'],['phone','Teléfono']].map(([k,l])=>`<label class="field"><span>${l}</span><input type="text" id="pro-${k}" data-pro="${k}" value="${esc(S.pro[k]||'')}"></label>`).join('')}</div>
+    <p class="muted small" style="margin:12px 0 0">Los datos fiscales (NIF y dirección) son los de la clínica: Ajustes › Clínica. La exención de IVA se indica en cada servicio.</p></section>`
+    :`<section class="panel"><p style="margin:0 0 12px">Todavía no tienes ficha profesional en esta clínica. La necesitas para tener agenda propia y horario.</p><button class="btn primary" data-act="cnEnsurePro">Crear mi ficha profesional</button></section>`;
   else if(tab==='perfil')c=`<section class="panel"><div class="form">${[['name','Nombre y apellidos'],['nif','NIF'],['col','Nº de colegiada'],['email','Email de la consulta'],['loc','Ubicación habitual de las citas'],['addr','Dirección fiscal']].map(([k,l])=>`<label class="field ${k==='addr'?'full':''}"><span>${l}</span><input type="text" id="pro-${k}" data-pro="${k}" value="${esc(S.pro[k]||'')}"></label>`).join('')}
     <label class="toggle full"><div><b>Habilitación sanitaria</b><small>Determina la exención de IVA de los servicios sanitarios.</small></div><input type="checkbox" class="sw" id="pro-san" data-pro="sanitaria" ${S.pro.sanitaria?'checked':''}></label></div></section>`;
-  else if(tab==='horario')c=`<div class="grid3"><section class="panel"><header><h2>Horario de consulta</h2><span class="muted small">Lo que queda fuera se sombrea en el calendario</span></header>
+  else if(tab==='horario')c=`${CN&&!S.pro.id?`<section class="panel"><p style="margin:0 0 12px">Para guardar tu horario necesitas una ficha profesional en esta clínica.</p><button class="btn primary" data-act="cnEnsurePro">Crear mi ficha profesional</button></section>`:''}${CN&&S.pro.id&&!S.availSaved?'<div class="box">Este es un horario de ejemplo y todavía no está guardado. Cualquier cambio guarda la semana completa.</div>':''}<div class="grid3"><section class="panel"><header><h2>Horario de consulta</h2><span class="muted small">Lo que queda fuera se sombrea en el calendario</span></header>
     ${[0,1,2,3,4,5,6].map(d=>{const rs=AVAIL[d]||[];return `<div class="avrow"><b>${DAYN[d]}</b><div class="rgs">${rs.map(([a,b],i)=>`<span class="rg"><input type="time" step="900" value="${hm(a)}" data-av="${d}:${i}:0" aria-label="Inicio de franja ${DAYN[d]}"><span>–</span><input type="time" step="900" value="${hm(b)}" data-av="${d}:${i}:1" aria-label="Fin de franja ${DAYN[d]}"><button class="x" data-act="delRange" data-d="${d}" data-i="${i}" aria-label="Quitar franja">×</button></span>`).join('')}${rs.length?'':'<span class="muted small">Cerrado</span>'}<button class="btn sm" data-act="addRange" data-d="${d}">+ Franja</button></div></div>`}).join('')}</section>
     <section class="panel"><header><h2>Horas visibles</h2></header><div class="form"><label class="field"><span>Primera hora</span><input type="number" min="0" max="22" id="h0" value="${H0}"></label><label class="field"><span>Última hora</span><input type="number" min="1" max="24" id="h1" value="${H1}"></label></div>
     <p class="muted small" style="margin:12px 0 0">Define el tramo del día que muestra el calendario. Las citas fuera de ese tramo no se dibujan.</p></section></div>`;
@@ -924,8 +936,8 @@ VIEWS.config=()=>{
     <p class="muted small">En el prototipo los emails no se envían; se registran como lo haría el proveedor de correo.</p>`;
   else if(tab==='ayuda')c=ayudaBody();
   else c=`<section class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody>${S.audit.slice(0,150).map(a=>`<tr><td class="num">${new Date(a.at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</td><td>${esc(a.who)}</td><td>${esc(a.what)}</td></tr>`).join('')}</tbody></table></div></section>`;
-  return `<div class="head"><div><div class="eyebrow">Ajustes</div><h1>Configuración</h1><p>${esc(S.pro.name)} · todo es editable y se guarda al instante</p></div><div class="actions"><button class="btn danger" data-act="reset">Restablecer datos de ejemplo</button></div></div>
-  <div class="tabs" role="tablist">${[['auto','Automatizaciones'],['servicios','Servicios y tarifas'],['perfil','Datos profesionales'],['horario','Horario y agenda'],['comms','Comunicaciones'],['audit','Auditoría'],['ayuda','Ayuda y soporte']].map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-act="ctab" data-t="${k}">${l}</button>`).join('')}</div>${c}`;
+  return `<div class="head"><div><div class="eyebrow">Ajustes</div><h1>Configuración</h1><p>${CN?`${esc(S.org.name||'')} · cada cambio se guarda en el servidor al confirmarse`:`${esc(S.pro.name)} · todo es editable y se guarda al instante`}</p></div>${CN?'':`<div class="actions"><button class="btn danger" data-act="reset">Restablecer datos de ejemplo</button></div>`}</div>
+  <div class="tabs" role="tablist">${(CN?CN.tabs:[['auto','Automatizaciones'],['servicios','Servicios y tarifas'],['perfil','Datos profesionales'],['horario','Horario y agenda'],['comms','Comunicaciones'],['audit','Auditoría'],['ayuda','Ayuda y soporte']]).map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-act="ctab" data-t="${k}">${l}</button>`).join('')}</div>${c}`;
 };
 
 /* ===== modales ===== */
@@ -998,12 +1010,14 @@ function emit(inv){
   if(S.settings.sendInvoice)sendInv(inv,true);
 }
 function sendInv(inv,quiet){const to=inv.patientId?P(inv.patientId).email:'cliente';mail(to,`Factura ${inv.num}`,`Adjuntamos la factura ${inv.num} por importe de ${eur(tot(inv).total)}.`,'Factura');inv.sent={at:TODAY,to,ok:true};audit(`Factura ${inv.num} enviada`);if(!quiet)toast('Factura enviada')}
+// Emisor de la factura: el congelado al emitir (modo conectado), el perfil fiscal de la clínica o, en la demo, la profesional.
+const issuerOf=i=>i.issuer||S.issuer||{name:S.pro.name,nif:S.pro.nif,addr:S.pro.addr};
 function openInv(id){
   const i=S.invoices.find(x=>x.id===id);const t=tot(i);const st=invStatus(i);const ro=S.role==='gestoria';const draft=i.status==='borrador';
   const lines=i.lines.map((l,k)=>`<tr><td>${draft&&!ro?`<input type="text" value="${esc(l.desc)}" data-ld="${k}" id="ld-${k}" aria-label="Concepto">`:esc(l.desc)}</td><td class="r num">${l.qty}</td><td class="r">${draft&&!ro?`<input type="number" step="0.01" value="${l.price/100}" data-lp="${k}" id="lp-${k}" style="width:90px;text-align:right" aria-label="Precio">`:eur(l.price)}</td><td>${l.exempt?'Exento':'21 %'}</td><td class="r">${eur(Math.round(l.qty*l.price))}</td></tr>`).join('');
   const p=i.patientId?P(i.patientId):null;const showName=!p||p.billing.type==='empresa'||REVEAL[p.id]||S.role!=='gestoria';
   modal(i.num?`Factura ${i.num}`:'Borrador de factura',`<div class="inv">
-    <div class="top"><div><div class="eyebrow" style="color:var(--muted)">Emisor</div><b>${esc(S.pro.name)}</b><div class="muted small">NIF ${esc(S.pro.nif)}<br>${esc(S.pro.addr)}<br>Colegiada ${esc(S.pro.col)}</div></div>
+    <div class="top"><div><div class="eyebrow" style="color:var(--muted)">Emisor</div><b>${esc(issuerOf(i).name)}</b><div class="muted small">NIF ${esc(issuerOf(i).nif)}<br>${esc(issuerOf(i).addr)}<br>Colegiada ${esc(S.pro.col)}</div></div>
     <div style="text-align:right"><div class="numb">${i.num||'BORRADOR'}</div><div class="muted small">Fecha ${fD(i.date)}<br>Vence ${fD(i.due)}</div><div style="margin-top:6px">${chip(st)}</div></div></div>
     <div><div class="eyebrow" style="color:var(--muted)">Destinatario</div>${showName?`<b>${esc(i.to.name)}</b>${i.to.nif?`<div class="muted small">${esc(i.to.nif)} · ${esc(i.to.addr)}</div>`:''}`:`${pc(p)} <span class="masked">••••••••</span> <button class="btn sm ghost" data-act="revealInv" data-id="${p.id}" data-inv="${i.id}">${SVG(IC.eye)}Mostrar</button><div class="muted small">El nombre figura en el documento que recibe el paciente.</div>`}</div>
     <div class="tbl-wrap"><table><thead><tr><th>Concepto</th><th class="r">Cant.</th><th class="r">Precio</th><th>IVA</th><th class="r">Importe</th></tr></thead><tbody>${lines}</tbody></table></div>
@@ -1357,5 +1371,7 @@ window.matchMedia('(max-width:860px)').addEventListener('change',()=>render());
 window.addEventListener('beforeunload',e=>{if(!W)return;if(Object.values(NB).some(x=>{const m=nbLive(x);return nbDirty(m)||!!m.conflict})){e.preventDefault();e.returnValue=''}});
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.dataset||!d.dataset.acc)return;S.sel.fopen=Object.assign({},S.sel.fopen,{[d.dataset.acc]:d.open});if(d.open&&!d.querySelector('.acc-bd'))render();else save()},true);
 document.addEventListener('click',e=>{if(!e.target.closest('.pwrap')){const m=document.getElementById('pmenu');if(m)m.hidden=true}});
+if(W&&data.clinic)CN=(await import('./saas/connected.js')).installConnected({data,today:TODAY,
+  get S(){return S},get AVAIL(){return AVAIL},set AVAIL(v){AVAIL=v},render,toast,modal,closeModal,esc,openInv,addDays,P:id=>P(id),tot,effTheme:()=>effTheme(),reload:reloadS});
 renderNav();renderTop();document.getElementById('view').innerHTML=skeleton();
 setTimeout(render,320);

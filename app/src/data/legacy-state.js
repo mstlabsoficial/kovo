@@ -64,7 +64,22 @@ export function uiAppointment(src, sIds, note = () => {}) {
   return a;
 }
 
-export function toLegacyState({ collections, loaded = {}, report = [], context, today }) {
+// Ajustes guardados en organizations.settings: solo claves conocidas y del mismo tipo que el valor
+// por defecto (lo demás se ignora).
+export function settingsFromDb(raw) {
+  const out = { ...DEFAULT_SETTINGS };
+  if (raw && typeof raw === 'object') for (const [k, v] of Object.entries(raw)) if (k in DEFAULT_SETTINGS && typeof v === typeof DEFAULT_SETTINGS[k]) out[k] = v;
+  return out;
+}
+// Filas de professional_availability (weekday ISO 1-7) → formato de legacy.js (0 = lunes).
+export function availFromRows(rows) {
+  const out = {};
+  for (const r of rows || []) (out[r.weekday - 1] ||= []).push([r.start_minute, r.end_minute]);
+  for (const d of Object.keys(out)) out[d].sort((a, b) => a[0] - b[0]);
+  return out;
+}
+
+export function toLegacyState({ collections, loaded = {}, report = [], context, today, extras = null }) {
   const role = ROLE[context?.role];
   if (!role) throw new Error('El rol de tu usuario no es válido para KOVO.');
   if (typeof today !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(today)) throw new Error('Fecha de hoy no válida.');
@@ -133,21 +148,32 @@ export function toLegacyState({ collections, loaded = {}, report = [], context, 
 
   /* profesional (S.pro) */
   const pros = c.professionals || [];
-  if (pros.length !== 1) note('professional', null, 'pro', pros.length ? 'ambiguous_professional' : 'missing_in_db', pros.length);
-  const p0 = pros.length === 1 ? pros[0] : null;
+  // La profesional de la sesión (professionals.user_id) o, si solo hay una, esa.
+  const mine = context?.userId ? pros.find(p => p.userId && p.userId === context.userId) : null;
+  if (!mine && pros.length !== 1) note('professional', null, 'pro', pros.length ? 'ambiguous_professional' : 'missing_in_db', pros.length);
+  const p0 = mine || (pros.length === 1 ? pros[0] : null);
   for (const f of ['nif', 'addr', 'loc', 'sanitaria']) note('professional', p0?.id, f, 'missing_in_db');
   // loc queda null: legacy.js ya pone su ubicación por defecto al cargar el estado.
-  const pro = { id: p0?.id ?? null, name: p0?.name ?? '', col: p0?.col ?? '', email: p0?.email ?? '', nif: '', addr: '', loc: null, sanitaria: null };
+  const pro = { id: p0?.id ?? null, name: p0?.name ?? '', col: p0?.col ?? '', email: p0?.email ?? '', phone: p0?.phone ?? '', nif: '', addr: '', loc: null, sanitaria: null, mine: !!mine };
 
   if (usedMissing) ensureMissingService(services);
 
   const state = {
     seq: 1, role, view: 'inicio', cal: { mode: 'semana', date: today }, sel: { homeDay: today },
-    pro, settings: { ...DEFAULT_SETTINGS }, services, patients, appts, notes, invoices, expenses,
+    pro, settings: extras?.settings ? settingsFromDb(extras.settings) : { ...DEFAULT_SETTINGS }, services, patients, appts, notes, invoices, expenses,
     bank: [], employees, payrolls: [], oblPaid: {}, audit: [], outbox: [],
-    avail: JSON.parse(JSON.stringify(DEFAULT_AVAIL)),
+    // Horario guardado de la profesional; si no hay ninguno, el de por defecto marcado como no guardado.
+    avail: extras?.availability?.length ? availFromRows(extras.availability) : JSON.parse(JSON.stringify(DEFAULT_AVAIL)),
+    availSaved: !!extras?.availability?.length,
+    professionals: pros.map(p => ({ ...p })),
+    // Emisor de las facturas en modo conectado: el perfil fiscal de la clínica (organization_billing_profiles).
+    issuer: extras?.billingProfile ? { name: extras.billingProfile.legal_name, nif: extras.billingProfile.tax_id,
+      addr: [extras.billingProfile.address_line, extras.billingProfile.postal_code, extras.billingProfile.city].filter(Boolean).join(', '), profile: extras.billingProfile } : null,
     source: 'supabase',
-    org: { id: context.id ?? null, name: context.name ?? null, isDemo: context.is_demo ?? null }
+    org: { id: context.id ?? null, name: context.name ?? null, isDemo: context.is_demo ?? null, isAdmin: !!context.isAdmin,
+      accountStatus: context.accountStatus ?? 'active', plan: context.plan ?? null, subscriptionStatus: context.subscriptionStatus ?? null,
+      trialEndsAt: context.trialEndsAt ?? null, cancelAtPeriodEnd: !!context.cancelAtPeriodEnd, multi: (context.organizations?.length || 0) > 1,
+      userEmail: context.email ?? null }
   };
   return { state, report: entries };
 }

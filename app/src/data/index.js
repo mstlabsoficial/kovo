@@ -6,5 +6,8 @@ import { createDemoSource } from './demo.js';
 const MODE = import.meta.env?.VITE_DATA_MODE || 'demo';
 
 export const data = MODE === 'supabase'
-  ? (await import('./supabase.js')).createSupabaseSource()
+  ? (await import('./supabase.js')).createSupabaseSource({
+      gate: async () => (await import('../saas/gate.js')).runGate(),
+      onSessionExpired: () => { location.reload(); }
+    })
   : createDemoSource();

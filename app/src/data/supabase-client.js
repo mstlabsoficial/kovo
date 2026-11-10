@@ -5,6 +5,8 @@ const ENV = import.meta.env || {};
 const URL = (ENV.VITE_SUPABASE_URL || '').replace(/\/$/, '');
 const KEY = ENV.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 const SESSION_KEY = 'kovo.auth.session.v1';
+export const SUPABASE_URL = URL;
+export const SUPABASE_KEY = KEY;
 
 export function isSupabaseConfigured() { return Boolean(URL && KEY); }
 export function readSession() {

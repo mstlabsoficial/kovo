@@ -7,7 +7,8 @@
 // (writes.js + legacy-writes.js), y borradores de notas clínicas mediante la RPC autorizada
 // (writes.notes, note-writes.js). El resto de cambios de la interfaz se quedan en memoria:
 // persist() no sincroniza el estado completo.
-import { getOrganizationContext, restoreSession, refreshAccessToken } from './auth.js';
+import { getOrganizationContext, restoreSession, refreshAccessToken, signOut, selectOrg, scheduleRefresh } from './auth.js';
+import { createClinicApi } from './clinic.js';
 import { isSupabaseConfigured, supabaseRequest } from './supabase-client.js';
 import { createEntityWriter } from './writes.js';
 import { createLegacyWrites, applyPatient, applyAppointment } from './legacy-writes.js';
@@ -24,21 +25,31 @@ export function createSupabaseSource({
   request = supabaseRequest,
   refresh = refreshAccessToken,
   newId = () => crypto.randomUUID(),
-  noteRpc = 'auto'
+  noteRpc = 'auto',
+  // Pantallas de acceso (login, alta, onboarding, elegir clínica, invitación). Solo en el navegador
+  // (index.js); sin ella, authenticate() exige una sesión ya iniciada.
+  gate = null,
+  onSessionExpired = () => {}
 } = {}) {
   let context = null;
   let lastReport = [];
   const ctxNow = async () => context || source.authenticate();
   const writer = createEntityWriter({ request, refresh, getContext: ctxNow });
   const noteWriter = createNoteWriter({ request, refresh, getContext: ctxNow, rpc: noteRpc });
+  const clinic = createClinicApi({ request, refresh, getContext: ctxNow, newId });
+
   const source = {
     mode:'supabase',
     repository,
     async authenticate() {
       if (!isConfigured()) throw new Error('Configura VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY.');
-      const user=await restore();
-      if(!user) throw new Error('Inicia sesión para acceder a KOVO. La pantalla de acceso se integrará antes de habilitar este modo.');
-      context = await getContext();
+      if (gate) context = await gate();
+      else {
+        const user=await restore();
+        if(!user) throw new Error('Inicia sesión para acceder a KOVO.');
+        context = await getContext();
+      }
+      if (gate) scheduleRefresh(onSessionExpired);
       return context;
     },
     writes: {
@@ -47,11 +58,20 @@ export function createSupabaseSource({
       notes: Object.assign(createLegacyNoteWrites({ writer: noteWriter }), { applyNote }),
       userId: () => context?.userId ?? null
     },
+    clinic,
+    context: () => context,
+    async signOut() { await signOut(); context = null; },
+    switchOrg() { selectOrg(null); context = null; },
     async load({ today }) {
       if (!context) await this.authenticate();
       const snapshot = await repository.loadSnapshot();
       const built = buildLegacyCollections(snapshot);
-      const { state, report } = toLegacyState({ ...built, context: snapshot.context, today });
+      const ctx = { ...snapshot.context, ...(context || {}) };
+      const pros = built.collections.professionals || [];
+      const me = pros.find(p => p.userId && p.userId === ctx.userId) || (pros.length === 1 ? pros[0] : null);
+      const extras = repository.loadExtras ? await repository.loadExtras(ctx, me?.id ?? null) : {};
+      if (extras.name) ctx.name = extras.name;
+      const { state, report } = toLegacyState({ ...built, context: ctx, today, extras });
       lastReport = report;
       return state;
     },
@@ -64,8 +84,10 @@ export function createSupabaseSource({
       throw new Error('No se permite reiniciar ni borrar datos en el modo Supabase.');
     },
     newId() { return newId(); },
+    // Las fotos y adjuntos genéricos de la interfaz demo no se suben: los documentos clínicos van
+    // por clinic.uploadDocument (Storage privado con RLS).
     async uploadFile() {
-      throw new Error('La subida remota se habilitará después de validar Storage y los permisos por rol.');
+      throw new Error('Este adjunto no se guarda en modo conectado. Usa «Documentos» en la ficha del paciente.');
     }
   };
   return source;

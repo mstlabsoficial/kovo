@@ -9,7 +9,7 @@ export const FIXED_NOW = new Date('2026-11-06T11:30:00+01:00');
 
 // Simula Supabase: Auth (/auth/v1/user), memberships y organizations (con la RLS real: se ven todos
 // los miembros de la consulta) y las tablas de negocio con createFakeServer (lecturas y escrituras).
-export async function mockSupabase(page, role, { failTable = null, server = createFakeServer({ role }) } = {}) {
+export async function mockSupabase(page, role, { failTable = null, server = createFakeServer({ role }), oldSchema = false } = {}) {
   const log = { requests: [], blocked: [], server, refreshOk: true };
   const members = [
     { id: uuid(9000), org_id: ORG, user_id: USER, role, active: true },
@@ -22,8 +22,16 @@ export async function mockSupabase(page, role, { failTable = null, server = crea
     if (url.hostname === 'localhost') return route.continue();
     if (url.origin !== MOCK_SUPABASE_URL) { log.blocked.push(url.origin); return route.abort(); }
     const method = req.method();
-    log.requests.push({ method, path: url.pathname + url.search });
     const json = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    // Mis clínicas (RPC de solo lectura de la cadena consolidada): como Auth, no cuenta como petición
+    // de datos. Una sola clínica, sin banner de prueba ni suspensión.
+    if (url.pathname === '/rest/v1/rpc/my_organizations') {
+      if (oldSchema) return json({ code: 'PGRST202', message: 'Could not find the function public.my_organizations', details: null, hint: null }, 404);
+      log.orgLookups = (log.orgLookups || 0) + 1;
+      return json([{ org_id: ORG, name: 'Consulta Ficticia', role, is_admin: role === 'psychologa', account_status: 'active', plan_code: 'professional',
+        subscription_status: 'active', trial_ends_at: null, cancel_at_period_end: false }]);
+    }
+    log.requests.push({ method, path: url.pathname + url.search });
     if (url.pathname === '/auth/v1/user') return json({ id: USER, email: 'usuaria@correo-ejemplo.test' });
     if (url.pathname === '/auth/v1/token') {   // renovación de sesión (auth.js → refreshAccessToken)
       if (!log.refreshOk) return json({ msg: 'Invalid Refresh Token' }, 400);

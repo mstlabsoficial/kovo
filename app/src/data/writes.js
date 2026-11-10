@@ -102,6 +102,9 @@ export function classify(error, table) {
   const status = Number.isInteger(error?.status) ? error.status : null;
   const pg = error?.details?.code || null;
   if (status === 401) return new WriteError('auth', 'Tu sesión ha caducado. Vuelve a iniciar sesión; no se ha guardado nada.', { table, status });
+  // Cuenta de la clínica y plan (cadena consolidada, db/migrations).
+  if (pg === 'KS001') return new WriteError('suspended', 'La cuenta de la clínica está suspendida: puedes consultar, pero no guardar cambios. No se ha guardado nada.', { table, status });
+  if (pg === 'KP001') return new WriteError('plan_limit', error?.details?.message || 'Se ha alcanzado el límite del plan.', { table, status });
   if (status === 403 || pg === '42501') return new WriteError('forbidden', 'Tu perfil no tiene permiso para guardar estos datos.', { table, status });
   if (pg === '23505') return new WriteError('duplicate', 'Ya existe un registro con esos datos.', { table, status });
   // Citas con documentación clínica (trigger appointments_clinical_link de la propuesta clínica v2).

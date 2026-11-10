@@ -78,9 +78,20 @@ for (const role of ['psychologa', 'recepcion', 'gestoria']) {
     expect(views.includes('pacientes'), 'gestoría no ve pacientes').toBe(role !== 'gestoria');
     const banner = { psychologa: null, recepcion: 'Vista de recepción', gestoria: 'Vista de gestoría' }[role];
     if (banner) expect(all).toContain(banner); else expect(all).not.toContain('Vista de ');
-    expect(log.requests.some(r => r.path.startsWith('/rest/v1/memberships') && r.path.includes(`user_id=eq.${USER}`))).toBe(true);
+    // El rol sale de «mis clínicas» (el servidor filtra por auth.uid()); el selector de prototipo no existe.
+    expect(log.orgLookups).toBeGreaterThan(0);
+    await expect(page.locator('#role3')).toHaveCount(0);
   });
 }
+
+test('esquema anterior (sin my_organizations): el rol se toma de la membresía de la propia usuaria', async ({ page }) => {
+  const log = await mockSupabase(page, 'recepcion', { oldSchema: true });
+  const errors = await open(page);
+  expect(log.requests.some(r => r.path.startsWith('/rest/v1/memberships') && r.path.includes(`user_id=eq.${USER}`))).toBe(true);
+  const views = await page.$$eval('#nav [data-act="go"]', els => els.map(e => e.dataset.v));
+  expect(views.includes('informes')).toBe(false);
+  expect(errors).toEqual([]);
+});
 
 test('sin conexión durante la carga: mensaje claro y ningún dato a medias', async ({ page }) => {
   await mockSupabase(page, 'psychologa', { failTable: 'appointments' });

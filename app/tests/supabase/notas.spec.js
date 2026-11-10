@@ -148,23 +148,18 @@ test('nota firmada: no se puede editar, firmar ni rectificar desde este modo', a
 });
 
 for (const role of ['recepcion', 'gestoria']) {
-  test(`${role}: no ve notas y, aunque cambie la vista a «psicóloga», no puede guardarlas`, async ({ page }) => {
+  test(`${role}: no ve notas ni puede abrir el editor (sin selector de rol en modo conectado)`, async ({ page }) => {
     const log = await mockSupabase(page, role);
     const errors = await open(page);
     expect(log.requests.some(r => r.path.startsWith('/rest/v1/clinical_notes'))).toBe(false);
-    await page.evaluate(() => { const s = document.getElementById('role3'); s.value = 'psicologa'; s.dispatchEvent(new Event('change', { bubbles: true })); });
+    // En modo conectado no existe el selector «Ver como (prototipo)»: el rol es el de la sesión.
+    await expect(page.locator('#role3')).toHaveCount(0);
+    await expect(page.locator('.sidefoot .role')).toBeHidden();
+    // Aunque se fuerce la acción desde la consola, el editor no se abre con este rol. (El rechazo del
+    // servidor con el rol real lo prueban pgTAP y HTTP contra PostgreSQL/PostgREST reales: db/run.mjs.)
     await act(page, 'newDoc', { t: 'inicial', p: P1 });
-    if (role === 'recepcion') {
-      // Recepción ve pacientes, así que el editor se abre; el guardado lo rechaza el rol real de la sesión.
-      await expect(page.locator('[data-act="saveNote"]')).toBeVisible();
-      await fill(page, { 'nf-motivo': 'Texto ficticio' });
-      await click(page, '[data-act="saveNote"]');
-      await expect(toast(page)).toContainText('no tiene permiso');
-      expect(errors).toEqual([]);
-    } else {
-      // Gestoría no puede leer pacientes: el editor ni siquiera llega a abrirse.
-      await expect(page.locator('[data-act="saveNote"]')).toHaveCount(0);
-    }
+    await expect(page.locator('[data-act="saveNote"]')).toHaveCount(0);
+    expect(errors).toEqual([]);
     expect(log.requests.filter(r => r.method !== 'GET')).toEqual([]);
     expect(log.server.db.clinical_notes.filter(n => n.content.includes('Texto ficticio'))).toEqual([]);
   });

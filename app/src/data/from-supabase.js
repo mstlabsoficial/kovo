@@ -206,7 +206,8 @@ export function serviceFromRow(row) {
 export function professionalFromRow(row) {
   return {
     id: row.id, orgId: row.org_id ?? null, name: str(row.display_name),
-    col: str(row.professional_number), email: str(row.email), phone: str(row.phone)
+    col: str(row.professional_number), email: str(row.email), phone: str(row.phone),
+    ...('user_id' in row ? { userId: row.user_id ?? null } : {}), ...('active' in row ? { active: row.active !== false } : {})
   };
 }
 // Forma de S.pro (datos de la profesional que firma y factura). La BD no guarda NIF,
@@ -262,6 +263,10 @@ function invoiceStatus(row, payments, total, r) {
   }
   return status;
 }
+function snapshotParty(x) {
+  if (!x || typeof x !== 'object') return null;
+  return { type: 'particular', name: str(x.legal_name) ?? '', nif: str(x.tax_id) ?? '', addr: [x.address_line, x.postal_code, x.city].filter(Boolean).join(', ') };
+}
 // lines/payments: arrays ya convertidos de esa factura, o null si no se han cargado.
 export function invoiceFromRow(row, lines, payments, opts) {
   const r = rep(opts);
@@ -270,7 +275,7 @@ export function invoiceFromRow(row, lines, payments, opts) {
   if (ret === null) r.add('invoice', id, 'ret', 'retention_not_a_whole_percent');
   if (lines === null) r.add('invoice', id, 'lines', 'not_loaded');
   if (payments === null) r.add('invoice', id, 'payments', 'not_loaded');
-  r.add('invoice', id, 'to', 'missing_in_db');
+  if (!row.recipient_snapshot) r.add('invoice', id, 'to', 'missing_in_db');
   if (lines && ret !== null && lines.every(l => l.taxRate === 0 || l.taxRate === 21)) {
     const t = legacyTotals(lines, ret);
     if (t.base !== row.subtotal_cents || t.iva !== row.tax_cents || t.total !== row.total_cents) r.add('invoice', id, 'totals', 'mismatch_with_db');
@@ -278,7 +283,10 @@ export function invoiceFromRow(row, lines, payments, opts) {
   return {
     id, ...meta(row),
     serie: str(row.series), num: str(row.invoice_number), patientId: row.patient_id ?? null,
-    to: null,                       // la BD no guarda destinatario (nombre, NIF, dirección)
+    // Emitidas: destinatario y emisor congelados al emitir (recipient_snapshot / issuer_snapshot).
+    // Borradores: la BD no guarda destinatario; legacy-state lo deriva de la ficha del paciente.
+    to: snapshotParty(row.recipient_snapshot),
+    ...(row.issuer_snapshot ? { issuer: snapshotParty(row.issuer_snapshot) } : {}),
     date: dateOnly(row.issue_date), due: dateOnly(row.due_date),
     lines, ret, retentionCents: row.retention_cents ?? 0,
     appts: [],                      // la BD no relaciona facturas con citas
@@ -413,7 +421,8 @@ export function buildLegacyCollections(input = {}) {
 
   const patients = rows('patients').map(x => patientFromRow(x, opts));
   const pById = new Map(patients.map(p => [p.id, p]));
-  const docsBy = group(rows('patientDocuments').map(documentFromRow), 'patientId');
+  // Retirados (deleted_at): siguen en la BD por trazabilidad, pero no se muestran en la ficha.
+  const docsBy = group(rows('patientDocuments').filter(x => !x.deleted_at).map(documentFromRow), 'patientId');
   for (const [pid, docs] of docsBy) {
     const p = pById.get(pid);
     if (p) attachDocuments(p, docs); else for (const d of docs) report.add('patient_document', d.id, 'patientId', 'orphan_reference');
