@@ -235,10 +235,23 @@ const nid=p=>data.newId(p,S);
 // cambia cuando Supabase confirma. En modo demo W es null y todo funciona como siempre.
 const W=data.writes||null;let BUSY=false;
 function remote(btn,op,ok,fail){if(BUSY)return;BUSY=true;if(btn)btn.disabled=true;op().then(r=>{BUSY=false;ok(r)},e=>{BUSY=false;if(btn)btn.disabled=false;(fail||(x=>toast(x.message||'No se ha podido guardar')))(e)})}
+// Guardar el borrador en Supabase. La interfaz solo da por guardado lo que confirma el servidor; el
+// texto escrito durante el guardado se conserva. En un conflicto no se sobrescribe nada: el editor
+// conserva el texto y muestra la versión guardada para comparar (force: guardar la mía sobre ella).
+function saveNoteW(id,btn,force){if(BUSY)return;if(!NB[id]){const c=S.notes.find(x=>x.id===id);if(c)NB[id]=nbCopy(c)}const n=NB[id];if(!n)return;if(n.status==='firmada'){toast('Esta nota está firmada y no se puede modificar. Las correcciones se añaden como rectificación.');return}readNote(n);const sent={...n.fields};NSAVING=id;nbMark();
+  remote(btn,()=>W.notes.saveNote({note:force?{...n,serverVersion:n.conflict&&n.conflict.version}:n,fields:sent,knownIds:S.notes.map(x=>x.id),force}),({note:x,replacedId})=>{NSAVING=null;const now={};document.querySelectorAll('[data-nf]').forEach(t=>now[t.dataset.nf]=t.value.trim());W.notes.applyNote(S,x,replacedId);delete NB[id];nlog(x,'Borrador guardado');if(S.sel.editing===x.id){NB[x.id]=nbCopy(x);Object.assign(NB[x.id].fields,now)}audit(`Nota de #${P(x.patientId).code} guardada como borrador`);render();toast('Borrador guardado')},
+  e=>{NSAVING=null;const b=NB[id];if(e&&e.code==='conflict'&&b){const now={};document.querySelectorAll('[data-nf]').forEach(t=>now[t.dataset.nf]=t.value.trim());Object.assign(b.fields,now);b.conflict={version:Number.isInteger(e.currentVersion)?e.currentVersion:null,server:e.serverNote||null};if(e.serverNote)W.notes.applyNote(S,e.serverNote);render()}else nbMark();toast(e&&e.message||'No se ha podido guardar')})}
 function remoteStatus(btn,a,status,ok){remote(btn,()=>W.setAppointmentStatus({appt:a,status,services:S.services}),({appt})=>{W.applyAppointment(S,appt);ok(appt)})}
 // Notas en modo Supabase: el editor trabaja sobre una copia; S.notes solo cambia tras confirmar el guardado.
 const NB={};function edNote(id){return(W&&NB[id])||S.notes.find(x=>x.id===id)}
+const nbCopy=x=>({...x,fields:{...x.fields},versions:(x.versions||[]).slice(),log:(x.log||[]).slice()});
 function nbDirty(n){const saved=S.notes.find(x=>x.id===n.id);const f=n.fields||{};return saved?JSON.stringify(f)!==JSON.stringify(saved.fields||{}):Object.values(f).some(v=>v)}
+// Estado del guardado de la nota abierta (solo modo Supabase): guardado, sin guardar, guardando o conflicto.
+let NSAVING=null;
+function nbLive(n){const m={...n,fields:{...n.fields}};if(n.id===S.sel.editing&&n.status!=='firmada')readNote(m);return m}
+function nbState(n){if(n.conflict)return['bad','Conflicto: hay una versión guardada más reciente'];if(NSAVING===n.id)return['','Guardando…'];if(n.unsaved||nbDirty(n))return['warn','Sin guardar'];return['ok',n.version?`Guardado · versión ${n.version}`:'Guardado']}
+function nbStateHTML(n){const[c,t]=nbState(n);return`<span class="chip ${c}" id="nb-state" role="status" aria-live="polite">${t}</span>`}
+function nbMark(){const n=S.sel.editing?edNote(S.sel.editing):null;const el=document.getElementById('nb-state');if(!n||!el)return;const[c,t]=nbState(nbLive(n));el.className=`chip ${c}`;el.textContent=t}
 const P=id=>S.patients.find(p=>p.id===id);
 const SV=id=>S.services.find(s=>s.id===id);
 const ME={psicologa:'Psicóloga',recepcion:'Recepción',gestoria:'Gestoría externa'};
@@ -594,9 +607,10 @@ function editorView(n){
   const a=n.apptId?S.appts.find(x=>x.id===n.apptId):null;
   const prev=S.notes.filter(x=>x.patientId===n.patientId&&x.id!==n.id&&x.status==='firmada'&&x.created<=n.created).sort((x,y)=>y.created.localeCompare(x.created))[0];
   const hist=[{at:n.created,w:'Documento creado'}].concat((n.log||[]).map(l=>({at:l.at.slice(0,10),w:l.what})),n.versions.map(v=>({at:v.at.slice(0,10),w:`Rectificación · ${v.author}`})));
-  return `<div class="ed-bar"><button class="btn sm ghost" data-act="closeEditor">‹ Informes</button><div class="actions">${chip(n.status)}${locked?`<button class="btn primary" data-act="rectNote" data-id="${n.id}">Guardar rectificación</button>`:`<button class="btn" data-act="saveNote" data-id="${n.id}">Guardar borrador</button><button class="btn primary" data-act="signNote" data-id="${n.id}">${SVG(IC.sign)}Firmar y cerrar</button>`}</div></div>
+  return `<div class="ed-bar"><button class="btn sm ghost" data-act="closeEditor">‹ Informes</button><div class="actions">${W&&!locked?nbStateHTML(n):''}${chip(n.status)}${locked?`<button class="btn primary" data-act="rectNote" data-id="${n.id}">Guardar rectificación</button>`:`<button class="btn" data-act="saveNote" data-id="${n.id}">Guardar borrador</button><button class="btn primary" data-act="signNote" data-id="${n.id}">${SVG(IC.sign)}Firmar y cerrar</button>`}</div></div>
   <div class="ed-grid">
     <article class="doc"><div class="doc-head"><div class="eyebrow">${NOTE_T[n.type]}</div><h1>${a?`Sesión del ${fD(a.date)}`:`Documento del ${fD(n.created)}`}</h1><div class="fmeta"><span class="pc big">#${p.code}</span><span class="muted small">${esc(n.author)}${locked?` · firmado el ${fD(n.signedAt)}`:' · borrador'}</span></div></div>
+    ${W&&n.conflict&&!locked?`<div class="box warn" style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span><b>Otra sesión ha guardado este borrador${n.conflict.version?` (versión ${n.conflict.version})`:''} mientras lo editabas.</b> Tu texto sigue aquí y no se ha guardado.</span><span class="actions"><button class="btn sm" data-act="noteCompare" data-id="${n.id}">Ver versión guardada</button><button class="btn sm primary" data-act="noteForce" data-id="${n.id}">Guardar la mía</button></span></div>`:''}
     ${prev&&!locked?`<details><summary class="muted small" style="cursor:pointer">Plan de la nota anterior (${fD(prev.created)})</summary><p style="margin:8px 0 0">${esc(prev.fields.plan||'—')}</p></details>`:''}
     ${fs.map(([k,l])=>`<label class="field"><span>${l}</span>${locked?`<div class="ro">${esc(n.fields[k]||'—')}</div>`:`<textarea id="nf-${k}" data-nf="${k}" placeholder="Escribe aquí…">${esc(n.fields[k]||'')}</textarea>`}</label>`).join('')}
     ${n.versions.length?`<section><h3 style="margin-bottom:8px">Rectificaciones</h3><div class="timeline">${n.versions.map(v=>`<div class="ev"><span class="dt">${fD(v.at.slice(0,10))}</span><span class="dot clin"></span><span class="tx"><b>${esc(v.author)}</b>: ${esc(v.text)}</span></div>`).join('')}</div></section>`:''}
@@ -1004,7 +1018,7 @@ function openInv(id){
   draft?`<button class="btn danger" data-act="delInv" data-id="${i.id}">Descartar</button><button class="btn" data-act="saveDraft" data-id="${i.id}">Guardar</button><button class="btn primary" data-act="emitInv" data-id="${i.id}">Emitir</button>`:
   `${i.kind!=='R'&&st!=='rectificada'?`<button class="btn" data-act="rectInv" data-id="${i.id}">Rectificar</button>`:''}${st==='vencida'?`<button class="btn" data-act="remind" data-id="${i.id}">Recordatorio de pago</button>`:''}<button class="btn" data-act="pdfInv" data-id="${i.id}">${SVG(IC.download)}Exportar PDF</button><button class="btn" data-act="sendInv" data-id="${i.id}">${i.sent?'Reenviar':'Enviar'}</button>${t.pending>0&&i.kind!=='R'?`<button class="btn primary" data-act="payInv" data-id="${i.id}">Registrar cobro</button>`:''}`,true);
 }
-function noteEditor(n){if(W&&n&&!NB[n.id])NB[n.id]={...n,fields:{...n.fields},versions:n.versions.slice(),log:(n.log||[]).slice()};closeModal();S.view='informes';S.sel.editing=n.id;render();window.scrollTo(0,0)}
+function noteEditor(n){if(W&&n&&!NB[n.id])NB[n.id]=nbCopy(n);closeModal();S.view='informes';S.sel.editing=n.id;render();window.scrollTo(0,0)}
 function ensureNote(a){let n=noteFor(a)||(W?Object.values(NB).find(x=>x.apptId===a.id):null);if(!n){n={id:nid('n'),patientId:a.patientId,apptId:a.id,type:a.service==='s3'?'inicial':'sesion',fields:{},status:'borrador',author:W?'':'Laura Benítez',created:a.date,signedAt:null,versions:[]};if(W){n.unsaved=true;NB[n.id]=n}else S.notes.push(n)}return n}
 function readNote(n){document.querySelectorAll('[data-nf]').forEach(t=>n.fields[t.dataset.nf]=t.value.trim())}
 function newCode(){let c;do{c=String(1000+Math.floor(Math.random()*9000))}while(S.patients.some(p=>p.code===c));return c}
@@ -1283,7 +1297,12 @@ const ACT={
   saveNewInv:()=>{const p=P(val('ni-p'));const amt=Math.round(Number(val('ni-a'))*100);if(!p||!(amt>0)){toast('Indica el paciente y un importe mayor que cero');return}
     const inv=mkInv(S,p,TODAY,[{desc:val('ni-d')||'Servicio',qty:1,price:amt,exempt:val('ni-x')==='1'}],[]);S.invoices.push(inv);audit('Borrador de factura creado');closeModal();render();openInv(inv.id)},
   pdfInv:d=>pdfInv(S.invoices.find(x=>x.id===d.id)),
-  saveNote:(d,btn)=>{const n=edNote(d.id);readNote(n);if(W){const sent={...n.fields};remote(btn,()=>W.notes.saveNote({note:n,fields:sent,knownIds:S.notes.map(x=>x.id)}),({note:x,replacedId})=>{const now={};document.querySelectorAll('[data-nf]').forEach(t=>now[t.dataset.nf]=t.value.trim());W.notes.applyNote(S,x,replacedId);delete NB[d.id];if(S.sel.editing===x.id&&Object.keys(now).some(k=>now[k]!==(sent[k]||'')))NB[x.id]={...x,fields:{...x.fields,...now},versions:x.versions.slice(),log:x.log};nlog(x,'Borrador guardado');audit(`Nota de #${P(x.patientId).code} guardada como borrador`);render();toast('Borrador guardado')});return}nlog(n,'Borrador guardado');audit(`Nota de #${P(n.patientId).code} guardada como borrador`);render();toast('Borrador guardado')},
+  saveNote:(d,btn)=>{const n=edNote(d.id);readNote(n);if(W){saveNoteW(d.id,btn,false);return}nlog(n,'Borrador guardado');audit(`Nota de #${P(n.patientId).code} guardada como borrador`);render();toast('Borrador guardado')},
+  noteForce:(d,btn)=>{const n=W&&NB[d.id];if(!n||!n.conflict)return;closeModal();saveNoteW(d.id,btn,true)},
+  noteCompare:d=>{const n=W&&NB[d.id];if(!n||!n.conflict)return;readNote(n);const sv=n.conflict.server;const diff=sv?FIELDS[n.type].filter(([k])=>(sv.fields[k]||'')!==(n.fields[k]||'')):[];
+    modal('Comparar con la versión guardada',sv?`<p class="muted small" style="margin:0">${diff.length?`${diff.length===1?'Un apartado distinto':`${diff.length} apartados distintos`}. Arriba, lo guardado por la otra sesión${n.conflict.version?` (versión ${n.conflict.version})`:''}; debajo, tu texto sin guardar.`:'Los apartados coinciden: puedes guardar sin perder nada.'}</p>${diff.map(([k,l])=>`<label class="field"><span>${l}</span><div class="ro">${esc(sv.fields[k]||'—')}</div><div class="ro">${esc(n.fields[k]||'—')}</div></label>`).join('')}`:'<p style="margin:0">No se ha podido leer la versión guardada. Recarga la página para verla (copia antes tu texto: no está guardado).</p>',
+      `<button class="btn" data-act="close">Seguir editando</button>${sv?`<button class="btn" data-act="noteUseServer" data-id="${n.id}">Usar la guardada (descarta tu texto)</button>`:''}<button class="btn primary" data-act="noteForce" data-id="${n.id}">Guardar la mía</button>`,true)},
+  noteUseServer:d=>{const n=W&&NB[d.id];const sv=n&&n.conflict&&n.conflict.server;if(!sv)return;delete NB[d.id];closeModal();noteEditor(S.notes.find(x=>x.id===sv.id)||sv);toast('Se ha cargado la versión guardada; tu texto se ha descartado')},
   signNote:d=>{if(W){toast('La firma todavía no está disponible en este modo. Guarda el borrador.');return}const n=S.notes.find(x=>x.id===d.id);readNote(n);if(FIELDS[n.type].every(([k])=>!n.fields[k])){toast('Completa al menos un apartado antes de firmar');return}
     n.status='firmada';n.signedAt=TODAY;nlog(n,'Firmado y cerrado');audit(`${NOTE_T[n.type]} de #${P(n.patientId).code} firmado`);S.sel.editing=null;render();toast('Informe firmado y cerrado')},
   rectNote:d=>{if(W){toast('Las rectificaciones todavía no están disponibles en este modo.');return}const n=S.notes.find(x=>x.id===d.id);const t=val('nf-rect').trim();if(!t){toast('Escribe la rectificación antes de guardar');return}n.versions.push({at:new Date().toISOString(),author:'Laura Benítez',text:t});nlog(n,'Rectificación añadida');audit(`Rectificación en ${NOTE_T[n.type]} de #${P(n.patientId).code}`);render();toast('Rectificación añadida')},
@@ -1326,7 +1345,7 @@ document.addEventListener('change',e=>{
   if(t.dataset.pro){S.pro[t.dataset.pro]=t.type==='checkbox'?t.checked:t.value;audit('Datos profesionales actualizados');save();toast('Guardado')}
 });
 document.addEventListener('input',e=>{
-  if(e.target.dataset&&e.target.dataset.nf!==undefined){autosize(e.target);return}
+  if(e.target.dataset&&e.target.dataset.nf!==undefined){autosize(e.target);if(W)nbMark();return}
   if(e.target.id==='f-pq'){const l=document.getElementById('f-plist');document.getElementById('f-p').value='';l.innerHTML=pickerHTML(pickerList(e.target.value,APPT_CTX.keep));l.hidden=false;return}
   if(e.target.id==='pq'){S.sel.q=e.target.value;const l=document.getElementById('plist');if(l)l.innerHTML=patientList()}
 });
@@ -1334,6 +1353,8 @@ document.addEventListener('focusin',e=>{if(e.target.id==='f-pq'){const l=documen
 document.addEventListener('click',e=>{if(!e.target.closest('.combo')){const l=document.getElementById('f-plist');if(l)l.hidden=true}});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='gq'){S.sel.q=e.target.value;S.sel.patient=null;S.view='pacientes';render();return}if(e.key==='Enter'&&e.target.id==='f-pq'){e.preventDefault();const b=document.querySelector('#f-plist .combo-it');if(b)b.click()}});
 window.matchMedia('(max-width:860px)').addEventListener('change',()=>render());
+// Modo Supabase: avisar antes de salir si hay borradores clínicos sin guardar (no se guardan en el navegador).
+window.addEventListener('beforeunload',e=>{if(!W)return;if(Object.values(NB).some(x=>{const m=nbLive(x);return nbDirty(m)||!!m.conflict})){e.preventDefault();e.returnValue=''}});
 document.addEventListener('toggle',e=>{const d=e.target;if(!d.dataset||!d.dataset.acc)return;S.sel.fopen=Object.assign({},S.sel.fopen,{[d.dataset.acc]:d.open});if(d.open&&!d.querySelector('.acc-bd'))render();else save()},true);
 document.addEventListener('click',e=>{if(!e.target.closest('.pwrap')){const m=document.getElementById('pmenu');if(m)m.hidden=true}});
 renderNav();renderTop();document.getElementById('view').innerHTML=skeleton();

@@ -8,6 +8,8 @@ export const U = {
   inactiva: 'a0000000-0000-4000-8000-000000000005', sinMembresia: 'a0000000-0000-4000-8000-000000000006',
   psicoB: 'b0000000-0000-4000-8000-000000000001'
 };
+export const SERVICE = 'e1000000-0000-4000-8000-000000000001';
+export const PROFESSIONAL = 'e2000000-0000-4000-8000-000000000001';
 export const P = { a1: 'c0000000-0000-4000-8000-0000000000a1', a2: 'c0000000-0000-4000-8000-0000000000a2', b1: 'c0000000-0000-4000-8000-0000000000b1' };
 export const A = {
   doneA1: 'd0000000-0000-4000-8000-0000000000c1', doneA2: 'd0000000-0000-4000-8000-0000000000c2',
@@ -31,10 +33,13 @@ export async function seed(admin) {
       ('${ORG_A}', '${U.psicoA}', 'psychologa', true), ('${ORG_A}', '${U.psicoA2}', 'psychologa', true),
       ('${ORG_A}', '${U.recepcion}', 'recepcion', true), ('${ORG_A}', '${U.gestoria}', 'gestoria', true),
       ('${ORG_A}', '${U.inactiva}', 'psychologa', false), ('${ORG_B}', '${U.psicoB}', 'psychologa', true);
+    INSERT INTO public.services (id, org_id, name, duration_minutes, price_cents, tax_exempt, active) VALUES
+      ('${SERVICE}', '${ORG_A}', 'Sesión individual ficticia', 50, 5500, true, true);
+    INSERT INTO public.professionals (id, org_id, display_name) VALUES ('${PROFESSIONAL}', '${ORG_A}', 'Profesional Ficticia');
     INSERT INTO public.patients (id, org_id, patient_code, first_name, last_name) VALUES
-      ('${P.a1}', '${ORG_A}', 'P-00001', 'Paciente', 'Ficticio Uno'),
-      ('${P.a2}', '${ORG_A}', 'P-00002', 'Paciente', 'Ficticio Dos'),
-      ('${P.b1}', '${ORG_B}', 'P-00001', 'Paciente', 'Ficticio Tres');
+      ('${P.a1}', '${ORG_A}', 'AUTO', 'Paciente', 'Ficticio Uno'),
+      ('${P.a2}', '${ORG_A}', 'AUTO', 'Paciente', 'Ficticio Dos'),
+      ('${P.b1}', '${ORG_B}', 'AUTO', 'Paciente', 'Ficticio Tres');
     INSERT INTO public.appointments (id, org_id, patient_id, starts_at, ends_at, status) VALUES
       ('${A.doneA1}', '${ORG_A}', '${P.a1}', '2026-11-09 10:00+01', '2026-11-09 10:50+01', 'completed'),
       ('${A.doneA2}', '${ORG_A}', '${P.a2}', '2026-11-09 11:00+01', '2026-11-09 11:50+01', 'completed'),

@@ -2,13 +2,16 @@
 // KOVO — disposable local validation of the clinical module on REAL PostgreSQL 17 + PostgREST 16.5.
 //
 //   node clinical-db/run-local.mjs            # all suites, both scenarios
-//   node clinical-db/run-local.mjs --serve    # also keep PostgREST up for the browser E2E (prints URL)
+//   node clinical-db/run-local.mjs --e2e      # also the browser E2E (app/tests/real) against this PostgREST
+//   node clinical-db/run-local.mjs --serve    # keep PostgREST up at the end (prints URL) for manual checks
 //
 // Nothing here touches a hosted Supabase project: the database is created in a temp directory,
 // the schema is read with `git show` from the recovery branches (read-only) and everything is
 // deleted at the end. Tools (embedded PostgreSQL, PostgREST, pgTAP) are expected in app/.tools
 // (see docs/clinical/README.md, "Validación local").
-import { startDb, applySql, fromRef, local, runPgTap, startPostgrest } from './local/env.mjs';
+import { spawn } from 'node:child_process';
+import { join } from 'node:path';
+import { startDb, applySql, fromRef, local, runPgTap, startPostgrest, ROOT, TOOLS } from './local/env.mjs';
 import { seed } from './tests/fixtures.mjs';
 import { runHttp } from './tests/http.mjs';
 import { runConcurrency } from './tests/concurrency.mjs';
@@ -20,6 +23,27 @@ const CLINICAL = 'clinical-db/proposals/20261110_clinical_notes_v2.PROPOSAL.sql'
 const CLINICAL_TAP = 'clinical-db/tests/clinical_notes_test.sql';
 
 const serve = process.argv.includes('--serve');
+const e2e = process.argv.includes('--e2e');
+
+// B + D: Playwright (app/playwright.real.config.js) with the browser's REST traffic forwarded to
+// this PostgREST. Separate process; result read from its summary line.
+function runBrowserE2E(rest) {
+  return new Promise(ok => {
+    const app = join(ROOT, 'app');
+    const child = spawn(join(TOOLS, 'node/bin/node'), ['node_modules/@playwright/test/cli.js', 'test', '--config=playwright.real.config.js'], {
+      cwd: app, env: { ...process.env, PATH: `${join(TOOLS, 'node/bin')}:${process.env.PATH}`, PLAYWRIGHT_BROWSERS_PATH: join(app, '.playwright-browsers'), KOVO_REAL_REST: rest.base, KOVO_REAL_JWT_SECRET: rest.secret },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let out = '';
+    child.stdout.on('data', d => { out += d; }); child.stderr.on('data', d => { out += d; });
+    child.on('close', code => {
+      const n = re => Number((out.match(re) || [])[1] || 0);
+      const passed = n(/(\d+) passed/), failed = n(/(\d+) failed/), skipped = n(/(\d+) skipped/);
+      const lines = out.split('\n').filter(l => /✓|✘|Error:|Expected|Received/.test(l)).slice(0, 30).map(l => l.trim());
+      ok({ total: passed + failed + skipped, failed: failed + skipped + (code && !failed ? 1 : 0), lines });
+    });
+  });
+}
 const log = m => console.log(`  · ${m}`);
 const summary = [];
 
@@ -85,6 +109,7 @@ async function scenario(title, { backend }) {
     rest = await startPostgrest(env, { log });
     await safe('D/E · PostgREST + JWT (HTTP)', () => runHttp(rest), (_, s) => js(s));
     await safe('F · Concurrencia (PostgreSQL real)', () => runConcurrency(env, rest), (_, s) => js(s));
+    if (e2e) { const r = await runBrowserE2E(rest); report('B/D · Navegador (interfaz real) contra PostgREST + PostgreSQL reales', r.total || 1, r.total ? r.failed : 1, r.lines); }
     if (serve) {
       console.log(`\nPostgREST local: ${rest.base}  (secreto JWT local: ${rest.secret})`);
       console.log('Ctrl+C para parar y borrar la base de datos.');
