@@ -6,11 +6,15 @@
 //   node db/run.mjs --e2e        # also the browser journeys (app/tests/stack) against this stack
 //   node db/run.mjs --serve      # keep the stack up (prints URL and keys) for manual use of the app
 //   node db/run.mjs --only=tap,http   # subset: tap | http | concurrency | upgrade | backup | e2e
+//   node db/run.mjs --external   # CI: pila Supabase local ya arrancada (`supabase start`), ver db/local/external.mjs.
+//                                # Migración de datos y copia en frío necesitan clústeres desechables propios:
+//                                # en CI la copia se prueba con pg_dump/pg_restore (scripts/ci-backup-drill.sh).
 //
 // Never touches a hosted project. Everything lives in a temp directory deleted at the end.
 import { spawn } from 'node:child_process';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { startStack } from './local/stack.mjs';
+import { connectExternalStack } from './local/external.mjs';
 import { applyKovoSchema } from './schema.mjs';
 import { runPgTap, local, ROOT, TOOLS } from '../clinical-db/local/env.mjs';
 import { runHttp } from './tests/http.mjs';
@@ -23,6 +27,7 @@ const only = (args.find(a => a.startsWith('--only=')) || '').slice(7).split(',')
 const want = k => !only.length || only.includes(k);
 const e2e = args.includes('--e2e') || only.includes('e2e');
 const serve = args.includes('--serve');
+const external = args.includes('--external');
 const log = m => console.log(`  · ${m}`);
 const summary = [];
 
@@ -42,9 +47,9 @@ async function safe(name, fn, show) {
 function runBrowser(stack) {
   return new Promise(ok => {
     const app = join(ROOT, 'app');
-    const child = spawn(join(TOOLS, 'node/bin/node'), ['node_modules/@playwright/test/cli.js', 'test', '--config=playwright.stack.config.js'], {
+    const child = spawn(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', '--config=playwright.stack.config.js'], {
       cwd: app,
-      env: { ...process.env, PATH: `${join(TOOLS, 'node/bin')}:${process.env.PATH}`, PLAYWRIGHT_BROWSERS_PATH: join(app, '.playwright-browsers'),
+      env: { ...process.env, PATH: `${dirname(process.execPath)}:${process.env.PATH}`, PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH || join(app, '.playwright-browsers'),
              KOVO_STACK_URL: stack.url, KOVO_STACK_ANON: stack.anonKey, KOVO_STACK_SERVICE: stack.serviceKey },
       stdio: ['ignore', 'pipe', 'pipe']
     });
@@ -62,7 +67,9 @@ function runBrowser(stack) {
 console.log('\n=== KOVO · cadena consolidada sobre Supabase local completo (Auth + Storage + PostgREST reales) ===');
 let stack;
 try {
-  stack = await startStack({ log, schema: env => applyKovoSchema(env, { log }), gatewayPort: Number(process.env.KOVO_STACK_PORT) || undefined });
+  stack = external
+    ? await connectExternalStack({ log, schema: env => applyKovoSchema(env, { log }) })
+    : await startStack({ log, schema: env => applyKovoSchema(env, { log }), gatewayPort: Number(process.env.KOVO_STACK_PORT) || undefined });
   if (want('tap')) {
     await safe('pgTAP · cadena consolidada (códigos, alta, aislamiento, roles, equipo, planes, plataforma, sesiones, cobros, documentos, avisos, pasarela)', async () => {
       const c = await stack.env.client();
@@ -86,8 +93,8 @@ try {
 } finally {
   await stack?.stop();
 }
-if (want('upgrade')) await safe('Migración de datos · base con datos (esquema actual) → cadena consolidada', () => runUpgrade({ log }), js);
-if (want('backup')) await safe('Copia de seguridad y restauración (copia física en frío de PostgreSQL + ficheros de Storage)', () => runBackupRestore({ log }), js);
+if (!external && want('upgrade')) await safe('Migración de datos · base con datos (esquema actual) → cadena consolidada', () => runUpgrade({ log }), js);
+if (!external && want('backup')) await safe('Copia de seguridad y restauración (copia física en frío de PostgreSQL + ficheros de Storage)', () => runBackupRestore({ log }), js);
 
 console.log('\n=== Resumen ===');
 for (const s of summary) console.log(`${s.failed ? '✗' : '✓'} ${s.name}: ${s.total - s.failed}/${s.total}`);

@@ -1,0 +1,108 @@
+name: KOVO · pruebas
+
+# Pruebas de la rama de consolidación. No despliega nada, no usa secretos y no conecta con ningún
+# proyecto alojado de Supabase: la base de datos es una pila local en Docker que se crea y se borra
+# en cada ejecución (`supabase start` en un directorio temporal, sin `link`, sin `db push`).
+on:
+  push:
+    branches: [feat/kovo-consolidacion]
+  pull_request:
+    branches: [migracion-vite]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kovo-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Interfaz (unitarias, build, navegador simulado, smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/app/.playwright-browsers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Dependencias
+        working-directory: app
+        run: npm ci
+      - name: Pruebas unitarias
+        working-directory: app
+        run: npm run test:unit
+      - name: Build demo (la que publica GitHub Pages)
+        working-directory: app
+        env: { VITE_DATA_MODE: demo }
+        run: npm run build
+      - name: Build modo conectado (solo compila; sin servidor)
+        working-directory: app
+        env: { VITE_DATA_MODE: supabase, VITE_SUPABASE_URL: 'http://127.0.0.1:54321', VITE_SUPABASE_PUBLISHABLE_KEY: 'ci-sin-clave' }
+        run: npm run build && test -f dist/admin.html
+      - name: Chromium
+        working-directory: app
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Navegador con API simulada (modo conectado)
+        working-directory: app
+        run: node node_modules/@playwright/test/cli.js test --config=playwright.supabase.config.js
+      - name: Smoke de la demo
+        working-directory: app
+        run: node node_modules/@playwright/test/cli.js test tests/smoke --project=vite
+      # Las pruebas visuales comparan con capturas hechas en macOS: no se ejecutan en Linux.
+
+  database:
+    name: Base de datos y E2E contra Supabase local (Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/app/.playwright-browsers
+      KOVO_TOOLS_DIR: ${{ runner.temp }}/kovo-tools
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ramas de solo lectura usadas por la cadena de esquema (git show)
+        run: |
+          git fetch --no-tags origin \
+            +refs/heads/chore/recover-supabase-migrations:refs/remotes/origin/chore/recover-supabase-migrations \
+            +refs/heads/docs/backend-gap-design:refs/remotes/origin/docs/backend-gap-design
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Dependencias (app y cliente pg de las pruebas)
+        run: |
+          (cd app && npm ci && node node_modules/@playwright/test/cli.js install --with-deps chromium)
+          mkdir -p "$KOVO_TOOLS_DIR/pg" && cd "$KOVO_TOOLS_DIR/pg" && npm init -y > /dev/null && npm install --no-audit --no-fund pg@8.13.1
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Supabase local (directorio temporal, nunca enlazado)
+        working-directory: ${{ runner.temp }}
+        run: |
+          mkdir -p sb && cd sb && supabase init --force > /dev/null
+          # Mismas reglas de Auth que la configuración prevista para producción (ver docs/ops).
+          sed -i 's/^minimum_password_length = .*/minimum_password_length = 10/' supabase/config.toml
+          sed -i 's/^refresh_token_reuse_interval = .*/refresh_token_reuse_interval = 0/' supabase/config.toml
+          supabase start -x studio,imgproxy,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta
+          supabase status -o env > status.env
+          # Se copian con nombres KOVO_EXT_* (las pruebas se niegan a correr con variables de proyectos alojados).
+          ( . ./status.env
+            echo "KOVO_EXT_URL=$API_URL"; echo "KOVO_EXT_ANON=$ANON_KEY"; echo "KOVO_EXT_SERVICE=$SERVICE_ROLE_KEY"
+            echo "KOVO_EXT_DB_URL=$DB_URL"; echo "KOVO_EXT_JWT_SECRET=$JWT_SECRET" ) >> "$GITHUB_ENV"
+          rm status.env
+      - name: Esquema + pgTAP + HTTP + concurrencia + E2E (navegador real)
+        run: node db/run.mjs --external --e2e
+      - name: Simulacro de copia y restauración (pg_dump / pg_restore)
+        run: sh scripts/ci-backup-drill.sh
+      - name: Parar Supabase local
+        if: always()
+        working-directory: ${{ runner.temp }}/sb
+        run: supabase stop --no-backup || true
