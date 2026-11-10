@@ -104,6 +104,9 @@ export function classify(error, table) {
   if (status === 401) return new WriteError('auth', 'Tu sesión ha caducado. Vuelve a iniciar sesión; no se ha guardado nada.', { table, status });
   if (status === 403 || pg === '42501') return new WriteError('forbidden', 'Tu perfil no tiene permiso para guardar estos datos.', { table, status });
   if (pg === '23505') return new WriteError('duplicate', 'Ya existe un registro con esos datos.', { table, status });
+  // Citas con documentación clínica (trigger appointments_clinical_link de la propuesta clínica v2).
+  if (pg === 'KN010') return new WriteError('clinical_link', 'Esta cita tiene una nota clínica: no se puede cambiar de paciente. No se ha guardado nada.', { table, status });
+  if (pg === 'KN011') return new WriteError('clinical_link', 'Esta cita tiene una nota clínica y debe seguir como realizada. No se ha guardado nada.', { table, status });
   if (pg === '23503') return new WriteError('invalid_reference', 'El paciente, profesional o servicio no pertenece a tu consulta.', { table, status });
   if (pg === '23514' || pg === '23502' || pg === '22P02' || pg === '22007' || pg === '22008') return new WriteError('validation', 'La base de datos ha rechazado algún dato.', { table, status });
   if (status) return new WriteError('http', `No se ha podido guardar (HTTP ${status}). Inténtalo de nuevo.`, { table, status });

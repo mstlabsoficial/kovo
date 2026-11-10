@@ -44,7 +44,7 @@ export async function mockSupabase(page, role, { failTable = null, server = crea
       return json(await server.request(path, { method, body }), method === 'POST' ? 201 : 200);
     } catch (e) {
       if (e instanceof TypeError) return route.abort('internetdisconnected');   // corte de red simulado
-      return json({ code: e.details?.code ?? null, message: e.details?.message ?? e.message }, e.status || 500);
+      return json({ code: e.details?.code ?? null, message: e.details?.message ?? e.message, details: e.details?.details ?? null, hint: null }, e.status || 500);
     }
   });
   await page.addInitScript(() => {

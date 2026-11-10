@@ -1,5 +1,6 @@
-// Borradores de notas clínicas en modo Supabase (note-writes.js) contra el servidor simulado con estado,
-// que reproduce la RPC save_clinical_note_draft, la RLS de lectura y las claves foráneas reales.
+// Borradores de notas clínicas en modo Supabase (note-writes.js) con la RPC v1 (la de producción hoy)
+// contra el servidor simulado con estado, que reproduce save_clinical_note_draft, la RLS de lectura y
+// las claves foráneas reales. La v2 y la elección automática están en notes-v2.unit.mjs.
 // Datos 100 % sintéticos; nunca hay red.
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,7 +26,7 @@ async function setup(role = 'psychologa', { server = createFakeServer({ role }),
   const source = createSupabaseSource({
     repository: createKovoRepository({ request: server.request, getContext: async () => ctx }),
     isConfigured: () => true, restore: async () => ({ id: USER }), getContext: async () => ctx,
-    request: server.request, refresh
+    request: server.request, refresh, noteRpc: 'v1'
   });
   const S = await source.load({ today: TODAY });
   S.sel = S.sel || {};
@@ -250,7 +251,7 @@ describe('permisos por rol', () => {
       const server = createFakeServer({ role });
       // Lecturas de comprobación simuladas como si fueran válidas, para que la petición llegue a la RPC.
       const request = (path, o) => /^(patients|appointments)\?/.test(path) ? Promise.resolve([{ id: P1, org_id: ORG }]) : server.request(path, o);
-      const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa') });
+      const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa'), rpc: 'v1' });
       await rejectsCode(w.saveDraft({ patientId: P1, appointmentId: null, type: 'sesion', fields: { objetivos: 'x' } }), 'forbidden');
       assert.equal(myNewDrafts(server).length, 0);
     });
@@ -278,7 +279,7 @@ describe('organización, paciente y cita', () => {
   });
   test('una organización manipulada en el navegador no autoriza nada: la BD exige el rol en esa consulta', async () => {
     const server = createFakeServer({ role: 'psychologa' });   // psicóloga de ORG
-    const w = createNoteWriter({ request: server.request, getContext: async () => ctxOf('psychologa', { id: ORG2 }) });
+    const w = createNoteWriter({ request: server.request, getContext: async () => ctxOf('psychologa', { id: ORG2 }), rpc: 'v1' });
     await rejectsCode(w.saveDraft({ patientId: ORG2_PATIENT, type: 'sesion', fields: { objetivos: 'x' } }), 'forbidden');
     assert.equal(server.db.clinical_notes.filter(n => n.org_id === ORG2 && n.content === 'objetivos: x').length, 0);
   });
@@ -302,7 +303,7 @@ describe('organización, paciente y cita', () => {
     const server = createFakeServer({ role: 'psychologa' });
     // El cliente "cree" que el paciente es suyo (lecturas manipuladas); la RPC devuelve 23503.
     const request = (path, o) => path.startsWith('patients?') ? Promise.resolve([{ id: ORG2_PATIENT, org_id: ORG }]) : server.request(path, o);
-    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa') });
+    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa'), rpc: 'v1' });
     await rejectsCode(w.saveDraft({ patientId: ORG2_PATIENT, type: 'sesion', fields: { objetivos: 'x' } }), 'invalid_reference');
     assert.equal(myNewDrafts(server).length, 0);
   });
@@ -347,7 +348,7 @@ describe('notas firmadas o rectificadas', () => {
         Object.assign(server.db.clinical_notes.find(n => n.id === N_DRAFT), { status: 'signed', signed_at: '2026-11-06T10:00:00Z' });
       return r;
     };
-    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa') });
+    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa'), rpc: 'v1' });
     const cur = server.db.clinical_notes.find(n => n.id === N_DRAFT);
     await rejectsCode(w.saveDraft({ id: N_DRAFT, patientId: P2, type: 'sesion', fields: { objetivos: 'x' }, version: cur.updated_at }), 'locked');
     assert.equal(server.db.clinical_notes.find(n => n.id === N_DRAFT).content, 'Texto libre ficticio');
@@ -358,7 +359,7 @@ describe('respuestas inesperadas', () => {
   test('la RPC devuelve algo que no es un UUID: no se da por guardado', async () => {
     const server = createFakeServer({ role: 'psychologa' });
     const request = (path, o) => path === SAVE_DRAFT_RPC ? Promise.resolve(null) : server.request(path, o);
-    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa') });
+    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa'), rpc: 'v1' });
     await rejectsCode(w.saveDraft({ patientId: P1, type: 'sesion', fields: { objetivos: 'x' } }), 'unexpected_response');
   });
   test('la fila leída tras guardar no coincide con lo enviado: no se da por guardado', async () => {
@@ -367,18 +368,18 @@ describe('respuestas inesperadas', () => {
       const r = await server.request(path, o);
       return path.startsWith('clinical_notes?') && Array.isArray(r) && r[0] ? r.map(x => ({ ...x, content: 'otro' })) : r;
     };
-    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa') });
+    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa'), rpc: 'v1' });
     await rejectsCode(w.saveDraft({ patientId: P1, type: 'sesion', fields: { objetivos: 'x' } }), 'unexpected_response');
   });
   test('contenido vacío según la RPC: error de validación', async () => {
     const server = createFakeServer({ role: 'psychologa' });
     const request = (path, o) => path === SAVE_DRAFT_RPC ? server.request(path, { ...o, body: { ...o.body, p_content: '  ' } }) : server.request(path, o);
-    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa') });
+    const w = createNoteWriter({ request, getContext: async () => ctxOf('psychologa'), rpc: 'v1' });
     await rejectsCode(w.saveDraft({ patientId: P1, type: 'sesion', fields: { objetivos: 'x' } }), 'validation');
   });
   test('sin usuaria identificada no se intenta guardar', async () => {
     const server = createFakeServer({ role: 'psychologa' });
-    const w = createNoteWriter({ request: server.request, getContext: async () => ctxOf('psychologa', { userId: null }) });
+    const w = createNoteWriter({ request: server.request, getContext: async () => ctxOf('psychologa', { userId: null }), rpc: 'v1' });
     await rejectsCode(w.saveDraft({ patientId: P1, type: 'sesion', fields: { objetivos: 'x' } }), 'auth');
     assert.deepEqual(server.calls, []);
   });

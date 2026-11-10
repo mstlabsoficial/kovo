@@ -1,5 +1,7 @@
 // Borradores de notas clínicas desde la interfaz real (legacy.js) en modo Supabase, contra el servidor
-// simulado con estado (RPC save_clinical_note_draft incluida). Datos 100 % sintéticos.
+// simulado con estado de la BD de HOY (solo la RPC v1 save_clinical_note_draft). El cliente pregunta
+// una vez por la v2 (404 PGRST202: no existe) y sigue con la v1. La v2 está en notas-v2.spec.js.
+// Datos 100 % sintéticos.
 import { test, expect } from '@playwright/test';
 import { ORG, ORG2, uuid } from '../fixtures/supabase-fake.mjs';
 import { USER, mockSupabase, open, waitView, click, act, fill } from './helpers.js';
@@ -10,6 +12,8 @@ const network = () => { throw new TypeError('Failed to fetch'); };
 const once = fn => { let done = false; return (...a) => { if (!done) { done = true; fn(...a); } }; };
 const toast = page => page.locator('#toast');
 const rpc = log => log.requests.filter(r => r.path.startsWith('/rest/v1/rpc/'));
+const V1 = '/rest/v1/rpc/save_clinical_note_draft', V2 = '/rest/v1/rpc/save_clinical_note_draft_v2';
+const rpcV1 = log => rpc(log).filter(r => r.path === V1);
 const directNoteWrites = log => log.requests.filter(r => r.method !== 'GET' && r.path.startsWith('/rest/v1/clinical_notes'));
 const newDrafts = log => log.server.db.clinical_notes.filter(n => n.org_id === ORG && ![N_SIGNED, N_DRAFT].includes(n.id));
 const fieldsOf = row => parseNoteContent(row.content, 'sesion').fields;
@@ -38,7 +42,7 @@ test('psicóloga: crea el borrador de una cita, lo edita y al recargar sigue igu
   await expect(toast(page)).toContainText('Borrador guardado');
   expect(newDrafts(log)).toHaveLength(1);
   expect(fieldsOf(newDrafts(log)[0]).plan).toBe('Plan ficticio');
-  expect(rpc(log).map(r => r.path)).toEqual(['/rest/v1/rpc/save_clinical_note_draft', '/rest/v1/rpc/save_clinical_note_draft']);
+  expect(rpc(log).map(r => r.path)).toEqual([V2, V1, V1]);   // una sola consulta a la v2 (no existe hoy)
   expect(directNoteWrites(log)).toEqual([]);
 
   // Recargar
@@ -100,7 +104,7 @@ test('respuesta perdida: la BD guardó, el navegador no lo supo; el reintento no
   await click(page, '[data-act="saveNote"]');
   await expect(toast(page)).toContainText('Borrador guardado');
   expect(newDrafts(log)).toHaveLength(1);
-  expect(rpc(log)).toHaveLength(1);
+  expect(rpcV1(log)).toHaveLength(1);
   // Al cerrar, la lista muestra un solo borrador para esa cita
   await act(page, 'closeEditor');
   await act(page, 'goNotes', { f: 'todas' });
@@ -182,7 +186,7 @@ test('paciente de otra consulta o cita de otro paciente: se rechaza sin llamar a
   await click(page, '[data-act="saveNote"]');
   await expect(toast(page)).toContainText('no pertenece a tu consulta');
   expect(await value(page, 'nf-objetivos')).toBe('Objetivo ficticio');
-  expect(rpc(log)).toHaveLength(0);
+  expect(rpcV1(log)).toHaveLength(0);
   expect(newDrafts(log)).toHaveLength(0);
   expect(errors).toEqual([]);
 });

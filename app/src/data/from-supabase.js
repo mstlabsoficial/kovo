@@ -320,6 +320,19 @@ export function employeeFromRow(row, opts) {
 // Inverso de mapping.clinicalNoteToRow: "clave: valor" separados por una línea en blanco.
 // Solo se aceptan claves conocidas del tipo de nota. Si el texto no sigue ese formato,
 // no se reparte en apartados (structured=false) y el texto completo queda en `content`.
+// Apartados v2 del tipo de nota, en su orden; null si la forma no es la esperada.
+export function noteSections(sections, type) {
+  const keys = NOTE_FIELD_KEYS[type];
+  if (!keys || sections === null || typeof sections !== 'object' || Array.isArray(sections)) return null;
+  const out = {};
+  for (const k of keys) {
+    const v = sections[k] ?? '';
+    if (typeof v !== 'string') return null;
+    out[k] = v;
+  }
+  return out;
+}
+
 export function parseNoteContent(content, type) {
   const keys = NOTE_FIELD_KEYS[type];
   if (!keys || typeof content !== 'string' || !content) return { fields: {}, structured: false };
@@ -353,7 +366,10 @@ export function clinicalNoteFromRow(row, rectifications, opts) {
     status = 'firmada';
     r.add('clinical_note', id, 'status', 'draft_with_signed_at');
   } else if (status === 'firmada' && !row.signed_at) r.add('clinical_note', id, 'signedAt', 'missing_in_db');
-  const parsed = parseNoteContent(row.content, type);
+  // Notas v2 (content_format 'sections_v1'): los apartados vienen en `sections` y mandan sobre el
+  // texto. Las históricas ('legacy_text' o sin la columna) se siguen leyendo del texto, sin convertir.
+  const sections = row.content_format === 'sections_v1' ? noteSections(row.sections, type) : null;
+  const parsed = sections ? { fields: sections, structured: true } : parseNoteContent(row.content, type);
   if (!parsed.structured) r.add('clinical_note', id, 'fields', 'content_unstructured');
   if (rectifications === null) r.add('clinical_note', id, 'versions', 'not_loaded');
   r.add('clinical_note', id, 'author', 'name_not_in_db');
@@ -362,7 +378,8 @@ export function clinicalNoteFromRow(row, rectifications, opts) {
     type, fields: parsed.fields, structured: parsed.structured, content: row.content ?? null,
     status, author: null, authorId: row.author_id ?? null,
     created: toLocalDate(row.created_at), signedAt: row.signed_at ? toLocalDate(row.signed_at) : null,
-    versions: rectifications, log: [], createdAt: row.created_at ?? null, updatedAt: row.updated_at ?? null
+    versions: rectifications, log: [], createdAt: row.created_at ?? null, updatedAt: row.updated_at ?? null,
+    version: Number.isInteger(row.version) ? row.version : null, contentFormat: row.content_format ?? null
   };
 }
 

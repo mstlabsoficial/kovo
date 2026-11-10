@@ -1,4 +1,5 @@
 // Datos 100 % sintéticos y doble de la API REST de Supabase (PostgREST) para las pruebas.
+import { NOTE_FIELD_KEYS, NOTE_TYPE } from '../../src/data/from-supabase.js';
 // Lo usan las pruebas de Node (tests/unit) y la prueba de navegador del modo Supabase
 // (tests/supabase). Nada de esto se conecta a ningún servidor.
 export const ORG = '11111111-1111-4111-8111-111111111111';
@@ -78,13 +79,17 @@ export const RLS_WRITE = { patients: ['psychologa', 'recepcion'], appointments: 
 //   faults.afterWrite(method, table)  → lanza: la escritura SE APLICA pero la respuesta se pierde;
 //   faults.expired = true             → 401 hasta que se llame a refresh().
 // RPC: POST rpc/save_clinical_note_draft, copia de la función real (ver saveClinicalNoteDraft).
+// Con `v2: true` el servidor tiene además la propuesta clínica v2 (clinical-db/proposals): columnas
+// version/sections/content_format, la RPC save_clinical_note_draft_v2 y los triggers que bloquean
+// cambiar de paciente o de estado una cita con nota (KN010/KN011). Sin `v2` es la BD de hoy.
 // `uid` es auth.uid() y `org` la consulta de la membresía con ese rol.
 // Todo ocurre en memoria; nunca hay red.
-export function createFakeServer({ role, db = syntheticDb(), clock = () => new Date().toISOString(), uid = uuid(999), org = ORG } = {}) {
+export function createFakeServer({ role, db = syntheticDb(), clock = () => new Date().toISOString(), uid = uuid(999), org = ORG, v2 = false } = {}) {
   const calls = [];
   const faults = { beforeWrite: null, afterWrite: null, expired: false };
   const counters = {};
-  const httpError = (status, code, message) => Object.assign(new Error(message), { status, details: { code, message } });
+  const httpError = (status, code, message, details = null) => Object.assign(new Error(message), { status, details: { code, message, details } });
+  if (v2) for (const n of db.clinical_notes || []) Object.assign(n, { version: n.version ?? 1, sections: n.sections ?? null, content_format: n.content_format ?? 'legacy_text' });
   const eqValue = v => (v == null ? null : decodeURIComponent(v.replace(/^eq\./, '')));
   const sameTs = (a, b) => a === b || (Date.parse(a) === Date.parse(b) && Number.isFinite(Date.parse(a)));
   const filterRows = (rows, q) => rows.filter(r => {
@@ -142,9 +147,61 @@ export function createFakeServer({ role, db = syntheticDb(), clock = () => new D
     }
     const t = (db.clinical_notes || []).find(x => x.id === b.p_note_id && x.org_id === b.p_org_id && x.author_id === uid && x.status === 'draft');
     if (!t) throw httpError(400, 'P0001', 'Draft not found or not editable');
+    if (v2 && t.content_format === 'sections_v1') throw httpError(400, 'KN012', 'Structured clinical notes must be saved with save_clinical_note_draft_v2');
     Object.assign(t, { content: b.p_content, note_type: type, updated_at: now });   // patient_id y appointment_id no cambian
     return t.id;
   }
+
+  // public.save_clinical_note_draft_v2 + triggers de la propuesta clínica v2: mismo orden de
+  // comprobaciones y mismos códigos (KN…). Devuelve la fila completa.
+  const DB_TYPE = Object.fromEntries(Object.entries(NOTE_TYPE).map(([d, u]) => [d, NOTE_FIELD_KEYS[u]]));
+  const kn = (code, message, details) => httpError(code === '42501' ? 403 : 400, code, message, details);
+  function saveClinicalNoteDraftV2(b = {}) {
+    if (!uid || role !== 'psychologa' || b.p_org_id !== org) throw kn('42501', 'Not authorized to manage clinical notes');
+    if (!b.p_note_id || !b.p_patient_id) throw kn('KN007', 'A stable note id and a patient are required');
+    if (b.p_expected_version != null && b.p_expected_version < 1) throw kn('KN007', 'Invalid expected version');
+    const type = b.p_note_type || 'session';
+    const keys = DB_TYPE[type];
+    if (!keys) throw kn('KN007', 'Unknown clinical note type');
+    const sec = b.p_sections;
+    if (!sec || typeof sec !== 'object' || Array.isArray(sec)) throw kn('KN007', 'Clinical note sections must be a JSON object');
+    for (const [k, v] of Object.entries(sec)) {
+      if (!keys.includes(k)) throw kn('KN007', 'Unknown or inactive section for this note type');
+      if (typeof v !== 'string') throw kn('KN007', 'Section values must be text');
+    }
+    const sections = Object.fromEntries(keys.map(k => [k, sec[k] ?? '']));
+    const content = keys.map(k => `${k}: ${sections[k]}`).join('\n\n');
+    if (!(db.patients || []).some(p => p.org_id === b.p_org_id && p.id === b.p_patient_id)) throw kn('KN001', 'Patient does not belong to this organization');
+    const now = clock();
+    let v = (db.clinical_notes || []).find(x => x.id === b.p_note_id);
+    if (!v) {
+      if (b.p_expected_version != null) throw kn('KN006', 'Clinical note not found');
+      if (b.p_appointment_id != null) {
+        const a = (db.appointments || []).find(x => x.org_id === b.p_org_id && x.id === b.p_appointment_id && x.patient_id === b.p_patient_id);
+        if (!a) throw kn('KN002', 'Appointment must belong to the same patient and organization');
+        if (a.status !== 'completed') throw kn('KN008', 'A clinical note can only be attached to a completed appointment');
+      }
+      v = { id: b.p_note_id, org_id: b.p_org_id, patient_id: b.p_patient_id, appointment_id: b.p_appointment_id ?? null, author_id: uid, note_type: type,
+        content, sections, content_format: 'sections_v1', status: 'draft', signed_at: null, version: 1, created_at: now, updated_at: now };
+      (db.clinical_notes ||= []).push(v);
+      return structuredClone(v);
+    }
+    if (v.org_id !== b.p_org_id) throw kn('KN006', 'Clinical note not found');
+    if (v.patient_id !== b.p_patient_id || (v.appointment_id ?? null) !== (b.p_appointment_id ?? null)) throw kn('KN009', 'This clinical note belongs to a different patient or appointment');
+    if (v.status !== 'draft' || v.signed_at) throw kn('KN003', 'Signed or rectified clinical notes cannot be modified');
+    if (v.author_id !== uid) throw kn('KN004', 'Only the author can edit this draft');
+    if (v.content_format === 'sections_v1' && v.note_type === type && JSON.stringify(keys.map(k => v.sections[k])) === JSON.stringify(keys.map(k => sections[k]))) return structuredClone(v);
+    if (b.p_expected_version != null && v.version !== b.p_expected_version) throw kn('KN005', 'The draft was modified in another session', JSON.stringify({ current_version: v.version }));
+    Object.assign(v, { sections, content, note_type: type, content_format: 'sections_v1', version: v.version + 1, updated_at: now });
+    return structuredClone(v);
+  }
+  const guardAppointment = (target, next) => {
+    if (!v2) return;
+    const hasNote = (db.clinical_notes || []).some(n => n.org_id === target.org_id && n.appointment_id === target.id);
+    if (!hasNote) return;
+    if (next.patient_id !== target.patient_id) throw kn('KN010', 'This appointment has clinical documentation: its patient cannot change');
+    if (target.status === 'completed' && next.status !== 'completed') throw kn('KN011', 'This appointment has clinical documentation: it must stay completed');
+  };
 
   async function request(path, options = {}) {
     const method = options.method || 'GET';
@@ -161,6 +218,8 @@ export function createFakeServer({ role, db = syntheticDb(), clock = () => new D
     let result;
     if (method === 'POST' && table === 'rpc/save_clinical_note_draft') {
       result = saveClinicalNoteDraft(structuredClone(options.body));
+    } else if (v2 && method === 'POST' && table === 'rpc/save_clinical_note_draft_v2') {
+      result = saveClinicalNoteDraftV2(structuredClone(options.body));
     } else if (table.startsWith('rpc/')) {
       throw httpError(404, 'PGRST202', 'Could not find the function in the schema cache');
     } else if (method === 'POST') {
@@ -184,6 +243,7 @@ export function createFakeServer({ role, db = syntheticDb(), clock = () => new D
         const next = { ...target, ...structuredClone(options.body), id: target.id, org_id: target.org_id, patient_code: target.patient_code };
         if (table !== 'patients') delete next.patient_code;
         checkRow(table, next); unique(table, next, target.id); checkRefs(table, next);
+        if (table === 'appointments') guardAppointment(target, next);
         Object.assign(target, next);
         out.push(structuredClone(target));
       }

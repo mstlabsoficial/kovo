@@ -23,13 +23,14 @@ export function createSupabaseSource({
   getContext = getOrganizationContext,
   request = supabaseRequest,
   refresh = refreshAccessToken,
-  newId = () => crypto.randomUUID()
+  newId = () => crypto.randomUUID(),
+  noteRpc = 'auto'
 } = {}) {
   let context = null;
   let lastReport = [];
   const ctxNow = async () => context || source.authenticate();
   const writer = createEntityWriter({ request, refresh, getContext: ctxNow });
-  const noteWriter = createNoteWriter({ request, refresh, getContext: ctxNow });
+  const noteWriter = createNoteWriter({ request, refresh, getContext: ctxNow, rpc: noteRpc });
   const source = {
     mode:'supabase',
     repository,
@@ -43,7 +44,7 @@ export function createSupabaseSource({
     writes: {
       ...createLegacyWrites({ writer, newId }),
       applyPatient, applyAppointment,
-      notes: { ...createLegacyNoteWrites({ writer: noteWriter }), applyNote },
+      notes: Object.assign(createLegacyNoteWrites({ writer: noteWriter }), { applyNote }),
       userId: () => context?.userId ?? null
     },
     async load({ today }) {
