@@ -5,7 +5,7 @@
 -- clinical-db/run-local.mjs, on top of the recovered baseline (with and without the backend
 -- proposal PROPOSAL_ONLY_20261108.sql, whose save_clinical_note_draft replacement it keeps).
 --
--- Goals (see docs/clinical/README.md):
+-- Goals (see clinical-db/README.md):
 --   1. PostgreSQL is the authority for clinical-note integrity, whatever the write path:
 --      patient/appointment in the same organization, appointment of the same patient,
 --      appointment completed when a note is attached, immutable scope (org/patient/appointment),

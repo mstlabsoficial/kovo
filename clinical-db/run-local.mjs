@@ -8,7 +8,7 @@
 // Nothing here touches a hosted Supabase project: the database is created in a temp directory,
 // the schema is read with `git show` from the recovery branches (read-only) and everything is
 // deleted at the end. Tools (embedded PostgreSQL, PostgREST, pgTAP) are expected in app/.tools
-// (see docs/clinical/README.md, "Validación local").
+// (see clinical-db/README.md, section 10).
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { startDb, applySql, fromRef, local, runPgTap, startPostgrest, ROOT, TOOLS } from './local/env.mjs';

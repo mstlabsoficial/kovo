@@ -1,7 +1,7 @@
 // D + E: real PostgREST 16.5 in front of real PostgreSQL, with JWTs signed exactly like Supabase Auth
 // tokens (HS256, role=authenticated, sub=user id) using the local secret. Tests the REST surface the
 // browser uses: RPC, table reads, manipulated requests, expired/forged tokens, roles and tenants.
-// NOT covered here: token issuance by Supabase Auth (GoTrue) itself — see docs/clinical/README.md.
+// NOT covered here: token issuance by Supabase Auth (GoTrue) itself — see clinical-db/README.md.
 import { randomUUID } from 'node:crypto';
 import { signJwt } from '../local/env.mjs';
 import { ORG_A, ORG_B, U, P, A, suite } from './fixtures.mjs';

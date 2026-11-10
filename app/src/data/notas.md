@@ -6,7 +6,13 @@ rectificar y borrar** quedan fuera de esta fase. El modo demo no cambia (20/20 c
 píxel antes y después).
 
 Código: `note-writes.js` (escritor y adaptador para `legacy.js`). Pruebas: `tests/unit/notes.unit.mjs` y
-`tests/supabase/notas.spec.js`.
+`tests/supabase/notas.spec.js` (v1), `tests/unit/notes-v2.unit.mjs`, `tests/supabase/notas-v2.spec.js` y
+`tests/real/notas-real.spec.js` (v2).
+
+> **T2D (10/11/2026):** existe una propuesta SQL **v2** validada en PostgreSQL + PostgREST reales y
+> locales (`clinical-db/`), con UUID estable, versión, integridad en la BD y auditoría. El cliente usa la
+> v2 si la BD la tiene y, si no, esta v1. Arquitectura, permisos, pruebas por categoría y pendientes:
+> **`clinical-db/README.md`**. Este documento describe la **v1**, la única que existe hoy en producción.
 
 ## Qué permite la BD (esquema real)
 
@@ -86,7 +92,7 @@ formulario ni de la URL. Aun así la BD no se fía: la RPC exige `has_role(p_org
 `WriteError.code`: `validation`, `forbidden`, `auth`, `network`, `http`, `invalid_reference`, `not_found`,
 `not_editable`, `locked` (firmada o rectificada), `conflict`, `unexpected_response`.
 
-## Limitaciones del esquema (necesitan cambiar la BD; no se ha hecho)
+## Limitaciones del esquema v1 (todas resueltas en la propuesta v2, que aún NO está aplicada)
 
 1. **El alta no es idempotente en la BD.** `save_clinical_note_draft` no acepta un id propuesto al crear.
    La búsqueda previa al reintento lo cubre en la práctica, con un caso residual: si la primera petición
@@ -118,16 +124,14 @@ formulario ni de la URL. Aun así la BD no se fía: la RPC exige `has_role(p_org
 
 ## Pruebas
 
-**Todas las pruebas usan Supabase SIMULADO** (servidor en memoria, `tests/fixtures/supabase-fake.mjs`). Reproduce
-la RPC con sus comprobaciones y errores (42501, P0001, 23503), la RLS de lectura y la falta de INSERT/UPDATE
-directos. **No hay pruebas contra un Supabase local real:** en este equipo no están Docker, la CLI de
-Supabase ni `psql`. Además, el esquema recuperado aún no es una base reproducible (ver
-`MIGRATION_RECONCILIATION_PLAN.md`). Antes de habilitar el modo, conviene repetir estos casos contra un
-Supabase local con el esquema reconciliado, sobre todo la RLS, la RPC y los triggers reales.
+Las de esta página usan Supabase **simulado** (`tests/fixtures/supabase-fake.mjs`, con la RPC v1 y, con
+`v2: true`, la v2). Las pruebas contra **PostgreSQL y PostgREST reales** (locales y desechables; sin Docker no
+hay GoTrue) están en `clinical-db/` y se lanzan con `sh scripts/pw.sh real`. Resultados: `clinical-db/README.md` §9.
 
 ```
-npm run test:unit          # tests/unit/notes.unit.mjs (38) + el resto      — simulado
-sh scripts/pw.sh supabase  # tests/supabase/notas.spec.js (11) + el resto   — simulado, interfaz real
+npm run test:unit          # notes.unit.mjs (38, v1) + notes-v2.unit.mjs (27) + el resto   — simulado
+sh scripts/pw.sh supabase  # notas.spec.js (11, v1) + notas-v2.spec.js (8) + el resto      — simulado, interfaz real
+sh scripts/pw.sh real      # pgTAP, HTTP, concurrencia y la interfaz contra PostgreSQL/PostgREST reales
 sh scripts/pw.sh smoke     # demo
 sh scripts/pw.sh visual    # demo: capturas, tolerancia 0 píxeles
 ```
