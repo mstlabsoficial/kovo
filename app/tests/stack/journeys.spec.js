@@ -275,6 +275,24 @@ test('v3: diagnóstico y prueba, gastos fijos, % deducible y rol «solo calendar
   expect((await svc(`patient_diagnoses?select=retired_at&id=eq.${dx[0].id}`)).json[0].retired_at).not.toBeNull();
   await expect(page.locator('#view')).not.toContainText('Diagnóstico sintético');
 
+  // Exportar datos (derecho de acceso): JSON generado en el navegador, con la prueba y sin lo retirado
+  await act(page, 'openPatient', { id: pt.id, tab: 'resumen' });
+  const [dl] = await Promise.all([page.waitForEvent('download'), act(page, 'exportPatient', { id: pt.id })]);
+  expect(dl.suggestedFilename()).toMatch(/^paciente-P-\d+-\d{4}-\d{2}-\d{2}\.json$/);
+  const exported = JSON.parse(await (await import('node:fs/promises')).readFile(await dl.path(), 'utf8'));
+  expect(exported.paciente.email).toBe('v3@correo-ejemplo.test');
+  expect(exported.pruebas).toEqual([{ nombre: 'Inventario sintético', fecha: '2026-10-01', resultado: '24 puntos (ficticio)' }]);
+  expect(exported.diagnosticos).toEqual([]);
+  expect(exported.citas).toHaveLength(1);
+
+  // Finalizar terapia → patients.status inactive; avisa de la cita abierta; reanudar lo devuelve
+  await act(page, 'pStatus', { id: pt.id });
+  await expect(toast(page)).toContainText('quedan 1 cita abierta');
+  expect((await svc(`patients?select=status&id=eq.${pt.id}`)).json[0].status).toBe('inactive');
+  await act(page, 'pStatus', { id: pt.id });
+  await expect(toast(page)).toContainText('Terapia reanudada');
+  expect((await svc(`patients?select=status&id=eq.${pt.id}`)).json[0].status).toBe('active');
+
   // Gasto fijo: al guardarlo el servidor apunta el mes en curso (día 1)
   await act(page, 'go', { v: 'contabilidad' });
   await act(page, 'fxForm');

@@ -42,11 +42,12 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 | Alta, edición, búsqueda | 1 | E2E + HTTP; edición probada con API simulada y en BD |
 | Código de paciente sin colisiones | 1 | contador por clínica, 30 altas simultáneas, salta códigos importados |
 | Conflicto de edición (no pisa cambios ajenos) | 1 | BD + navegador |
-| Archivar paciente | 3 | existe en BD; **sin botón en la interfaz** |
+| Finalizar / reanudar terapia | 1 | botón en la ficha (psicóloga y recepción); `patients.status` inactive ↔ active con control de versión; avisa si quedan citas abiertas, no las cancela. Unitarias + E2E real |
+| Archivar paciente (`archived`) | 3 | existe en BD; sin botón (se muestra como alta terapéutica) |
 | Historial clínico (notas v2: borradores, versiones, conflictos, auditoría) | 1 | pgTAP 81 + E2E real |
 | Firma y rectificación de notas | 3 | aplicadas en BD y probadas; **desactivadas en la interfaz** hasta validar firma electrónica |
 | Documentos (subir, ver, retirar; PDF/JPG/PNG ≤ 20 MB; bucket privado) | 1 | E2E + HTTP (otra clínica, ruta manipulada, tipo, tamaño, sobrescritura) |
-| Exportar todos los datos de un paciente | 4 | |
+| Exportar todos los datos de un paciente | 1 | solo psicóloga; JSON generado en el navegador con lo ya cargado (ficha, citas, informes, pruebas, diagnósticos vigentes, facturas, lista de documentos); no pasa por ningún servidor. Los archivos de Documentos se descargan aparte. E2E real. **Pendiente:** registrar la exportación en la auditoría del servidor (hoy solo en la local) |
 
 ### Agenda
 | Funcionalidad | Estado | Nota |
@@ -123,7 +124,7 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 
 | Suite | Tipo | Resultado |
 |---|---|---|
-| Unitarias | Node, sin red | 215 |
+| Unitarias | Node, sin red | 218 |
 | Navegador con API **simulada** | Playwright | 32 |
 | Smoke demo / visual demo | Playwright | 1 / 22 (44 capturas, escritorio y móvil) |
 | pgTAP consolidado / clínico | PostgreSQL real local | 123 / 81 |

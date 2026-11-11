@@ -87,6 +87,17 @@ export function createLegacyWrites({ writer, newId = () => crypto.randomUUID() }
       return { patient, replacedId: existing && existing.id !== patient.id ? existing.id : null, outcome: result.outcome };
     },
 
+    // Terapia finalizada ↔ en seguimiento (patients.status inactive ↔ active). No borra nada.
+    async setPatientStatus({ patient, status, services = [] }) {
+      if (!patient || !isUuid(patient.id)) throw bad('id', 'Paciente no válido.');
+      const db = { 'activo': 'active', 'alta terapéutica': 'inactive' }[status];
+      if (!db) throw bad('status', 'Estado de paciente no válido.');
+      const result = await writer.updatePatient(patient.id, { status: db }, patient.updatedAt);
+      const p = uiPatient(patientFromRow(result.row), new Set(services.map(s => s.id)));
+      for (const k of ['consent', 'docs', 'tests', 'dx']) if (patient[k] !== undefined) p[k] = Array.isArray(patient[k]) ? patient[k].slice() : patient[k];
+      return { patient: p };
+    },
+
     // input: { patientId, date, start, dur, service, price, modal, loc, notes, status }. existing: cita legacy o null.
     // patient: paciente legacy de la cita. professionalId: UUID del profesional (S.pro.id) o null.
     async saveAppointment({ existing = null, input, patient, professionalId = null, userId = null, services = [] }) {

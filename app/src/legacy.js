@@ -698,7 +698,7 @@ function ficha(p){
     const ev=ses.map((a,k)=>{const n=noteFor(a);const F=n&&n.fields||{};const sum=[F.resumen,F.observaciones].filter(Boolean).join(' ');
       return {d:a.date,c:'clin',t:`Sesión nº ${k+1} · ${modeL(a)}`,s:isPsi?(sum?cutT(sum,150):'Sin nota escrita'):`${hm(a.start)} · Realizada`,id:isPsi&&n?n.id:a.id,act:isPsi&&n?'openNote':'openAppt'}});
     ev.sort((a,b)=>b.d.localeCompare(a.d));
-    content=`<div class="fs-wrap">${fichaTop(p,isPsi)}<details class="fs-more"><summary>Datos personales</summary><section class="panel"><header><h2>Información personal</h2><div class="actions"><button class="btn sm" data-act="editPatient" data-id="${p.id}">Editar</button></div></header><dl class="dl">
+    content=`<div class="fs-wrap">${fichaTop(p,isPsi)}<details class="fs-more"><summary>Datos personales</summary><section class="panel"><header><h2>Información personal</h2><div class="actions">${isPsi?`<button class="btn sm" data-act="exportPatient" data-id="${p.id}">${SVG(IC.download)}Exportar datos</button>`:''}${S.role!=='gestoria'?`<button class="btn sm" data-act="pStatus" data-id="${p.id}">${p.status==='alta terapéutica'?'Reanudar terapia':'Finalizar terapia'}</button>`:''}<button class="btn sm" data-act="editPatient" data-id="${p.id}">Editar</button></div></header><dl class="dl">
       <dt>Nombre</dt><dd><b>${esc(p.name)}</b></dd><dt>Código</dt><dd>${pc(p)}</dd><dt>Email</dt><dd><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></dd><dt>Teléfono</dt><dd><a href="tel:${esc(p.phone)}">${esc(p.phone)}</a></dd>
       <dt>NIF / CIF</dt><dd>${esc(p.billing.nif||'—')}</dd><dt>Dirección</dt><dd>${esc(p.billing.addr||'—')}</dd>
       <dt>Alta</dt><dd>${fD(p.alta)}</dd><dt>Servicio habitual</dt><dd>${esc(SV(p.service).name)}</dd><dt>Modalidad</dt><dd>${esc(p.modal)}</dd>
@@ -1601,6 +1601,29 @@ Dictado: «${txt}»`;
   calMode:d=>{S.cal.mode=d.m;S.cal.picked=true;render()},
   newPatient:()=>{if(noEdit())return;patientForm()},
   editPatient:d=>patientForm(P(d.id)),
+  // Terapia finalizada ↔ en seguimiento. No borra datos ni cancela citas: avisa si quedan citas abiertas.
+  pStatus:(d,btn)=>{if(noEdit())return;const p=P(d.id);const next=p.status==='alta terapéutica'?'activo':'alta terapéutica';
+    const open=S.appts.filter(a=>a.patientId===p.id&&a.date>=TODAY&&['pendiente','confirmada'].includes(a.status)).length;
+    const done=x=>{audit(`${x.code}: ${next==='activo'?'terapia reanudada':'terapia finalizada'}`);render();toast(next==='activo'?'Terapia reanudada':`Terapia finalizada${open?` · quedan ${open} ${open===1?'cita abierta':'citas abiertas'}: cancélalas si no se van a hacer`:''}`)};
+    if(W){remote(btn,()=>W.setPatientStatus({patient:p,status:next,services:S.services}),({patient})=>{W.applyPatient(S,patient);done(patient)});return}
+    p.status=next;done(p)},
+  // Derecho de acceso / portabilidad: todo lo que la psicóloga ve del paciente, en un JSON descargable.
+  // Se genera en el navegador con los datos ya cargados; no se envía a ningún sitio.
+  exportPatient:async d=>{if(S.role!=='psicologa')return;const p=P(d.id);
+    const pick=(o,ks)=>Object.fromEntries(ks.filter(k=>o[k]!==undefined).map(k=>[k,o[k]]));
+    const data={generado:new Date().toISOString(),clinica:(S.org&&S.org.name)||null,aviso:'Datos de salud. Entrégalos solo al paciente o a quien acredite su representación, por un canal seguro.',
+      paciente:pick(p,['code','name','email','phone','alta','status','modal','billing','obs','reminders']),
+      citas:S.appts.filter(a=>a.patientId===p.id).map(a=>({fecha:a.date,hora:hm(a.start),duracion:a.dur,servicio:SV(a.service).name,modalidad:a.modal,estado:a.status,lugar:a.loc||null})),
+      informes:S.notes.filter(n=>n.patientId===p.id).map(n=>({tipo:NOTE_T[n.type],fecha:n.created,estado:n.status,apartados:Object.fromEntries((FIELDS[n.type]||[]).map(([k,l])=>[l,(n.fields||{})[k]||''])),texto:n.content||undefined})),
+      pruebas:(p.tests||[]).map(t=>({nombre:t.name,fecha:t.date,resultado:t.result})),
+      diagnosticos:(p.dx||[]).map(x=>({diagnostico:x.title,fecha:x.date,fundamento:x.text})),
+      facturas:S.invoices.filter(i=>i.patientId===p.id).map(i=>({numero:i.num||null,fecha:i.date,estado:invStatus(i),total:tot(i).total/100})),
+      documentos:(p.docs||[]).map(x=>({nombre:x.name||x.file||x.fileName||null,fecha:x.date||x.at||null})).concat(p.consent?[{nombre:'Consentimiento informado',fecha:p.consent.at||null}]:[])};
+    const fn=`paciente-${p.code}-${TODAY}.json`;const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    audit(`Datos de ${p.code} exportados`);
+    if(DL){try{await DL.save({filename:fn,data:blob});toast('Datos exportados');return}catch(e){if(e&&e.code==='declined')return}}
+    const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);
+    toast('Datos exportados · los documentos se descargan uno a uno desde Documentos')},
   savePatient:(d,btn)=>{
     const name=val('np-n').trim(),email=val('np-e').trim();const err=document.getElementById('np-err');
     if(!name||!email){err.hidden=false;err.textContent='El nombre y el email son obligatorios.';return}

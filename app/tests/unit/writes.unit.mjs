@@ -288,6 +288,40 @@ describe('otra organización', () => {
   });
 });
 
+describe('pacientes: finalizar y reanudar terapia', () => {
+  test('cambia solo patients.status, con control de versión, y conserva lo cargado aparte', async () => {
+    const { server, S, W } = await setup();
+    const p = S.patients.find(x => x.id === P1);
+    p.tests = [{ id: 't1' }]; p.dx = [];
+    const n0 = server.writes().length;
+    const { patient } = await W.setPatientStatus({ patient: p, status: 'alta terapéutica', services: S.services });
+    const w = server.writes().slice(n0);
+    assert.equal(w.length, 1); assert.equal(w[0].method, 'PATCH');
+    assert.deepEqual(Object.keys(w[0].body).filter(k => k !== 'updated_at'), ['status']); assert.equal(w[0].body.status, 'inactive');
+    assert.equal(server.db.patients.find(x => x.id === P1).status, 'inactive');
+    assert.equal(patient.status, 'alta terapéutica'); assert.deepEqual(patient.tests, [{ id: 't1' }]);
+    W.applyPatient(S, patient);
+    const back = await W.setPatientStatus({ patient: S.patients.find(x => x.id === P1), status: 'activo', services: S.services });
+    assert.equal(back.patient.status, 'activo');
+    assert.equal((await reload(server)).patients.find(x => x.id === P1).status, 'activo');
+  });
+  test('versión antigua o estado desconocido: no escribe', async () => {
+    const { server, S, W } = await setup();
+    const p = S.patients.find(x => x.id === P1);
+    const n0 = server.writes().length;
+    await rejectsCode(W.setPatientStatus({ patient: p, status: 'archivado' }), 'validation');
+    assert.equal(server.writes().length, n0);
+    await rejectsCode(W.setPatientStatus({ patient: { ...p, updatedAt: '2020-01-01T00:00:00Z' }, status: 'alta terapéutica' }), 'conflict');
+    assert.equal(server.db.patients.find(x => x.id === P1).status, 'active');
+  });
+  test('recepción puede; contabilidad no', async () => {
+    const r = await setup('recepcion');
+    await r.W.setPatientStatus({ patient: r.S.patients.find(x => x.id === P1), status: 'alta terapéutica' });
+    const g = await setup('gestoria');
+    await assert.rejects(g.W.setPatientStatus({ patient: { id: P1, updatedAt: 'x' }, status: 'alta terapéutica' }));
+  });
+});
+
 describe('citas', () => {
   test('alta: relación con paciente, profesional y servicio; hora de Madrid en UTC; creada por la usuaria', async () => {
     const { server, S, W } = await setup();
