@@ -25,14 +25,16 @@ test('las secciones principales funcionan sin errores', async ({ page }, ti) => 
   await typeIn(page, '#pq', 'lucia');
   await expect(page.locator('.prow .pm b')).toHaveText(['Lucía Romero Vega']);
   await act(page, '.prow');
-  for (const t of ['sesiones', 'clinico', 'seguimiento', 'evolucion', 'citas', 'facturas', 'docs', 'resumen'])
-    await act(page, `[data-act="ptab"][data-t="${t}"]`);
+  const ptabs = await page.locator('.ptabs [data-act="ptab"]').evaluateAll(b => b.map(x => x.dataset.t));
+  expect(ptabs).toContain('clinico');
+  for (const t of [...ptabs, 'resumen']) await act(page, `.ptabs [data-act="ptab"][data-t="${t}"]`);
   await expect(page.locator('.fhead h1')).toHaveText('Lucía Romero Vega');
 
   // Informes: abrir el editor y volver
   await go(page, 'informes');
-  await act(page, '[data-act="nfilter"][data-f="borrador"]');
-  await act(page, 'tr.click');
+  await act(page, '[data-act="nfilter"][data-f="firmada"]');
+  await act(page, '[data-act="nfilter"][data-f="pendientes"]');
+  await act(page, '.nt-list .nt-row .btn');
   await expect(page.locator('.doc')).toBeVisible();
   await act(page, '[data-act="closeEditor"]');
 
@@ -40,7 +42,7 @@ test('las secciones principales funcionan sin errores', async ({ page }, ti) => 
   await go(page, 'contabilidad');
   await openSection(page, 'sec-ingresos');
   await openSection(page, 'sec-gestoria');
-  await expect(page.locator('.acc-bd')).toHaveCount(3);
+  await expect(page.locator('.acc-bd')).toHaveCount(2);   // en v3 ningún desplegable viene abierto
   await act(page, '[data-act="newInvoice"]');
   await expect(page.locator('.mod')).toBeVisible();
   await act(page, '[data-act="close"]');
@@ -55,13 +57,22 @@ test('las secciones principales funcionan sin errores', async ({ page }, ti) => 
   // Menú de perfil y ajustes
   await act(page, '[data-act="pmenu"]');
   await act(page, '[data-act="goSettings"]');
-  await expect(page.locator('.tabs button')).toHaveCount(7);
+  await expect(page.locator('.tabs button')).toHaveCount(8);
+  for (const t of ['usuarios', 'horario', 'comms', 'auto']) await act(page, `[data-act="ctab"][data-t="${t}"]`);
+  // Vacaciones y festivos: añadir y quitar un día cerrado (demo)
+  await act(page, '[data-act="ctab"][data-t="horario"]');
+  const blocks = await page.locator('#sec-blocks .blk').count();
+  await act(page, '[data-act="blockAdd"]');
+  await expect(page.locator('#sec-blocks .blk')).toHaveCount(blocks + 1);
 
   // Roles: lo que ve cada uno en el menú
   await setRole(page, 'recepcion');
   await expect(page.locator('#nav [data-act="go"]')).toHaveCount(4);
   await setRole(page, 'gestoria');
   await expect(page.locator('#nav [data-act="go"]')).toHaveCount(1);
+  await setRole(page, 'agenda');
+  await expect(page.locator('#nav [data-act="go"]')).toHaveCount(1);
+  await expect(page.locator('.wmap, .dl-row, .cal').first()).toBeVisible();
   await setRole(page, 'psicologa');
 
   expect(errors, 'errores de JavaScript').toEqual([]);

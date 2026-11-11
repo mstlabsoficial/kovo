@@ -9,6 +9,11 @@ import { DEFAULT_SETTINGS } from '../data/legacy-state.js';
 
 // Acciones de la demo sin servidor: en modo conectado se explican en vez de simularlas.
 const NO_MAIL = 'KOVO todavía no tiene un proveedor de correo configurado: no se envía nada. Descarga el PDF y envíalo tú.';
+const NO_BLOCKS = 'Las vacaciones y los días cerrados todavía no se guardan en el servidor. No se ha cambiado nada.';
+const NO_DICT = 'El dictado y la redacción con IA están desactivados con datos reales: el contenido clínico no se envía a servicios de voz ni de IA.';
+const NO_DX = 'Los diagnósticos y las pruebas todavía no se guardan en el servidor. No se ha guardado nada.';
+const NO_FIXED = 'Los gastos fijos todavía no se guardan en el servidor. Añade cada gasto con «Nuevo gasto».';
+const NO_USERS = 'El equipo se gestiona en Ajustes › Equipo.';
 export const BLOCKED = Object.freeze({
   sendInv: NO_MAIL,
   remind: NO_MAIL,
@@ -23,6 +28,16 @@ export const BLOCKED = Object.freeze({
   payObl: 'Las obligaciones fiscales son orientativas y no se registran en el servidor.',
   genPayroll: 'Las nóminas aún no están conectadas al servidor.',
   payPayroll: 'Las nóminas aún no están conectadas al servidor.',
+  // Interfaz v3: funciones que todavía solo existen en la demo.
+  blockAdd: NO_BLOCKS, blockDel: NO_BLOCKS,
+  moveDo: 'Mover citas arrastrando aún no está conectado al servidor. Abre la cita y usa «Reprogramar».',
+  cancelSeries: 'Las citas repetidas aún no están conectadas al servidor. Cancela las citas una a una.',
+  dictMic: NO_DICT, dictAI: NO_DICT, dictUndo: NO_DICT,
+  dxForm: NO_DX, dxSave: NO_DX, dxDel: NO_DX, testForm: NO_DX, testSave: NO_DX, testDel: NO_DX,
+  fxForm: NO_FIXED, fxSave: NO_FIXED, fxDel: NO_FIXED,
+  userForm: NO_USERS, userSave: NO_USERS, userDel: NO_USERS, userAs: NO_USERS,
+  patientYes: NO_MAIL, patientNo: NO_MAIL, dailyNow: NO_MAIL,
+  billNow: 'La facturación desde la cita aún no está conectada. Crea la factura con «Nueva factura».',
   reset: 'En modo conectado no se pueden restablecer ni borrar los datos.',
   doReset: 'En modo conectado no se pueden restablecer ni borrar los datos.'
 });

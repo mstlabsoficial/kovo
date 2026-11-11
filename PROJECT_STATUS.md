@@ -1,6 +1,6 @@
 # KOVO · estado del proyecto
 
-Actualizado: 10/11/2026 · rama `feat/kovo-consolidacion` (local, **sin subir**) · base `migracion-vite`.
+Actualizado: 11/11/2026 · rama `feat/kovo-ui-v3` (local, **sin subir**), sobre `feat/kovo-consolidacion` (local, sin subir) · base `migracion-vite`.
 
 **Resumen:** la app funciona de principio a fin contra un Supabase real **local** (Auth, PostgREST,
 Storage, PostgreSQL 17) con datos sintéticos y varias clínicas a la vez. **No está en producción ni en
@@ -9,6 +9,27 @@ staging**: nada de esta rama se ha aplicado a un proyecto alojado. No se puede v
 Documentación: [`db/README.md`](db/README.md) (esquema, pruebas, matriz de permisos) ·
 [`docs/ops/README.md`](docs/ops/README.md) (entornos, despliegue, copias) ·
 [`docs/legal/README.md`](docs/legal/README.md) · [`docs/fiscal/README.md`](docs/fiscal/README.md).
+
+## 0. Interfaz v3 (11/11/2026)
+
+La interfaz es ahora la del prototipo v3 (`source/dist/KOVO-v3.html`; `Sesiona.html` queda como prototipo
+anterior). La demo la muestra completa. En **modo conectado** todo lo que el prototipo añade y el servidor
+todavía no guarda está oculto o bloqueado con aviso; nunca aparenta guardar (`tests/supabase/v3-bloqueos.spec.js`):
+
+| Novedad de v3 | Demo | Conectado |
+|---|---|---|
+| Vacaciones y días cerrados | sí | aviso en Ajustes › Horario; sin formulario (la tabla de ausencias existe en BD, falta conectarla) |
+| Mover una cita arrastrando | sí | desactivado; se usa «Reprogramar» |
+| Citas repetidas (series) y cancelar serie | sí | sin opción de repetir; bloqueado |
+| Diagnósticos y pruebas en la ficha | sí | bloqueado con aviso |
+| Gastos fijos mensuales y % deducible | sí | bloqueado con aviso |
+| Usuarios de ejemplo y perfil «solo calendario» | sí | no aparecen; el equipo real sigue en Ajustes › Equipo (el rol `agenda` no existe en BD) |
+| Dictado por voz y redacción con IA | simulado | desactivado: el contenido clínico no sale del navegador |
+| Apartado «Recordatorio para la próxima sesión» y marca de riesgo en la nota | sí | no se ofrecen (no están en el catálogo de apartados del servidor) |
+| Confirmación diaria por correo, respuesta del paciente, facturar ahora | simulado | bloqueado (sin proveedor de correo) |
+
+Siguiente etapa, por orden: vacaciones/días cerrados, mover cita, series; después gastos fijos,
+diagnósticos/pruebas y rol `agenda`.
 
 ## 1. Clasificación de funcionalidades
 
@@ -34,7 +55,7 @@ Documentación: [`db/README.md`](db/README.md) (esquema, pruebas, matriz de perm
 | Solapamientos | 1 | lo impide la BD (23P01), también con reservas simultáneas |
 | Horario semanal del profesional | 1 | guardado atómico; solapes rechazados |
 | Respetar el horario al citar | 3 | solo aviso en la interfaz; la BD no lo impone |
-| Ausencias / vacaciones | 3 | tabla y permisos en BD; **sin interfaz** |
+| Ausencias / vacaciones | 3 | tabla y permisos en BD; la interfaz v3 existe en la demo, **sin conectar** |
 | Recordatorios | 3 | se encolan 24 h antes; **no se envían** (5: falta proveedor de correo/SMS) |
 
 ### Facturación de la clínica
@@ -93,15 +114,15 @@ Documentación: [`db/README.md`](db/README.md) (esquema, pruebas, matriz de perm
 ### Demo
 | Funcionalidad | Estado | Nota |
 |---|---|---|
-| Demo pública (GitHub Pages) | 1 | sin cambios visuales (20 capturas idénticas) |
+| Demo pública (GitHub Pages) | 2 | interfaz v3 en esta rama (44 capturas idénticas al prototipo v3); **no publicada**: requiere subir y desplegar |
 
-## 2. Pruebas (10/11/2026)
+## 2. Pruebas (11/11/2026)
 
 | Suite | Tipo | Resultado |
 |---|---|---|
 | Unitarias | Node, sin red | 204 |
-| Navegador con API **simulada** | Playwright | 30 |
-| Smoke demo / visual demo | Playwright | 1 / 20 |
+| Navegador con API **simulada** | Playwright | 32 |
+| Smoke demo / visual demo | Playwright | 1 / 22 (44 capturas, escritorio y móvil) |
 | pgTAP consolidado / clínico | PostgreSQL real local | 123 / 81 |
 | HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 95 |
 | Concurrencia / migración de datos / copia | real local | 10 / 27 / 5 |

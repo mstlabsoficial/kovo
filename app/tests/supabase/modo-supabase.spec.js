@@ -33,11 +33,12 @@ for (const role of ['psychologa', 'recepcion', 'gestoria']) {
     }
     if (role === 'psychologa') {
       await click(page, '[data-act="go"][data-v="informes"]');
-      await click(page, '[data-act="nfilter"][data-f="todas"]');
-      await expect(page.locator('#view tr.click')).toHaveCount(2);
-      // Nota firmada con su rectificación, y nota de texto libre mostrada entera
-      for (const k of [0, 1]) {
-        await page.evaluate(i => document.querySelectorAll('#view tr.click')[i].click(), k);
+      // Nota firmada con su rectificación (Terminados) y nota de texto libre (Pendientes), mostradas enteras
+      const sel = '#view .nt-row [data-act="openNote"]';
+      for (const [k, f] of [[0, 'pendientes'], [1, 'firmada']]) {
+        await click(page, `[data-act="nfilter"][data-f="${f}"]`);
+        await expect(page.locator(sel)).toHaveCount(1);
+        await page.evaluate(s => document.querySelector(s).click(), sel);
         await page.waitForTimeout(100);
         await expect(page.locator('.doc')).toBeVisible();
         texts[`nota${k}`] = await page.evaluate(() => {
@@ -45,7 +46,6 @@ for (const role of ['psychologa', 'recepcion', 'gestoria']) {
           return doc.innerText + '\n' + [...doc.querySelectorAll('textarea,input')].map(x => x.value).join('\n');
         });
         await click(page, '[data-act="closeEditor"]');
-        await click(page, '[data-act="nfilter"][data-f="todas"]');
       }
       const notesText = texts.nota0 + texts.nota1;
       expect(notesText).toContain('Texto libre ficticio');
@@ -55,8 +55,12 @@ for (const role of ['psychologa', 'recepcion', 'gestoria']) {
     }
     if (role !== 'recepcion') {
       await click(page, '[data-act="go"][data-v="contabilidad"]');
-      await page.evaluate(() => document.querySelectorAll('#view details').forEach(d => { d.open = true; }));
-      await page.waitForTimeout(250);
+      // Los desplegables pintan su contenido al abrirse: de uno en uno
+      for (const id of await page.$$eval('#view details.acc', els => els.map(e => e.id))) {
+        await page.evaluate(i => { document.getElementById(i).open = true; }, id);
+        await page.waitForTimeout(250);
+      }
+      await expect(page.locator('#view details.acc:not([open])')).toHaveCount(0);
       texts.contabilidadAbierta = await page.locator('#view').innerText();
       expect(texts.contabilidadAbierta).toContain('KOVO-2026-000001');
     }

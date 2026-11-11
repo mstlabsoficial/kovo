@@ -7,13 +7,13 @@ export function createDemoSource() {
   return {
     mode: 'demo',
 
-    // Carga lo guardado; si no hay nada o es de otro mes, genera los datos de demostración.
+    // Carga lo guardado; si no hay nada, genera los datos de demostración. (Desde la interfaz v3 ya no
+    // se regenera al cambiar de mes: migrate() en legacy.js completa el estado guardado.)
     async load({ seed, today }) {
       let s;
       try {
         const raw = localStorage.getItem(KEY);
         s = raw ? JSON.parse(raw) : null;
-        if (s && s.builtFor !== today.slice(0, 7)) s = null;
       } catch (e) { s = null; }
       if (!s) { s = seed(); s.builtFor = today.slice(0, 7); }
       return s;

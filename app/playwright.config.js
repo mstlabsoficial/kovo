@@ -2,8 +2,9 @@ import { defineConfig } from '@playwright/test';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-// La versión original se abre directamente desde source/dist (solo lectura).
-const ORIGINAL_URL = pathToFileURL(path.resolve('..', 'source', 'dist', 'Sesiona.html')).href;
+// La versión original (prototipo v3 de la interfaz) se abre directamente desde source/dist (solo lectura).
+// Sesiona.html es el prototipo anterior y se conserva sin cambios.
+const ORIGINAL_URL = pathToFileURL(path.resolve('..', 'source', 'dist', 'KOVO-v3.html')).href;
 const VITE_URL = 'http://localhost:5173/';
 
 const desktop = { viewport: { width: 1360, height: 860 } };

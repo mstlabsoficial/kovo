@@ -52,8 +52,8 @@ test('psicóloga: crea el borrador de una cita, lo edita y al recargar sigue igu
   await expect(page.locator('#nf-plan')).toHaveValue('Plan ficticio');
   await expect(page.locator('#nf-resumen')).toHaveValue('Primer párrafo\n\nSegundo párrafo');
   await act(page, 'closeEditor');
-  await act(page, 'goNotes', { f: 'todas' });
-  await expect(page.locator('#view tr.click', { hasText: 'Nota de sesión' }).first()).toBeVisible();
+  await act(page, 'goNotes', { f: 'pendientes' });
+  await expect(page.locator(`#view .nt-row [data-act="openNote"][data-id="${row.id}"]`)).toBeVisible();
   expect(errors, errors.join('\n')).toEqual([]);
   expect(log.blocked.filter(o => o !== 'https://cdnjs.cloudflare.com')).toEqual([]);
 });
@@ -107,8 +107,10 @@ test('respuesta perdida: la BD guardó, el navegador no lo supo; el reintento no
   expect(rpcV1(log)).toHaveLength(1);
   // Al cerrar, la lista muestra un solo borrador para esa cita
   await act(page, 'closeEditor');
-  await act(page, 'goNotes', { f: 'todas' });
-  await expect(page.locator('#view tr.click', { hasText: 'Nota de sesión' })).toHaveCount(3);   // firmada, borrador previo y la nueva
+  await act(page, 'goNotes', { f: 'pendientes' });
+  await expect(page.locator('#view .nt-row [data-act="openNote"]')).toHaveCount(2);   // borrador previo y la nueva
+  await act(page, 'goNotes', { f: 'firmada' });
+  await expect(page.locator('#view .nt-row [data-act="openNote"]')).toHaveCount(1);   // la firmada
 });
 
 test('sesión caducada: se renueva y guarda; si no se puede, avisa y conserva el texto', async ({ page }) => {

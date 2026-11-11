@@ -39,9 +39,10 @@ export async function act(page, selector) {
 export const go = (page, view) => act(page, `[data-act="go"][data-v="${view}"]`);
 
 export async function setRole(page, role) {
+  // Desde la interfaz v3 el selector lista usuarios de ejemplo (u1…u4), uno por perfil.
   await page.evaluate(r => {
     const s = document.getElementById('role');
-    s.value = r;
+    s.value = { psicologa: 'u1', recepcion: 'u2', gestoria: 'u3', agenda: 'u4' }[r] || r;
     s.dispatchEvent(new Event('change', { bubbles: true }));
   }, role);
   await page.waitForTimeout(150);

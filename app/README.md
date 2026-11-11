@@ -5,8 +5,11 @@ Sin Supabase. Con los datos de demostración de siempre (se guardan en el navega
 
 ## Cómo está hecho
 
-- `index.html` y `src/legacy.js` se generan desde `../source/dist/Sesiona.html` con `npm run extract`
+- `index.html` y `src/legacy.js` salieron de `../source/dist/Sesiona.html` con `npm run extract`
   (el script solo lee el original y comprueba su huella SHA-256 antes de hacer nada).
+  **Desde la interfaz v3 no hay que volver a ejecutarlo**: `src/legacy.js` e `index.html` son una fusión
+  a mano del prototipo v3 (`../source/dist/KOVO-v3.html`, referencia de las pruebas visuales) con el modo
+  conectado; regenerarlos desde `Sesiona.html` perdería ambos.
 - `index.html` conserva los estilos y la estructura originales; el único cambio es que el código
   se carga como módulo: `<script type="module" src="/src/legacy.js">`.
 - `src/legacy.js` es el código original, sin tocar.

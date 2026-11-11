@@ -87,7 +87,7 @@ test('alta: cuenta nueva → clínica → paciente, cita, ajustes, horario, docu
   await act(page, 'newPatient');
   await fill(page, { 'np-n': 'Paciente Sintética Uno', 'np-e': 'paciente1@correo-ejemplo.test', 'np-t': '600000001', 'np-addr': 'Calle Inventada 1, 29001 Málaga' });
   await click(page, '.mod [data-act="savePatient"]');
-  await expect(toast(page)).toContainText('Paciente #P-00001 creado');
+  await expect(toast(page)).toContainText('Paciente P-00001 creado');
   const patient = (await svc(`patients?select=id,patient_code&org_id=eq.${org.org_id}`)).json[0];
   expect(patient.patient_code).toBe('P-00001');
 

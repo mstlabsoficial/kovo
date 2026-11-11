@@ -100,9 +100,10 @@ test('E2E real: paciente → cita → realizada → borrador v2 → recarga → 
   // 8. Recargar
   await page.reload();
   await waitView(page);
-  // 9-10. Ficha del paciente → Sesiones → la nota
-  await act(page, 'openPatient', { id: patient.id, tab: 'sesiones' });
-  await page.locator('#view tr.click', { hasText: 'Nota de sesión' }).click();
+  // 9-10. Ficha del paciente → Historial → la nota
+  await act(page, 'openPatient', { id: patient.id, tab: 'resumen' });
+  await expect(page.locator('#view a.evl[data-act="openNote"]')).toHaveCount(1);
+  await page.evaluate(() => document.querySelector('#view a.evl[data-act="openNote"]').click());
   await expect(page.locator('#nf-resumen')).toHaveValue('Párrafo uno\n\nPárrafo dos');
   await expect(state(page)).toHaveText('Guardado · versión 1');
   // 11-13. Modificar, guardar y verificar

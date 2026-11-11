@@ -435,7 +435,11 @@ describe('copias que no deben desincronizarse', () => {
   test('NOTE_FIELD_KEYS coincide con FIELDS de legacy.js', () => {
     const literal = legacySrc.match(/const FIELDS=(\{[\s\S]*?\n\});/)[1];
     const FIELDS = new Function(`return ${literal}`)();
-    assert.deepEqual(Object.fromEntries(Object.entries(FIELDS).map(([k, v]) => [k, v.map(x => x[0])])), A.NOTE_FIELD_KEYS);
+    // «proxima» (interfaz v3) solo existe en la demo: no está en el catálogo de apartados del servidor
+    // y legacy.js lo retira en modo conectado.
+    assert.match(legacySrc, /if\(W\)FIELDS\.sesion=FIELDS\.sesion\.filter\(f=>f\[0\]!=='proxima'\);/);
+    const keys = Object.fromEntries(Object.entries(FIELDS).map(([k, v]) => [k, v.map(x => x[0]).filter(x => x !== 'proxima')]));
+    assert.deepEqual(keys, A.NOTE_FIELD_KEYS);
   });
   test('LEGACY_EXPENSE_CATEGORIES coincide con CATS de legacy.js', () => {
     const CATS = new Function(`return ${legacySrc.match(/const CATS=(\[[^\]]*\]);/)[1]}`)();

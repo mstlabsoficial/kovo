@@ -56,16 +56,15 @@ test('E2E (14 pasos): paciente → cita → realizada → borrador → recargar 
   // 8. Recargar
   await page.reload();
   await waitView(page);
-  // 9-10. Volver a la ficha del paciente y recuperar la nota desde «Sesiones»
-  await act(page, 'openPatient', { id: patient.id, tab: 'sesiones' });
-  await expect(page.locator('#view tr.click', { hasText: 'Nota de sesión' })).toHaveCount(1);
-  await page.locator('#view tr.click', { hasText: 'Nota de sesión' }).click();
+  // 9-10. Volver a la ficha del paciente y recuperar la nota desde su «Historial»
+  await act(page, 'openPatient', { id: patient.id, tab: 'resumen' });
+  await expect(page.locator('#view a.evl[data-act="openNote"]')).toHaveCount(1);
+  await page.evaluate(() => document.querySelector('#view a.evl[data-act="openNote"]').click());
   await expect(page.locator('#nf-objetivos')).toHaveValue('Objetivo del flujo');
   await expect(state(page)).toHaveText('Guardado · versión 1');
   // La cita realizada aparece en el historial de la ficha
   await act(page, 'openPatient', { id: patient.id, tab: 'resumen' });
-  await expect(page.locator('#view .timeline')).toContainText('Cita · ');
-  await expect(page.locator('#view .timeline')).toContainText('realizada');
+  await expect(page.locator('#view .timeline')).toContainText('Sesión nº 1');
   // 11-12. Modificar y guardar
   await act(page, 'openNote', { id: note.id });
   await fill(page, { 'nf-plan': 'Plan revisado' });

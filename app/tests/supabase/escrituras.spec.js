@@ -25,7 +25,7 @@ test('psicóloga: alta y edición de paciente, alta y estados de cita, y todo si
 
   // Alta de paciente: el código lo pone PostgreSQL
   await createPatient(page);
-  await expect(page.locator('#toast')).toContainText('Paciente #P-00001 creado');
+  await expect(page.locator('#toast')).toContainText('Paciente P-00001 creado');
   const [row] = newRows(log, 'patients');
   expect(row).toMatchObject({ first_name: 'Nueva', last_name: 'Paciente Ficticia', email: 'nueva@correo-ejemplo.test', patient_code: 'P-00001', status: 'active', org_id: ORG });
   expect(row.profile_data).toMatchObject({ service: S1, modal: 'online', reminders: true, alta: '2026-11-06' });
@@ -107,7 +107,7 @@ test('respuesta perdida: la BD guardó pero el navegador no lo supo; el reintent
   await expect(errorBox(page)).toContainText('NO se ha guardado');
   expect(newRows(log, 'patients')).toHaveLength(1);                     // sí llegó
   await click(page, '.mod [data-act="savePatient"]');                   // el usuario reintenta
-  await expect(page.locator('#toast')).toContainText('Paciente #P-00001 creado');
+  await expect(page.locator('#toast')).toContainText('Paciente P-00001 creado');
   expect(newRows(log, 'patients')).toHaveLength(1);                     // sin duplicado
   const posts = writes(log).filter(r => r.method === 'POST');
   expect(posts).toHaveLength(2);
