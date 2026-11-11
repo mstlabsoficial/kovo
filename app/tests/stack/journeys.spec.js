@@ -284,6 +284,8 @@ test('v3: diagnóstico y prueba, gastos fijos, % deducible y rol «solo calendar
   expect(exported.pruebas).toEqual([{ nombre: 'Inventario sintético', fecha: '2026-10-01', resultado: '24 puntos (ficticio)' }]);
   expect(exported.diagnosticos).toEqual([]);
   expect(exported.citas).toHaveLength(1);
+  const expLog = (await svc(`audit_log?select=action,entity_id,metadata&org_id=eq.${org.id}&action=eq.patient.export`)).json;
+  expect(expLog).toEqual([{ action: 'patient.export', entity_id: pt.id, metadata: { secciones: { citas: 1, informes: 0, pruebas: 1, diagnosticos: 0, facturas: 0, documentos: 0 } } }]);
 
   // Finalizar terapia → patients.status inactive; avisa de la cita abierta; reanudar lo devuelve
   await act(page, 'pStatus', { id: pt.id });

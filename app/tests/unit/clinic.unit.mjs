@@ -114,3 +114,21 @@ describe('modo conectado: estado y acciones sin servidor', () => {
     assert.ok(ClinicError);
   });
 });
+
+describe('clinic.js: registro de exportaciones', () => {
+  test('llama a log_patient_export con el paciente y los recuentos', async () => {
+    const { c, calls } = api({ respond: () => '2026-11-11T10:00:00Z' });
+    assert.equal(await c.logExport(P, { citas: 2 }), '2026-11-11T10:00:00Z');
+    assert.equal(calls[0].path, 'rpc/log_patient_export');
+    assert.deepEqual(calls[0].body, { p_patient_id: P, p_counts: { citas: 2 } });
+  });
+  test('servidor sin la función (PGRST202): null, para exportar igualmente', async () => {
+    const { c } = api({ respond: () => { throw err(404, 'PGRST202'); } });
+    assert.equal(await c.logExport(P), null);
+  });
+  test('sin permiso o sin red: error (no se exporta)', async () => {
+    await assert.rejects(api({ respond: () => { throw err(403, '42501'); } }).c.logExport(P), e => e.code === 'forbidden' || e.code === '42501');
+    await assert.rejects(api({ respond: () => { throw new TypeError('Failed to fetch'); } }).c.logExport(P), e => e.code === 'network');
+    await assert.rejects(api().c.logExport('no-uuid'), e => e.code === 'validation');
+  });
+});

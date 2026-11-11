@@ -47,7 +47,7 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 | Historial clínico (notas v2: borradores, versiones, conflictos, auditoría) | 1 | pgTAP 81 + E2E real |
 | Firma y rectificación de notas | 3 | aplicadas en BD y probadas; **desactivadas en la interfaz** hasta validar firma electrónica |
 | Documentos (subir, ver, retirar; PDF/JPG/PNG ≤ 20 MB; bucket privado) | 1 | E2E + HTTP (otra clínica, ruta manipulada, tipo, tamaño, sobrescritura) |
-| Exportar todos los datos de un paciente | 1 | solo psicóloga; JSON generado en el navegador con lo ya cargado (ficha, citas, informes, pruebas, diagnósticos vigentes, facturas, lista de documentos); no pasa por ningún servidor. Los archivos de Documentos se descargan aparte. E2E real. **Pendiente:** registrar la exportación en la auditoría del servidor (hoy solo en la local) |
+| Exportar todos los datos de un paciente | 1 | solo psicóloga; JSON generado en el navegador con lo ya cargado (ficha, citas, informes, pruebas, diagnósticos vigentes, facturas, lista de documentos); no pasa por ningún servidor. Los archivos de Documentos se descargan aparte. Cada exportación queda en la auditoría del servidor (quién, qué paciente, cuándo; solo recuentos) **antes** de descargarse: si no se puede registrar, no se exporta. Migración `20261112090400` (solo local). HTTP + E2E real |
 
 ### Agenda
 | Funcionalidad | Estado | Nota |
@@ -124,11 +124,11 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 
 | Suite | Tipo | Resultado |
 |---|---|---|
-| Unitarias | Node, sin red | 218 |
+| Unitarias | Node, sin red | 221 |
 | Navegador con API **simulada** | Playwright | 32 |
 | Smoke demo / visual demo | Playwright | 1 / 22 (44 capturas, escritorio y móvil) |
 | pgTAP consolidado / clínico | PostgreSQL real local | 123 / 81 |
-| HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 124 |
+| HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 129 |
 | Concurrencia / migración de datos / copia | real local | 10 / 27 / 5 |
 | E2E por recorridos y roles | navegador + pila real local | 8 |
 | E2E notas (suite heredada) | navegador + PostgreSQL/PostgREST locales | verde |

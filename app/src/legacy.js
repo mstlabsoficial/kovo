@@ -1620,10 +1620,14 @@ Dictado: «${txt}»`;
       facturas:S.invoices.filter(i=>i.patientId===p.id).map(i=>({numero:i.num||null,fecha:i.date,estado:invStatus(i),total:tot(i).total/100})),
       documentos:(p.docs||[]).map(x=>({nombre:x.name||x.file||x.fileName||null,fecha:x.date||x.at||null})).concat(p.consent?[{nombre:'Consentimiento informado',fecha:p.consent.at||null}]:[])};
     const fn=`paciente-${p.code}-${TODAY}.json`;const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    let note='';
+    if(CN){const counts=Object.fromEntries(['citas','informes','pruebas','diagnosticos','facturas','documentos'].map(k=>[k,data[k].length]));
+      try{const at=await CN.logExport(p.id,counts);if(at===null)note=' · este servidor aún no registra exportaciones en la auditoría'}
+      catch(e){toast(e&&e.message?`No se ha exportado: ${e.message}`:'No se ha exportado: no se ha podido registrar en la auditoría');return}}
     audit(`Datos de ${p.code} exportados`);
-    if(DL){try{await DL.save({filename:fn,data:blob});toast('Datos exportados');return}catch(e){if(e&&e.code==='declined')return}}
+    if(DL){try{await DL.save({filename:fn,data:blob});toast('Datos exportados'+note);return}catch(e){if(e&&e.code==='declined')return}}
     const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);
-    toast('Datos exportados · los documentos se descargan uno a uno desde Documentos')},
+    toast('Datos exportados · los documentos se descargan uno a uno desde Documentos'+note)},
   savePatient:(d,btn)=>{
     const name=val('np-n').trim(),email=val('np-e').trim();const err=document.getElementById('np-err');
     if(!name||!email){err.hidden=false;err.textContent='El nombre y el email son obligatorios.';return}

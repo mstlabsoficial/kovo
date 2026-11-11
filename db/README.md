@@ -29,6 +29,7 @@ Migraciones de `db/migrations` (orden de nombre):
 | `20261112090100_patient_diagnoses_tests` | Diagnósticos y pruebas: solo psicóloga, retirada lógica (sin DELETE), integridad paciente↔prueba↔documento (KC001–KC003), auditoría. |
 | `20261112090200_recurring_expenses` | Gastos fijos + `apply_recurring_expenses` (idempotente; un mes borrado no se recrea). Columnas `expenses.recurring_id/recurring_month`. |
 | `20261112090300_agenda_role` | Rol `agenda` (solo calendario) en membresías e invitaciones; RPC `agenda_calendar` (códigos, sin nombres). |
+| `20261112090400_patient_export_audit` | RPC `log_patient_export`: deja en `audit_log` quién exportó los datos de qué paciente y cuándo (solo psicólogas; metadatos = recuentos por apartado, ningún dato personal). Permitida con la cuenta suspendida. |
 | `20261112090000_appointment_series` | Citas repetidas: columna `appointments.series_id` (nullable) + índice. Alta de la serie = una inserción (todo o nada); «esta y las siguientes» = una actualización. Aditiva. |
 
 ### Aplicar a una base que ya tiene datos
@@ -68,7 +69,7 @@ subir la rama (pendiente de autorización).
 |---|---|---|
 | pgTAP consolidado (`tests/saas_test.sql`) | códigos, alta, aislamiento, roles, ajustes, horario, auditoría, invitaciones, límites de plan, plataforma, suspensión, sesiones, facturas y cobros, documentos, recordatorios, pasarela | 123/123 |
 | pgTAP clínico v2 sobre la cadena completa | integridad, roles, firma, versiones, auditoría | 81/81 |
-| HTTP (`tests/http.mjs`) | días cerrados (RLS por profesional), series de citas (todo o nada, reintento, cancelación parcial, aislamiento), tokens reales de Supabase Auth, PostgREST y Storage: alta, aislamiento, escalada de privilegios, REST/RPC directos, Storage (subida, descarga, otra clínica, manipulación de ruta, tipo, tamaño, sobrescritura, borrado), sesiones (cierre, rotación, reutilización), tokens caducados/falsos/manipulados, facturación, plataforma, suspensión, soporte, webhook | 124/124 |
+| HTTP (`tests/http.mjs`) | registro de exportaciones de pacientes (quién, cuándo, solo recuentos; también con la cuenta suspendida), días cerrados (RLS por profesional), series de citas (todo o nada, reintento, cancelación parcial, aislamiento), tokens reales de Supabase Auth, PostgREST y Storage: alta, aislamiento, escalada de privilegios, REST/RPC directos, Storage (subida, descarga, otra clínica, manipulación de ruta, tipo, tamaño, sobrescritura, borrado), sesiones (cierre, rotación, reutilización), tokens caducados/falsos/manipulados, facturación, plataforma, suspensión, soporte, webhook | 124/129 |
 | Concurrencia (`tests/concurrency.mjs`) | 30 altas simultáneas, reservas solapadas, invitaciones, cobros, emisiones | 10/10 |
 | Migración de datos (`tests/upgrade.mjs`) | ver §1 | 27/27 |
 | Copia y restauración (`tests/backup.mjs`) | copia física en frío de PostgreSQL + ficheros de Storage → restauración en otro servidor → 70 tablas idénticas (recuento + md5), contraseñas, documentos | 5/5 |

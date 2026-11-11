@@ -220,6 +220,18 @@ export async function runHttp(stack) {
   check('Agenda: gestoría y otra clínica no consultan el calendario', !calGes.ok && !calB.ok, err(calB));
   await api.rpc(titA.token, 'update_membership', { p_membership_id: accAg.json.membership_id ?? accAg.json.id, p_active: false });
 
+  // ---------------------------------------------------------------- Exportar datos de un paciente: queda en audit_log
+  const expOk = await api.rpc(titA.token, 'log_patient_export', { p_patient_id: P1, p_counts: { citas: 4, informes: 1, nombre: 'Sintético', pruebas: -1, facturas: 2.5 } });
+  const expLog = await api.get(titA.token, `audit_log?select=actor_id,action,entity_id,metadata&action=eq.patient.export&entity_id=eq.${P1}`);
+  check('Exportación: se registra quién exportó qué paciente', expOk.ok && expLog.ok && expLog.json.length === 1 && expLog.json[0].actor_id === titA.id, err(expLog));
+  check('Exportación: el registro solo guarda recuentos válidos de apartados conocidos', expLog.ok && JSON.stringify(expLog.json[0]?.metadata) === JSON.stringify({ secciones: { citas: 4, informes: 1 } }), JSON.stringify(expLog.json?.[0]?.metadata));
+  const expRec = await api.rpc(rec.token, 'log_patient_export', { p_patient_id: P1 });
+  const expB = await api.rpc(titB.token, 'log_patient_export', { p_patient_id: P1 });
+  const expAnon = await api.call('/rest/v1/rpc/log_patient_export', { method: 'POST', body: { p_patient_id: P1 } });
+  check('Exportación: recepción, otra clínica y anónimos no pueden registrarla', !expRec.ok && !expB.ok && !expAnon.ok, [err(expRec), err(expB), err(expAnon)].join(' | '));
+  const forge = await api.insert(titA.token, 'audit_log', { org_id: A, action: 'patient.export', entity_type: 'patient', entity_id: P1 });
+  check('Exportación: nadie escribe en audit_log directamente', !forge.ok, err(forge));
+
   // ---------------------------------------------------------------- Storage (real Supabase Storage)
   const docName = `${randomUUID()}-consentimiento.pdf`;
   const docPath = `${A}/${P1}/${docName}`;
@@ -334,6 +346,8 @@ export async function runHttp(stack) {
   check('Cuenta suspendida: los datos siguen legibles para exportarlos', bRead.ok && bRead.json.length === 1, err(bRead));
   const bUpload = await api.upload(titB.token, `${B}/${PB}/${randomUUID()}-x.pdf`, pdf, 'application/pdf');
   check('Cuenta suspendida: tampoco se suben documentos', !bUpload.ok, err(bUpload));
+  const bExport = await api.rpc(titB.token, 'log_patient_export', { p_patient_id: PB, p_counts: { citas: 0 } });
+  check('Cuenta suspendida: se puede exportar (y registrar) los datos de un paciente', bExport.ok, err(bExport));
   const ticket = await api.insert(titB.token, 'support_tickets', { org_id: B, subject: 'Cuenta suspendida', body: 'Mensaje sintético de prueba' });
   check('Soporte: una clínica suspendida puede abrir un ticket', ticket.status === 201, err(ticket));
   const react = await api.rpc(staff, 'platform_set_account_status', { p_org_id: B, p_status: 'active', p_reason: 'Fin de la prueba HTTP' });

@@ -438,6 +438,8 @@ export function installConnected(h) {
     panel: tab => { queueMicrotask(() => mountPanel(tab)); return `<div id="cn-panel" data-tab="${tab}"></div>`; },
     refresh: () => { sidebar(); banner(); },
     isAdmin,
-    role
+    role,
+    // El registro va antes de la descarga: si no se puede registrar, no se exporta.
+    logExport: (patientId, counts) => clinic.logExport(patientId, counts)
   };
 }

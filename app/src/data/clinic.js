@@ -228,6 +228,13 @@ export function createClinicApi({ request = supabaseRequest, refresh = async () 
     },
     // Apunta los meses debidos de los gastos fijos activos (idempotente en el servidor). Nº creados.
     async applyRecurring() { const c = await ctx(); return rpc('apply_recurring_expenses', { p_org_id: c.id }); },
+    // Deja constancia en audit_log de quién exportó los datos de un paciente (solo nombres de
+    // apartado y recuentos, ningún dato). null si el servidor aún no tiene la función.
+    async logExport(patientId, counts = {}) {
+      if (!isUuid(patientId)) throw new ClinicError('validation', 'Paciente no válido.');
+      try { return await rpc('log_patient_export', { p_patient_id: patientId, p_counts: counts }); }
+      catch (e) { if (e?.pg === 'PGRST202') return null; throw e; }
+    },
     /* equipo */
     async team() { const c = await ctx(); return rpc('list_team', { p_org_id: c.id }); },
     async invitations() { const c = await ctx(); return call(`org_invitations?select=id,email,role,is_admin,created_at,expires_at,accepted_at,revoked_at&org_id=eq.${c.id}&accepted_at=is.null&revoked_at=is.null&order=created_at.desc`); },
