@@ -556,6 +556,48 @@ test('sesión y red: renovación automática, sesión caducada, sesión revocada
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
+test('facturar sesiones realizadas: «Facturar ya» y «Facturar ahora» crean borradores enlazados a la cita, sin duplicar', async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  const email = mail('facturar');
+  const org = await clinicFor(email, 'Clínica Sintética Facturas');
+  const sv = (await svc('services', { method: 'POST', body: { org_id: org.id, name: 'Sesión sintética', duration_minutes: 50, price_cents: 6000, tax_exempt: true }, headers: { prefer: 'return=representation' } })).json[0];
+  const pts = (await svc('patients', { method: 'POST', body: ['Uno', 'Dos'].map(n => ({ org_id: org.id, patient_code: 'AUTO', first_name: 'Paciente', last_name: `Factura ${n}` })), headers: { prefer: 'return=representation' } })).json;
+  const day = new Date(Date.now() - 10 * 864e5).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const appts = (await svc('appointments', { method: 'POST', headers: { prefer: 'return=representation' }, body: [
+    { org_id: org.id, patient_id: pts[0].id, service_id: sv.id, price_cents: 6000, status: 'completed', starts_at: `${day}T09:00:00+01:00`, ends_at: `${day}T09:50:00+01:00` },
+    { org_id: org.id, patient_id: pts[1].id, service_id: sv.id, price_cents: 6000, status: 'completed', starts_at: `${day}T10:00:00+01:00`, ends_at: `${day}T10:50:00+01:00` },
+    { org_id: org.id, patient_id: pts[1].id, service_id: sv.id, price_cents: 6000, status: 'completed', starts_at: `${day}T11:00:00+01:00`, ends_at: `${day}T11:50:00+01:00` }] })).json;
+  const lines = async () => (await svc(`invoice_lines?select=appointment_id,tax_rate,unit_price_cents&org_id=eq.${org.id}&order=appointment_id`)).json;
+  await login(page, email);
+
+  // «Facturar ya» desde la cita
+  await act(page, 'openAppt', { id: appts[0].id });
+  await click(page, '.mod [data-act="billNow"]');
+  await expect(toast(page)).toContainText('Borrador de factura creado');
+  expect(await lines()).toEqual([{ appointment_id: appts[0].id, tax_rate: 0, unit_price_cents: 6000 }]);
+  await page.reload(); await waitApp(page);
+  await act(page, 'openAppt', { id: appts[0].id });
+  await expect(page.locator('.mod [data-act="billNow"]')).toHaveCount(0);   // ya facturada, también tras recargar
+  await click(page, '.mod [data-act="close"]').catch(() => page.keyboard.press('Escape'));
+
+  // «Facturar ahora» en Facturación: solo las dos que faltan
+  await act(page, 'go', { v: 'contabilidad' });
+  await page.evaluate(() => { document.getElementById('sec-ingresos').open = true; });
+  await expect(page.locator('#view')).toContainText('2 sesiones sin facturar');
+  await click(page, '[data-act="billAll"]');
+  await expect(toast(page)).toContainText('2 borradores de factura creados');
+  expect((await lines()).map(l => l.appointment_id).sort()).toEqual(appts.map(a => a.id).sort());
+  expect((await svc(`invoices?select=status&org_id=eq.${org.id}`)).json.every(i => i.status === 'draft')).toBe(true);
+  await page.evaluate(() => { const s = document.getElementById('sec-ingresos'); if (s) s.open = true; });
+  await expect(page.locator('[data-act="billAll"]')).toHaveCount(0);
+
+  // Otra pestaña con la lista antigua: la BD impide facturar dos veces la misma sesión
+  const again = await api('/rest/v1/rpc/save_invoice_draft', { method: 'POST', token: org.token, body: { p_org_id: org.id, p_patient_id: pts[0].id, p_issue_date: day, p_due_date: null, p_lines: [{ description: 'x', quantity: 1, unit_price_cents: 6000, tax_rate: 0, appointment_id: appts[0].id }] } });
+  expect(again.ok).toBe(false);
+  expect(await lines()).toHaveLength(3);
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
 test('móvil (390 px): acceso, alta y paneles conectados sin desbordamiento horizontal', async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const p = await ctx.newPage();

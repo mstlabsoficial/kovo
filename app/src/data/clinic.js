@@ -296,7 +296,7 @@ export function createClinicApi({ request = supabaseRequest, refresh = async () 
       const base = lines.reduce((a, l) => a + Math.round(l.qty * l.price), 0);
       if (lines.some(l => !(l.price > 0) || !(l.qty > 0))) throw new ClinicError('validation', 'Cada línea necesita cantidad e importe mayores que cero.');
       return rpc('save_invoice_draft', { p_org_id: c.id, p_patient_id: patientId, p_issue_date: date, p_due_date: due || null,
-        p_lines: lines.map(l => ({ description: (l.desc || 'Servicio').slice(0, 300), quantity: l.qty, unit_price_cents: l.price, tax_rate: l.exempt ? 0 : 21 })),
+        p_lines: lines.map(l => ({ description: (l.desc || 'Servicio').slice(0, 300), quantity: l.qty, unit_price_cents: l.price, tax_rate: l.exempt ? 0 : 21, ...(l.apptId ? { appointment_id: l.apptId } : {}) })),
         p_retention_cents: Math.round(base * (retPct || 0) / 100) });
     },
     async updateInvoiceDraft(id, { due, lines, retPct = 0 }) {

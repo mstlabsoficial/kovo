@@ -172,7 +172,7 @@ describe('facturas, líneas y cobros', () => {
     });
     const i = collections.invoices[0];
     assert.equal(i.status, 'borrador'); assert.equal(i.num, null); assert.equal(i.kind, 'F'); assert.equal(i.ret, 0);
-    assert.equal(i.lines.length, 1); assert.deepEqual(i.lines[0], { id: L1, invoiceId: INV1, desc: 'Sesión individual', qty: 1, price: 5500, exempt: true, taxRate: 0, lineTotal: 5500 });
+    assert.equal(i.lines.length, 1); assert.deepEqual(i.lines[0], { id: L1, invoiceId: INV1, apptId: null, desc: 'Sesión individual', qty: 1, price: 5500, exempt: true, taxRate: 0, lineTotal: 5500 });
     assert.deepEqual(i.payments, [{ id: PAY1, invoiceId: INV1, date: '2026-11-06', amount: 5500, method: 'Bizum', ref: null }]);
     assert.equal(i.to, null); assert.deepEqual(i.appts, []); assert.equal(i.hash, null);
     assert.ok(!report.some(e => e.issue === 'mismatch_with_db'));

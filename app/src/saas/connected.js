@@ -17,7 +17,6 @@ export const BLOCKED = Object.freeze({
   sendInv: NO_MAIL,
   remind: NO_MAIL,
   rectInv: 'Las facturas rectificativas aún no están disponibles en el servidor (pendientes de validación fiscal). No se ha cambiado nada.',
-  billAll: 'La facturación en lote aún no está conectada. Crea las facturas una a una con «Nueva factura».',
   saveScan: 'La lectura de facturas con IA está desactivada en modo conectado. Añade el gasto con «Nuevo gasto».',
   autoMatch: 'La conciliación bancaria aún no está conectada al servidor.',
   matchOne: 'La conciliación bancaria aún no está conectada al servidor.',
@@ -31,7 +30,6 @@ export const BLOCKED = Object.freeze({
   dictMic: NO_DICT, dictAI: NO_DICT, dictUndo: NO_DICT,
   userForm: NO_USERS, userSave: NO_USERS, userDel: NO_USERS, userAs: NO_USERS,
   patientYes: NO_MAIL, patientNo: NO_MAIL, dailyNow: NO_MAIL,
-  billNow: 'La facturación desde la cita aún no está conectada. Crea la factura con «Nueva factura».',
   reset: 'En modo conectado no se pueden restablecer ni borrar los datos.',
   doReset: 'En modo conectado no se pueden restablecer ni borrar los datos.'
 });
@@ -153,6 +151,19 @@ export function installConnected(h) {
 
   /* ---------------------------------------------------------------- facturas */
   const invById = id => S().invoices.find(x => x.id === id);
+
+  // Facturar sesiones realizadas: siempre en BORRADOR (la emisión la revisa la psicóloga; el criterio
+  // fiscal está pendiente de validar, docs/fiscal). Cada línea lleva su cita: la BD impide facturar
+  // dos veces la misma sesión (índice único) y solo admite citas realizadas del mismo paciente.
+  // El IVA sale del servicio («exento» en Servicios y tarifas); si no está indicado, no se adivina.
+  const sessionLine = a => {
+    const sv = S().services.find(s => s.id === a.service);
+    if (!sv || typeof sv.exempt !== 'boolean') throw Object.assign(new Error(`Indica en Ajustes › Servicios y tarifas si «${sv?.name || 'el servicio'}» está exento de IVA antes de facturarlo.`), { code: 'validation' });
+    if (!(a.price > 0)) throw Object.assign(new Error('La sesión no tiene precio: edítala antes de facturarla.'), { code: 'validation' });
+    return { desc: `${sv.name} · ${a.date.split('-').reverse().join('/')}`, qty: 1, price: a.price, exempt: sv.exempt, apptId: a.id };
+  };
+  const draftFor = (p, appts) => clinic.saveInvoiceDraft({ patientId: p.id, date: h.today, due: h.addDays(h.today, S().settings.dueDays), lines: appts.map(sessionLine), retPct: retPctFor(p) });
+  const alreadyBilled = e => e?.pg === '23505' || e?.code === '23505';
   const readLinesFromModal = i => {
     const lines = i.lines.map(l => ({ ...l }));
     document.querySelectorAll('[data-ld]').forEach(t => { lines[t.dataset.ld].desc = t.value; });
@@ -274,6 +285,36 @@ export function installConnected(h) {
 
   /* ---------------------------------------------------------------- acciones propias */
   const ACT = {
+    billNow: (d, b) => {
+      const a = S().appts.find(x => x.id === d.id); const p = a && h.P(a.patientId);
+      if (!a || !p) return;
+      if (a.invoiceId) { h.toast('Esta sesión ya está facturada'); return; }
+      if (p.billing?.type === 'empresa') { h.toast('Irá en la factura mensual de la empresa («Facturar ahora» en Facturación)'); return; }
+      run(b, () => draftFor(p, [a]), async id => { h.closeModal(); await reload('Borrador de factura creado · revísalo y emítelo'); if (invById(id)) h.openInv(id); },
+        e => { if (alreadyBilled(e)) { h.closeModal(); reload('Esta sesión ya estaba facturada'); } else h.toast(e?.message || 'No se ha podido crear la factura'); });
+    },
+    // Sesiones realizadas sin facturar: una factura por sesión; las de empresa, una por empresa/paciente.
+    // Una a una: si una falla, las demás siguen y se informa de cuántas quedan.
+    billAll: (d, b) => {
+      const pend = S().appts.filter(a => a.status === 'realizada' && !a.invoiceId);
+      if (!pend.length) { h.toast('No hay sesiones sin facturar'); return; }
+      const groups = []; const emp = new Map();
+      for (const a of pend) { const p = h.P(a.patientId); if (!p) continue; if (p.billing?.type === 'empresa') { if (!emp.has(p.id)) emp.set(p.id, []); emp.get(p.id).push(a); } else groups.push([p, [a]]); }
+      for (const [pid, list] of emp) groups.push([h.P(pid), list]);
+      run(b, async () => {
+        let ok = 0, skip = 0; const fails = [];
+        for (const [p, list] of groups) {
+          try { await draftFor(p, list); ok++; }
+          catch (e) { if (e?.code === 'auth' || e?.code === 'network') throw Object.assign(e, { partial: ok }); if (alreadyBilled(e)) skip++; else fails.push(e?.message || 'error'); }
+        }
+        return { ok, skip, fails };
+      }, async ({ ok, skip, fails }) => {
+        const parts = [`${ok} ${ok === 1 ? 'borrador de factura creado' : 'borradores de factura creados'}`];
+        if (skip) parts.push(`${skip} ya estaban facturadas`);
+        if (fails.length) parts.push(`${fails.length} sin crear: ${[...new Set(fails)][0]}`);
+        await reload(parts.join(' · '));
+      }, e => { h.toast(`${e?.message || 'No se ha podido facturar'}${e?.partial ? ` · se crearon ${e.partial} antes del error` : ''}`); if (e?.partial) reload(); });
+    },
     addSvc: (d, b) => run(b, () => clinic.createService({ name: 'Nuevo servicio', dur: 60, price: 5000, exempt: true }), () => reload('Servicio añadido · edítalo en la tabla')),
     delSvc: (d, b) => {
       if (S().appts.some(a => a.service === d.id && a.status !== 'cancelada' && a.date >= h.today)) { h.toast('Hay citas futuras con este servicio; cámbialas antes de archivarlo.'); return; }

@@ -188,7 +188,7 @@ export function appointmentFromRow(row, opts) {
     notes: str(row.administrative_note),
     log: [],             // la BD no guarda historial por cita
     cancelReason: null,  // la BD no guarda el motivo de cancelación
-    invoiceId: null,     // la BD no relaciona citas con facturas
+    invoiceId: null,     // se rellena con invoice_lines.appointment_id (si el esquema lo tiene)
     startsAt: row.starts_at ?? null, endsAt: row.ends_at ?? null, createdAt: row.created_at ?? null,
     updatedAt: row.updated_at ?? null   // versión para las escrituras (control de concurrencia)
   };
@@ -227,6 +227,7 @@ export function invoiceLineFromRow(row, opts) {
   if (!Number.isInteger(Number(row.quantity))) r.add('invoice_line', row.id, 'qty', 'fractional_quantity');
   return {
     id: row.id, invoiceId: row.invoice_id, desc: str(row.description),
+    apptId: row.appointment_id ?? null,   // propuesta backend 20261108: una línea por sesión facturada
     qty: Number(row.quantity), price: row.unit_price_cents,
     exempt: rate === 0, taxRate: rate, lineTotal: row.line_total_cents
   };
@@ -290,7 +291,7 @@ export function invoiceFromRow(row, lines, payments, opts) {
     ...(row.issuer_snapshot ? { issuer: snapshotParty(row.issuer_snapshot) } : {}),
     date: dateOnly(row.issue_date), due: dateOnly(row.due_date),
     lines, ret, retentionCents: row.retention_cents ?? 0,
-    appts: [],                      // la BD no relaciona facturas con citas
+    appts: [],                      // se rellena con invoice_lines.appointment_id (si el esquema lo tiene)
     payments, sent: null, hash: null, prevHash: null,
     status: invoiceStatus(row, payments, row.total_cents, r), dbStatus: str(row.status), legacyStatus: str(row.legacy_status),
     kind: row.series === 'R' ? 'R' : 'F',
@@ -472,7 +473,16 @@ export function buildLegacyCollections(input = {}) {
 
   const expenses = rows('expenses').map(x => expenseFromRow(x, opts));
   const employees = rows('employees').map(x => employeeFromRow(x, opts));
-  report.add('snapshot', null, 'appts.invoiceId', 'relation_missing_in_db');
+  // Cita ↔ factura: invoice_lines.appointment_id (índice único: una sesión, una línea). Esquemas
+  // anteriores no tienen la columna: la relación queda sin datos y se anota.
+  const lineRows = rows('invoiceLines');
+  if (has('invoiceLines') && (lineRows.length === 0 || lineRows.some(x => 'appointment_id' in x))) {
+    const aById = new Map(appts.map(a => [a.id, a]));
+    for (const inv of invoices) {
+      inv.appts = [...new Set((inv.lines || []).map(l => l.apptId).filter(Boolean))];
+      for (const id of inv.appts) { const a = aById.get(id); if (a) a.invoiceId = inv.id; }
+    }
+  } else report.add('snapshot', null, 'appts.invoiceId', 'relation_missing_in_db');
 
   return {
     collections: { patients, appts, services, professionals, invoices, expenses, employees, notes },

@@ -110,7 +110,7 @@ describe('modo conectado: estado y acciones sin servidor', () => {
       { 0: [[540, 840], [960, 1200]], 6: [[600, 660]] });
   });
   test('las acciones de la demo sin servidor tienen una explicación (no se simulan)', () => {
-    for (const a of ['sendInv', 'remind', 'rectInv', 'billAll', 'saveScan', 'autoMatch', 'payObl', 'genPayroll', 'payPayroll', 'reset', 'doReset']) assert.ok(BLOCKED[a]?.length > 20, a);
+    for (const a of ['sendInv', 'remind', 'rectInv', 'saveScan', 'autoMatch', 'payObl', 'genPayroll', 'payPayroll', 'reset', 'doReset']) assert.ok(BLOCKED[a]?.length > 20, a);
     assert.ok(ClinicError);
   });
 });
@@ -130,5 +130,15 @@ describe('clinic.js: registro de exportaciones', () => {
     await assert.rejects(api({ respond: () => { throw err(403, '42501'); } }).c.logExport(P), e => e.code === 'forbidden' || e.code === '42501');
     await assert.rejects(api({ respond: () => { throw new TypeError('Failed to fetch'); } }).c.logExport(P), e => e.code === 'network');
     await assert.rejects(api().c.logExport('no-uuid'), e => e.code === 'validation');
+  });
+});
+
+describe('clinic.js: facturar sesiones', () => {
+  test('cada línea con cita lleva appointment_id; sin cita, no se envía la clave', async () => {
+    const { c, calls } = api({ respond: () => 'inv' });
+    await c.saveInvoiceDraft({ patientId: P, date: '2026-11-11', lines: [{ desc: 'Sesión', qty: 1, price: 6000, exempt: true, apptId: PRO }, { desc: 'Informe', qty: 1, price: 2000, exempt: false }] });
+    const [l1, l2] = calls[0].body.p_lines;
+    assert.deepEqual(l1, { description: 'Sesión', quantity: 1, unit_price_cents: 6000, tax_rate: 0, appointment_id: PRO });
+    assert.ok(!('appointment_id' in l2));
   });
 });

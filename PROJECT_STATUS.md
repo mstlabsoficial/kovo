@@ -69,7 +69,7 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 | IVA exento/21 %, retención IRPF manual | 2 | funciona; **criterio fiscal por validar** (`docs/fiscal`) |
 | Facturas rectificativas | 4 | botón bloqueado con aviso. Bloqueante |
 | Enviar factura por correo | 5 | sin proveedor de correo |
-| Facturación en lote / al cerrar sesión | 4 | bloqueado con aviso |
+| Facturar sesiones realizadas («Facturar ya» en la cita, «Facturar ahora» en Facturación) | 1 | solo psicóloga; crea **borradores** (no emite: la emisión la revisa ella y el criterio fiscal está pendiente). Cada línea va enlazada a su cita (`invoice_lines.appointment_id`): la BD impide facturar dos veces la misma sesión. Pacientes de empresa: una factura por paciente con todas sus sesiones. IVA según el servicio. E2E real. En esquemas sin la columna, la relación no se muestra |
 | Gastos (alta, edición, borrado) | 3 | solo importe total; sin desglose de IVA ni adjunto. **Borrar no funciona**: la BD no da permiso de borrado a la clínica (heredado del baseline) |
 | Gastos fijos mensuales | 1 | HTTP (permisos, idempotencia, llamadas simultáneas, mes borrado no se recrea) + E2E |
 | Libros CSV, PDF | 2 | generados en el navegador; no son libros oficiales |
@@ -85,7 +85,7 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 | Ficha del profesional propio | 1 | |
 | Alta de otros profesionales sin cuenta | 3 | RPC lista; sin interfaz |
 | Configuración accesible para administradores que no son psicólogos | 1 | en modo conectado, cualquier persona administradora abre Ajustes con las pestañas de la clínica (datos, equipo, preferencias, suscripción, soporte, auditoría); servicios, perfil y horario siguen siendo de psicólogas (también en la BD). E2E real |
-| Tema claro/oscuro por dispositivo | 3 | se guarda, pero la app heredada siempre pinta en claro |
+| Tema oscuro | — | el diseño v3 solo tiene tema claro (la pestaña «Apariencia» no está ni en la demo). Añadirlo es una decisión de diseño: pendiente (decisión 13) |
 
 ### SaaS
 | Funcionalidad | Estado | Nota |
@@ -124,13 +124,13 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 
 | Suite | Tipo | Resultado |
 |---|---|---|
-| Unitarias | Node, sin red | 221 |
+| Unitarias | Node, sin red | 222 |
 | Navegador con API **simulada** | Playwright | 32 |
 | Smoke demo / visual demo | Playwright | 1 / 22 (44 capturas, escritorio y móvil) |
 | pgTAP consolidado / clínico | PostgreSQL real local | 123 / 81 |
 | HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 129 |
 | Concurrencia / migración de datos / copia | real local | 10 / 27 / 5 |
-| E2E por recorridos y roles | navegador + pila real local | 8 |
+| E2E por recorridos y roles | navegador + pila real local | 9 |
 | E2E notas (suite heredada) | navegador + PostgreSQL/PostgREST locales | verde |
 
 Las pruebas simuladas comprueban la interfaz y el manejo de errores; **no** prueban seguridad. La
@@ -158,6 +158,8 @@ seguridad la prueban pgTAP, HTTP y E2E contra servicios reales.
 10. Aplicado por defecto, revisable: días cerrados por profesional (no hay cierre de toda la clínica); rol `agenda` de solo lectura con códigos; diagnósticos y pruebas con el régimen de las notas clínicas.
 11. Permitir borrar gastos a la clínica (hoy la BD no lo permite).
 12. Diagnósticos: ¿texto libre o codificados (CIE-10/DSM-5)? Hoy texto libre.
+13. Tema oscuro: el diseño v3 es solo claro. ¿Se diseña una versión oscura?
+14. Facturar sesiones: hoy siempre en borrador. ¿Se permite emitir directamente (modo «automático» de la demo) una vez validado el criterio fiscal?
 
 ## 5. Bloqueantes para vender
 

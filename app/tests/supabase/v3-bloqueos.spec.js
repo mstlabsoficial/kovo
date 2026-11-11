@@ -9,7 +9,7 @@ import { mockSupabase, open, click, act } from './helpers.js';
 
 const toast = page => page.locator('#toast');
 const NUEVAS = ['dictMic', 'dictAI', 'dictUndo', 'userForm', 'userSave', 'userDel', 'userAs',
-  'patientYes', 'patientNo', 'dailyNow', 'billNow'];
+  'patientYes', 'patientNo', 'dailyNow'];
 
 test('las acciones nuevas sin servidor avisan y no escriben nada', async ({ page }) => {
   const log = await mockSupabase(page, 'psychologa');
