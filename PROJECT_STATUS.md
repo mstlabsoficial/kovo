@@ -83,7 +83,7 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 | Roles psicóloga / recepción / gestoría / solo calendario (`agenda`) + administración | 1 | matriz en `db/README.md`; sin autoescalada; última administración protegida |
 | Datos de la clínica, ajustes, servicios y tarifas | 1 | |
 | Ficha del profesional propio | 1 | |
-| Alta de otros profesionales sin cuenta | 3 | RPC lista; sin interfaz |
+| Alta de otros profesionales sin cuenta | 3 | la BD lo permite (administración); **sin interfaz** porque la agenda v3 es de una sola profesional: falta decidir y diseñar la agenda con varias profesionales (decisión 15) |
 | Configuración accesible para administradores que no son psicólogos | 1 | en modo conectado, cualquier persona administradora abre Ajustes con las pestañas de la clínica (datos, equipo, preferencias, suscripción, soporte, auditoría); servicios, perfil y horario siguen siendo de psicólogas (también en la BD). E2E real |
 | Tema oscuro | — | el diseño v3 solo tiene tema claro (la pestaña «Apariencia» no está ni en la demo). Añadirlo es una decisión de diseño: pendiente (decisión 13) |
 
@@ -160,6 +160,7 @@ seguridad la prueban pgTAP, HTTP y E2E contra servicios reales.
 12. Diagnósticos: ¿texto libre o codificados (CIE-10/DSM-5)? Hoy texto libre.
 13. Tema oscuro: el diseño v3 es solo claro. ¿Se diseña una versión oscura?
 14. Facturar sesiones: hoy siempre en borrador. ¿Se permite emitir directamente (modo «automático» de la demo) una vez validado el criterio fiscal?
+15. Agenda con varias profesionales (elegir profesional en cada cita, vista por profesional): necesaria antes de dar de alta profesionales sin cuenta.
 
 ## 5. Bloqueantes para vender
 
