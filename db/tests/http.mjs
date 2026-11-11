@@ -307,6 +307,29 @@ export async function runHttp(stack) {
   const draft = await api.rpc(ges.token, 'save_invoice_draft', { p_org_id: A, p_patient_id: P1, p_issue_date: '2026-11-10', p_due_date: null,
     p_lines: [{ description: 'Sesión individual', quantity: 1, unit_price_cents: 6000, tax_rate: 0 }] });
   check('Facturación: gestoría crea un borrador', draft.ok, err(draft));
+
+  // Facturar sesiones: cada línea enlazada a su cita (invoice_lines.appointment_id, propuesta 20261108)
+  const pX = (await api.insert(titA.token, 'patients', { org_id: A, patient_code: 'AUTO', first_name: 'Paciente', last_name: 'Sintético Facturas' })).json[0].id;
+  const mkAppt = async (patient, status, h) => (await api.insert(titA.token, 'appointments', { org_id: A, patient_id: patient, status, price_cents: 6000,
+    starts_at: `2026-10-0${h}T09:00:00+02:00`, ends_at: `2026-10-0${h}T09:50:00+02:00` })).json?.[0]?.id;
+  const done1 = await mkAppt(pX, 'completed', 1), pending1 = await mkAppt(pX, 'scheduled', 2), otherPat = await mkAppt(P1, 'completed', 3);
+  const bill = (token, patient, appt, org = A) => api.rpc(token, 'save_invoice_draft', { p_org_id: org, p_patient_id: patient, p_issue_date: '2026-11-10', p_due_date: null,
+    p_lines: [{ description: 'Sesión', quantity: 1, unit_price_cents: 6000, tax_rate: 0, appointment_id: appt }] });
+  const b1 = await bill(titA.token, pX, done1);
+  const b1Line = await api.get(titA.token, `invoice_lines?select=appointment_id&invoice_id=eq.${b1.json}`);
+  check('Facturar sesión: el borrador guarda el enlace con la cita', b1.ok && b1Line.json?.[0]?.appointment_id === done1, err(b1Line));
+  const b2 = await bill(titA.token, pX, done1);
+  check('Facturar sesión: la misma sesión no se factura dos veces (índice único)', !b2.ok, err(b2));
+  const b3 = await bill(titA.token, pX, pending1);
+  check('Facturar sesión: una cita no realizada no se factura', !b3.ok, err(b3));
+  const b4 = await bill(titA.token, pX, otherPat);
+  check('Facturar sesión: la cita de otro paciente no entra en esta factura', !b4.ok, err(b4));
+  const b5 = await bill(titB.token, PB, done1, B);
+  check('Facturar sesión: otra clínica no puede facturar una cita ajena', !b5.ok, err(b5));
+  const b6 = await bill(rec.token, pX, done1);
+  check('Facturar sesión: recepción no crea facturas', !b6.ok, err(b6));
+  const directLine = await api.insert(titA.token, 'invoice_lines', { org_id: A, invoice_id: b1.json, appointment_id: done1, description: 'x', quantity: 1, unit_price_cents: 1, tax_rate: 0, line_total_cents: 1 });
+  check('Facturar sesión: tampoco se duplica escribiendo la línea directamente', !directLine.ok, err(directLine));
   const upd = await api.rpc(ges.token, 'update_invoice_draft', { p_invoice_id: draft.json, p_lines: [{ description: 'Sesión individual', quantity: 1, unit_price_cents: 6000, tax_rate: 0 }, { description: 'Informe', quantity: 1, unit_price_cents: 1000, tax_rate: 21 }] });
   const updRow = await api.get(ges.token, `invoices?select=subtotal_cents,tax_cents,total_cents&id=eq.${draft.json}`);
   check('Facturación: editar el borrador recalcula los totales en el servidor', upd.ok && updRow.json[0]?.subtotal_cents === 7000 && updRow.json[0]?.tax_cents === 210 && updRow.json[0]?.total_cents === 7210, err(updRow));

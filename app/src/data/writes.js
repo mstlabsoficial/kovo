@@ -111,6 +111,8 @@ export function classify(error, table) {
   if (pg === 'PGRST204') return new WriteError('unsupported', 'Este servidor todavía no admite esta función (falta aplicar una actualización de la base de datos). No se ha guardado nada.', { table, status });
   // Restricción de exclusión appointments_no_professional_overlap (o franjas de horario).
   if (pg === '23P01') return new WriteError('overlap', 'Esa hora se solapa con otra cita de la misma profesional. No se ha guardado nada.', { table, status });
+  // Bloqueo mutuo o conflicto de serialización: otra persona guardaba a la vez; la transacción se deshizo.
+  if (pg === '40P01' || pg === '40001') return new WriteError('busy', 'Otra persona estaba guardando a la vez y no se ha guardado nada. Vuelve a intentarlo.', { table, status });
   if (pg === '23505') return new WriteError('duplicate', 'Ya existe un registro con esos datos.', { table, status });
   // Citas con documentación clínica (trigger appointments_clinical_link de la propuesta clínica v2).
   if (pg === 'KN010') return new WriteError('clinical_link', 'Esta cita tiene una nota clínica: no se puede cambiar de paciente. No se ha guardado nada.', { table, status });

@@ -207,6 +207,9 @@ export function createKovoRepository({ request = supabaseRequest, getContext = n
         out.tests = await optional(`patient_tests?select=id,patient_id,name,test_date,result,document_id,retired_at&org_id=eq.${ctx.id}&order=test_date.asc`);
         out.diagnoses = await optional(`patient_diagnoses?select=id,patient_id,title,diagnosis_date,rationale,test_ids,author_name,retired_at&org_id=eq.${ctx.id}&order=diagnosis_date.asc`);
       }
+      // Facturar sesiones exige el enlace cita ↔ línea de factura (propuesta 20261108). Sin la columna,
+      // facturar no guardaría el enlace y la misma sesión podría facturarse otra vez: se bloquea.
+      if (ctx.role === 'psychologa') out.billingLink = Array.isArray(await optional(`invoice_lines?select=appointment_id&org_id=eq.${ctx.id}&limit=1`));
       if (['psychologa', 'gestoria'].includes(ctx.role))
         out.recurring = await optional(`recurring_expenses?select=*&org_id=eq.${ctx.id}&order=created_at.asc`);
       // Vacaciones y días cerrados: los de la profesional de la sesión (o, si no hay, los de la clínica).

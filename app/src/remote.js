@@ -47,7 +47,7 @@ function login(error=''){style();document.body.style.margin='0';document.body.st
 <div class="remote-login"><form class="remote-login-card" id="login-form">
 <div class="remote-brand"><span class="remote-mark"></span><span style="color:#0A0C0B">KOVO</span></div>
 <h1>Bienvenido de nuevo</h1><p class="remote-sub">Accede al espacio de trabajo de tu consulta.</p>
-<div class="remote-field"><label for="email">Correo electrónico</label><input id="email" name="email" type="email" autocomplete="username" placeholder="tu@consulta.com" required></div>
+<div class="remote-field"><label for="email">Correo electrónico</label><input id="email" name="email" type="email" autocomplete="username" placeholder="tu-correo@example.com" required></div>
 <div class="remote-field"><label for="password">Contraseña</label><input id="password" name="password" type="password" autocomplete="current-password" placeholder="Tu contraseña" required></div>
 <button class="remote-btn primary" style="width:100%;padding:12px" type="submit" ${busy?'disabled':''}>${busy?'Entrando…':'Iniciar sesión'}</button>
 ${error?`<div class="remote-error" role="alert">${esc(error)}</div>`:''}

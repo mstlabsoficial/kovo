@@ -28,10 +28,13 @@ export async function runConcurrency(stack) {
 
   // 2 · Same professional, same slot, 8 simultaneous bookings → exactly one
   const pro = (await api.get(owner.token, `professionals?org_id=eq.${org}&select=id`)).json[0].id;
-  const book = () => api.insert(tokens[Math.random() < .5 ? 0 : 1], 'appointments', { org_id: org, patient_id: patient, professional_id: pro, starts_at: '2026-12-02T10:00:00+01:00', ends_at: '2026-12-02T10:50:00+01:00', status: 'scheduled' });
-  const books = await Promise.all(Array.from({ length: 8 }, book));
-  check('Agenda: 8 reservas simultáneas del mismo hueco → solo 1 entra (restricción de exclusión)', books.filter(r => r.status === 201).length === 1, books.map(r => r.status).join(','));
-  check('Agenda: el resto recibe un conflicto explícito (23P01), no un error genérico', books.filter(r => r.status !== 201).every(r => r.json?.code === '23P01'), books.map(r => r.json?.code).join(','));
+  // Cinco rondas en huecos distintos: sin la serialización por profesional (20261112090500), PostgreSQL
+  // podía devolver bloqueos mutuos (40P01) en vez del conflicto; una sola ronda no siempre lo mostraba.
+  const book = slot => api.insert(tokens[Math.random() < .5 ? 0 : 1], 'appointments', { org_id: org, patient_id: patient, professional_id: pro, starts_at: `2026-12-0${slot}T10:00:00+01:00`, ends_at: `2026-12-0${slot}T10:50:00+01:00`, status: 'scheduled' });
+  const rounds = [];
+  for (const slot of [2, 3, 4, 5, 6]) rounds.push(await Promise.all(Array.from({ length: 8 }, () => book(slot))));
+  check('Agenda: 8 reservas simultáneas del mismo hueco → solo 1 entra (5 rondas, restricción de exclusión)', rounds.every(b => b.filter(r => r.status === 201).length === 1), rounds.map(b => b.map(r => r.status).join(',')).join(' | '));
+  check('Agenda: el resto recibe un conflicto explícito (23P01), nunca un bloqueo mutuo ni un error genérico', rounds.every(b => b.filter(r => r.status !== 201).every(r => r.json?.code === '23P01')), rounds.map(b => b.map(r => r.json?.code).join(',')).join(' | '));
 
   // 3 · Plan limit (Starter: 2 members, provisional) with 6 simultaneous invitations → exactly 1
   const invs = await Promise.all(Array.from({ length: 6 }, (_, i) => api.rpc(tokens[i % 2], 'invite_member', { p_org_id: org, p_email: `conc-${i}@kovo.test`, p_role: 'recepcion' })));

@@ -26,6 +26,7 @@ const PG_MESSAGES = {
   KC001: 'La clínica y el paciente de un registro clínico no se pueden cambiar.', KC002: 'Este registro ya está retirado y no se puede modificar.',
   KC003: 'Las pruebas o el documento deben ser del mismo paciente.',
   '23P01': 'Ese horario se solapa con otro de la misma profesional.',
+  '40P01': 'Otra persona estaba guardando a la vez y no se ha guardado nada. Vuelve a intentarlo.', '40001': 'Otra persona estaba guardando a la vez y no se ha guardado nada. Vuelve a intentarlo.',
   '23505': 'Ya existe un registro con esos datos.', '42501': 'Tu perfil no tiene permiso para esta acción.'
 };
 

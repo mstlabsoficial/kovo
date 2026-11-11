@@ -42,7 +42,9 @@ const PRO_FIELDS = { name: 'name', col: 'col', email: 'email', phone: 'phone' };
 const ROLE_LABEL = { psychologa: 'Psicóloga', recepcion: 'Recepción', gestoria: 'Gestoría', agenda: 'Solo calendario' };
 // Acciones de la interfaz v3 que dependen de tablas nuevas: si el servidor no las tiene, se explican.
 const NEEDS = { dxForm: 'clinicalAvailable', dxSave: 'clinicalAvailable', dxDel: 'clinicalAvailable', testForm: 'clinicalAvailable', testSave: 'clinicalAvailable', testDel: 'clinicalAvailable',
-  fxForm: 'fixedAvailable', fxSave: 'fixedAvailable', fxDel: 'fixedAvailable' };
+  fxForm: 'fixedAvailable', fxSave: 'fixedAvailable', fxDel: 'fixedAvailable',
+  billNow: 'billingLinkAvailable', billAll: 'billingLinkAvailable' };
+const NO_BILL_LINK = 'Este servidor todavía no relaciona citas y facturas (falta una actualización de la base de datos): facturar desde aquí podría duplicar sesiones. Crea la factura con «Nueva factura».';
 const PLAN_LABEL = { starter: 'Starter', professional: 'Professional', clinic: 'Clinic' };
 const SUB_LABEL = { trialing: 'periodo de prueba', active: 'activa', past_due: 'pago pendiente', unpaid: 'impagada', cancelled: 'cancelada', incomplete: 'incompleta' };
 const TZ = ['Europe/Madrid', 'Atlantic/Canary'];
@@ -419,7 +421,7 @@ export function installConnected(h) {
     const t = e.target.closest?.('[data-act]'); if (!t) return;
     const a = t.dataset.act;
     if (BLOCKED[a]) { e.stopPropagation(); e.preventDefault(); h.toast(BLOCKED[a]); return; }
-    if (NEEDS[a] && !S()[NEEDS[a]]) { e.stopPropagation(); e.preventDefault(); h.toast(NEEDS[a] === 'clinicalAvailable' ? NO_DX : NO_FIXED); return; }
+    if (NEEDS[a] && !S()[NEEDS[a]]) { e.stopPropagation(); e.preventDefault(); h.toast({ clinicalAvailable: NO_DX, fixedAvailable: NO_FIXED, billingLinkAvailable: NO_BILL_LINK }[NEEDS[a]]); return; }
     const f = ACT[a]; if (!f) return;
     e.stopPropagation(); e.preventDefault();
     f(t.dataset, t, e);

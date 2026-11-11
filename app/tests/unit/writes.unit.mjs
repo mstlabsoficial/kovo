@@ -5,7 +5,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { createKovoRepository } from '../../src/data/repository.js';
 import { createSupabaseSource } from '../../src/data/supabase.js';
-import { createEntityWriter, WriteError, WRITE_ROLES } from '../../src/data/writes.js';
+import { createEntityWriter, WriteError, WRITE_ROLES, classify } from '../../src/data/writes.js';
 import { madridToUtc } from '../../src/data/legacy-writes.js';
 import { MISSING_SERVICE_ID } from '../../src/data/legacy-state.js';
 import { ORG, ORG2, uuid, createFakeServer, RLS_WRITE } from '../fixtures/supabase-fake.mjs';
@@ -187,6 +187,12 @@ describe('reintentos y duplicados', () => {
 });
 
 describe('errores de red y sesión', () => {
+  test('bloqueo mutuo o serialización (40P01/40001): mensaje claro, no un error genérico', () => {
+    for (const code of ['40P01', '40001']) {
+      const e = classify(Object.assign(new Error('x'), { status: 400, details: { code } }), 'appointments');
+      assert.equal(e.code, 'busy'); assert.match(e.message, /a la vez/);
+    }
+  });
   test('sin conexión: error, nada guardado y estado intacto', async () => {
     const { server, S, W } = await setup();
     const before = JSON.stringify(server.db.patients), snap = snapshotOf(S);
@@ -319,6 +325,26 @@ describe('pacientes: finalizar y reanudar terapia', () => {
     await r.W.setPatientStatus({ patient: r.S.patients.find(x => x.id === P1), status: 'alta terapéutica' });
     const g = await setup('gestoria');
     await assert.rejects(g.W.setPatientStatus({ patient: { id: P1, updatedAt: 'x' }, status: 'alta terapéutica' }));
+  });
+});
+
+describe('facturar sesiones: solo si el esquema enlaza citas y facturas', () => {
+  test('con invoice_lines.appointment_id: disponible para la psicóloga', async () => {
+    assert.equal((await setup()).S.billingLinkAvailable, true);
+  });
+  test('esquema sin la columna (42703): no disponible, sin romper la carga', async () => {
+    const server = createFakeServer({ role: 'psychologa' });
+    const inner = server.request;
+    server.request = async (path, o) => {
+      if (/^invoice_lines\?select=appointment_id/.test(path)) { const e = new Error('column does not exist'); e.status = 400; e.details = { code: '42703' }; throw e; }
+      return inner(path, o);
+    };
+    const { S } = await setup('psychologa', { server });
+    assert.equal(S.billingLinkAvailable, false);
+    assert.ok(Array.isArray(S.invoices));
+  });
+  test('recepción no tiene facturación de sesiones', async () => {
+    assert.equal((await setup('recepcion')).S.billingLinkAvailable, false);
   });
 });
 

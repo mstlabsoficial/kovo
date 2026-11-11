@@ -218,6 +218,8 @@ export function toLegacyState({ collections, loaded = {}, report = [], context, 
     clinicalAvailable: Array.isArray(extras?.tests) && Array.isArray(extras?.diagnoses),
     fixed: Array.isArray(extras?.recurring) ? fixedFromRows(extras.recurring) : [],
     fixedAvailable: Array.isArray(extras?.recurring),
+    // Facturar sesiones (enlace cita ↔ factura en invoice_lines.appointment_id).
+    billingLinkAvailable: extras?.billingLink === true,
     professionals: pros.map(p => ({ ...p })),
     // Emisor de las facturas en modo conectado: el perfil fiscal de la clínica (organization_billing_profiles).
     issuer: extras?.billingProfile ? { name: extras.billingProfile.legal_name, nif: extras.billingProfile.tax_id,
