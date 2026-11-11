@@ -242,6 +242,81 @@ test('agenda v3: días cerrados, serie semanal, mover una cita y cancelar «esta
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
+test('v3: diagnóstico y prueba, gastos fijos, % deducible y rol «solo calendario» (sin nombres)', async ({ page, browser }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  const email = mail('v3clin');
+  const org = await clinicFor(email, 'Clínica Sintética V3');
+  const pt = (await svc('patients', { method: 'POST', body: { org_id: org.id, patient_code: 'AUTO', first_name: 'Paciente', last_name: 'Apellidoficticio', email: 'v3@correo-ejemplo.test' }, headers: { prefer: 'return=representation' } })).json[0];
+  const day = nextWeekday(2);
+  await svc('appointments', { method: 'POST', body: { org_id: org.id, patient_id: pt.id, starts_at: `${day}T10:00:00+01:00`, ends_at: `${day}T10:50:00+01:00`, status: 'scheduled' } });
+  await login(page, email);
+
+  // Prueba y diagnóstico (ficha › Clínico)
+  await act(page, 'openPatient', { id: pt.id, tab: 'clinico' });
+  await act(page, 'testForm', { p: pt.id });
+  await expect(page.locator('#tf-f')).toHaveCount(0);   // el archivo va a Documentos (Storage privado)
+  await fill(page, { 'tf-n': 'Inventario sintético', 'tf-d': '2026-10-01', 'tf-r': '24 puntos (ficticio)' });
+  await click(page, '.mod [data-act="testSave"]');
+  await expect(toast(page)).toContainText('Prueba guardada');
+  const test1 = (await svc(`patient_tests?select=id,result&org_id=eq.${org.id}`)).json;
+  expect(test1).toHaveLength(1);
+  await act(page, 'dxForm', { p: pt.id });
+  await fill(page, { 'dx-t': 'Diagnóstico sintético', 'dx-x': 'Razonamiento ficticio' });
+  await page.locator(`[data-dxt="${test1[0].id}"]`).check();
+  await click(page, '.mod [data-act="dxSave"]');
+  await expect(toast(page)).toContainText('Diagnóstico guardado');
+  const dx = (await svc(`patient_diagnoses?select=id,test_ids,retired_at&org_id=eq.${org.id}`)).json;
+  expect(dx).toHaveLength(1);
+  expect(dx[0].test_ids).toEqual([test1[0].id]);
+  await expect(page.locator('#view')).toContainText('Diagnóstico sintético');
+  await act(page, 'dxForm', { p: pt.id, id: dx[0].id });
+  await click(page, '.mod [data-act="dxDel"]');
+  await expect(toast(page)).toContainText('retirado');
+  expect((await svc(`patient_diagnoses?select=retired_at&id=eq.${dx[0].id}`)).json[0].retired_at).not.toBeNull();
+  await expect(page.locator('#view')).not.toContainText('Diagnóstico sintético');
+
+  // Gasto fijo: al guardarlo el servidor apunta el mes en curso (día 1)
+  await act(page, 'go', { v: 'contabilidad' });
+  await act(page, 'fxForm');
+  await fill(page, { 'fx-n': 'Alquiler sintético', 'fx-c': 'Alquiler', 'fx-d': '1', 'fx-b': '100', 'fx-i': '21', 'fx-r': '0' });
+  await click(page, '.mod [data-act="fxSave"]');
+  await expect(toast(page)).toContainText('1 mes apuntado');
+  const fx = (await svc(`recurring_expenses?select=id&org_id=eq.${org.id}`)).json;
+  const gen = (await svc(`expenses?select=amount_cents,recurring_id&org_id=eq.${org.id}`)).json;
+  expect(gen).toEqual([{ amount_cents: 12100, recurring_id: fx[0].id }]);
+  // Al volver a entrar no se duplica
+  await page.reload(); await waitApp(page);
+  expect((await svc(`expenses?select=id&org_id=eq.${org.id}`)).json).toHaveLength(1);
+  // % deducible por categoría: se guarda en los ajustes de la clínica
+  await act(page, 'go', { v: 'contabilidad' });
+  await page.evaluate(() => { document.getElementById('sec-fijos').open = true; });
+  await page.locator('[data-ded="Alquiler"]').waitFor();
+  await page.fill('[data-ded="Alquiler"]', '50'); await page.dispatchEvent('[data-ded="Alquiler"]', 'change');
+  await expect(toast(page)).toContainText('Porcentaje actualizado');
+  expect((await svc(`organizations?select=settings&id=eq.${org.id}`)).json[0].settings.ded).toEqual({ Alquiler: 50 });
+
+  // Rol «solo calendario»: ve la cita con el código, nunca el nombre
+  const agMail = mail('solo-calendario');
+  const inv = await api('/rest/v1/rpc/invite_member', { method: 'POST', token: org.token, body: { p_org_id: org.id, p_email: agMail, p_role: 'agenda' } });
+  expect(inv.ok).toBe(true);
+  await createUser(agMail, 'Persona Sintética Agenda');
+  const acc = await api('/rest/v1/rpc/accept_invitation', { method: 'POST', token: await tokenFor(agMail), body: { p_token: inv.json.token } });
+  expect(acc.json.role).toBe('agenda');
+  const ctx2 = await browser.newContext(); const b = await ctx2.newPage();
+  const errB = []; b.on('pageerror', e => errB.push(e.message));
+  const rest = []; b.on('request', r => { const u = r.url(); if (u.includes('/rest/v1/')) rest.push(u.split('/rest/v1/')[1].split('?')[0]); });
+  await login(b, agMail);
+  const views = await b.$$eval('#nav [data-act="go"]', els => els.map(e => e.dataset.v));
+  expect(views).toEqual(['calendario']);
+  await act(b, 'pickDay', { d: day });
+  await expect(b.locator('#view')).toContainText(pt.patient_code);
+  expect(await b.locator('body').innerText()).not.toContain('Apellidoficticio');
+  expect(rest.filter(t => ['patients', 'appointments', 'clinical_notes', 'patient_tests', 'invoices', 'expenses'].includes(t))).toEqual([]);
+  expect(errB, errB.join('\n')).toEqual([]);
+  await ctx2.close();
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
 test('equipo: invitación por enlace, alta de recepción con el correo invitado y permisos por rol', async ({ browser }) => {
   const adminEmail = mail('admin-eq');
   const { id: orgId } = await clinicFor(adminEmail, 'Clínica Sintética Equipo');

@@ -21,14 +21,15 @@ todavía no guarda está oculto o bloqueado con aviso; nunca aparenta guardar (`
 | Vacaciones y días cerrados | sí | **conectado** (`professional_time_off`, días completos de Madrid; los de la profesional de la sesión) |
 | Mover una cita arrastrando | sí | **conectado** (misma escritura que «Reprogramar»; el solape lo rechaza la BD) |
 | Citas repetidas (series) y cancelar serie | sí | **conectado** con la migración local `20261112090000_appointment_series` (todo o nada). **No aplicada en producción**: allí avisa de que falta la actualización |
-| Diagnósticos y pruebas en la ficha | sí | bloqueado con aviso |
-| Gastos fijos mensuales y % deducible | sí | bloqueado con aviso |
-| Usuarios de ejemplo y perfil «solo calendario» | sí | no aparecen; el equipo real sigue en Ajustes › Equipo (el rol `agenda` no existe en BD) |
+| Diagnósticos y pruebas en la ficha | sí | **conectado** (`20261112090100`): solo psicóloga, se retiran sin borrarse, auditados; el archivo de la prueba va a Documentos |
+| Gastos fijos mensuales y % deducible | sí | **conectado** (`20261112090200`): el servidor apunta los meses debidos sin duplicar; % deducible en los ajustes de la clínica |
+| Perfil «solo calendario» | sí | **conectado** como rol `agenda` (`20261112090300`): se invita desde Ajustes › Equipo; ve horas, estado y código del paciente, nunca nombres ni datos clínicos; no escribe |
+| Usuarios de ejemplo | sí | no aparecen; el equipo real está en Ajustes › Equipo |
 | Dictado por voz y redacción con IA | simulado | desactivado: el contenido clínico no sale del navegador |
 | Apartado «Recordatorio para la próxima sesión» y marca de riesgo en la nota | sí | no se ofrecen (no están en el catálogo de apartados del servidor) |
 | Confirmación diaria por correo, respuesta del paciente, facturar ahora | simulado | bloqueado (sin proveedor de correo) |
 
-Siguiente etapa: gastos fijos, diagnósticos/pruebas y rol `agenda` (necesitan tablas nuevas y decisiones: ver §4).
+Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servidor que no las tenga, esas funciones avisan de que falta la actualización y no guardan nada.
 
 ## 1. Clasificación de funcionalidades
 
@@ -68,7 +69,8 @@ Siguiente etapa: gastos fijos, diagnósticos/pruebas y rol `agenda` (necesitan t
 | Facturas rectificativas | 4 | botón bloqueado con aviso. Bloqueante |
 | Enviar factura por correo | 5 | sin proveedor de correo |
 | Facturación en lote / al cerrar sesión | 4 | bloqueado con aviso |
-| Gastos (alta, edición, borrado) | 3 | solo importe total; sin desglose de IVA ni adjunto |
+| Gastos (alta, edición, borrado) | 3 | solo importe total; sin desglose de IVA ni adjunto. **Borrar no funciona**: la BD no da permiso de borrado a la clínica (heredado del baseline) |
+| Gastos fijos mensuales | 1 | HTTP (permisos, idempotencia, llamadas simultáneas, mes borrado no se recrea) + E2E |
 | Libros CSV, PDF | 2 | generados en el navegador; no son libros oficiales |
 | Conciliación bancaria, nóminas, obligaciones fiscales | 4 | bloqueados con aviso en modo conectado |
 | Verifactu / registro AEAT | 4 | pendiente de criterio fiscal |
@@ -77,7 +79,7 @@ Siguiente etapa: gastos fijos, diagnósticos/pruebas y rol `agenda` (necesitan t
 | Funcionalidad | Estado | Nota |
 |---|---|---|
 | Invitaciones (enlace, caduca, correo debe coincidir, revocar) | 1 | el enlace se copia a mano: **no se envía por correo** (5) |
-| Roles psicóloga / recepción / gestoría + administración | 1 | matriz en `db/README.md`; sin autoescalada; última administración protegida |
+| Roles psicóloga / recepción / gestoría / solo calendario (`agenda`) + administración | 1 | matriz en `db/README.md`; sin autoescalada; última administración protegida |
 | Datos de la clínica, ajustes, servicios y tarifas | 1 | |
 | Ficha del profesional propio | 1 | |
 | Alta de otros profesionales sin cuenta | 3 | RPC lista; sin interfaz |
@@ -121,13 +123,13 @@ Siguiente etapa: gastos fijos, diagnósticos/pruebas y rol `agenda` (necesitan t
 
 | Suite | Tipo | Resultado |
 |---|---|---|
-| Unitarias | Node, sin red | 211 |
+| Unitarias | Node, sin red | 215 |
 | Navegador con API **simulada** | Playwright | 32 |
 | Smoke demo / visual demo | Playwright | 1 / 22 (44 capturas, escritorio y móvil) |
 | pgTAP consolidado / clínico | PostgreSQL real local | 123 / 81 |
-| HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 105 |
+| HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 124 |
 | Concurrencia / migración de datos / copia | real local | 10 / 27 / 5 |
-| E2E por recorridos y roles | navegador + pila real local | 7 |
+| E2E por recorridos y roles | navegador + pila real local | 8 |
 | E2E notas (suite heredada) | navegador + PostgreSQL/PostgREST locales | verde |
 
 Las pruebas simuladas comprueban la interfaz y el manejo de errores; **no** prueban seguridad. La
@@ -152,9 +154,9 @@ seguridad la prueban pgTAP, HTTP y E2E contra servicios reales.
 7. Imponer el horario en la base de datos.
 8. Criterios fiscales (`docs/fiscal`) y legales (`docs/legal`).
 9. Subir la rama y ejecutar CI.
-10. Días cerrados: hoy son de cada profesional. ¿Hace falta además un «cierre de la clínica» que afecte a todo el equipo?
-11. Rol `agenda` (solo calendario): ¿qué ve exactamente (códigos de paciente, sin nombres) y si puede crear o mover citas? Requiere ampliar el rol en BD.
-12. Diagnósticos (CIE-10/DSM) y pruebas: son datos clínicos; mismo régimen que las notas (solo psicóloga, auditoría, sin IA).
+10. Aplicado por defecto, revisable: días cerrados por profesional (no hay cierre de toda la clínica); rol `agenda` de solo lectura con códigos; diagnósticos y pruebas con el régimen de las notas clínicas.
+11. Permitir borrar gastos a la clínica (hoy la BD no lo permite).
+12. Diagnósticos: ¿texto libre o codificados (CIE-10/DSM-5)? Hoy texto libre.
 
 ## 5. Bloqueantes para vender
 

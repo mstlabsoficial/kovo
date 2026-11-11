@@ -452,7 +452,8 @@ describe('copias que no deben desincronizarse', () => {
     appointments: ['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'],
     clinical_notes: ['draft', 'signed', 'rectified'],
     invoices: ['draft', 'issued', 'paid', 'partially_paid', 'void'],
-    memberships: ['psychologa', 'recepcion', 'gestoria']
+    // + 'agenda' (solo calendario): db/migrations/20261112090300_agenda_role.sql
+    memberships: ['psychologa', 'recepcion', 'gestoria', 'agenda']
   };
   test('cada valor permitido por la BD tiene traducción (y ninguno más)', () => {
     assert.deepEqual(Object.keys(A.PATIENT_STATUS).sort(), DB_CHECK.patients.slice().sort());

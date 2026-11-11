@@ -227,7 +227,9 @@ describe('legacy-state: forma del estado', () => {
   });
   test('ajustes y disponibilidad por defecto iguales a los de legacy.js', () => {
     const settings = new Function(`return ${legacySrc.match(/settings:(\{[^}]*\})/)[1]}`)();
-    assert.deepEqual({ ...DEFAULT_SETTINGS }, settings);
+    const { ded, ...rest } = DEFAULT_SETTINGS;   // ded: % deducible por categoría (S.ded en legacy.js), vacío por defecto
+    assert.deepEqual(rest, settings);
+    assert.deepEqual(ded, {});
     const avail = new Function(`return ${legacySrc.match(/const DEF_AVAIL=(\{[^;]*\});/)[1]}`)();
     assert.deepEqual(toLegacyState({ collections: {}, context: ctx('gestoria'), today: TODAY }).state.avail, avail);
   });

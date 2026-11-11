@@ -154,6 +154,72 @@ export async function runHttp(stack) {
   const left = await api.get(titA.token, `appointments?select=status&series_id=eq.${series}&order=starts_at.asc`);
   check('Series: «esta y las siguientes» cancela solo desde esa fecha', cut.ok && cut.json.length === 2 && left.json.map(r => r.status).join() === 'scheduled,scheduled,cancelled,cancelled', err(cut));
 
+  // ---------------------------------------------------------------- Interfaz v3: diagnósticos y pruebas (datos clínicos)
+  const P8 = p8.json[0].id;
+  const tst = await api.insert(titA.token, 'patient_tests', { org_id: A, patient_id: P1, name: 'Inventario sintético', test_date: '2026-10-01', result: '24 puntos (ficticio)' });
+  check('Clínico: la psicóloga registra una prueba', tst.status === 201 && tst.json[0].created_by === titA.id, err(tst));
+  const TST = tst.json[0].id;
+  const tstRec = await api.insert(rec.token, 'patient_tests', { org_id: A, patient_id: P1, name: 'x', test_date: '2026-10-01' });
+  const seeRec = await api.get(rec.token, `patient_tests?select=id&org_id=eq.${A}`);
+  const seeGes = await api.get(ges.token, `patient_diagnoses?select=id&org_id=eq.${A}`);
+  const seeB = await api.get(titB.token, `patient_tests?select=id&id=eq.${TST}`);
+  check('Clínico: recepción no registra pruebas; recepción, gestoría y otra clínica no ven nada', tstRec.status === 403 && seeRec.json.length === 0 && seeGes.json.length === 0 && seeB.json.length === 0, err(tstRec));
+  const dx = await api.insert(titA.token, 'patient_diagnoses', { org_id: A, patient_id: P1, title: 'Diagnóstico sintético', diagnosis_date: '2026-10-02', rationale: 'Texto ficticio', test_ids: [TST], author_name: 'Titular A' });
+  check('Clínico: diagnóstico con la prueba en la que se basa', dx.status === 201 && dx.json[0].test_ids[0] === TST, err(dx));
+  const dxWrong = await api.insert(titA.token, 'patient_diagnoses', { org_id: A, patient_id: P8, title: 'X', diagnosis_date: '2026-10-02', test_ids: [TST] });
+  check('Clínico: no se puede citar la prueba de otro paciente (KC003)', !dxWrong.ok && dxWrong.json?.code === 'KC003', err(dxWrong));
+  const dxDel = await api.del(titA.token, `patient_diagnoses?id=eq.${dx.json[0].id}`);
+  const dxStill = await api.get(titA.token, `patient_diagnoses?select=id&id=eq.${dx.json[0].id}`);
+  check('Clínico: un diagnóstico no se borra físicamente', !(dxDel.ok && dxDel.json?.length) && dxStill.json.length === 1, err(dxDel));
+  const dxRet = await api.patch(titA.token, `patient_diagnoses?id=eq.${dx.json[0].id}`, { retired_at: new Date().toISOString() });
+  const dxAfter = await api.patch(titA.token, `patient_diagnoses?id=eq.${dx.json[0].id}`, { title: 'Cambio' });
+  check('Clínico: se retira y, retirado, ya no se modifica (KC002)', dxRet.ok && dxRet.json.length === 1 && !dxAfter.ok && dxAfter.json?.code === 'KC002', err(dxAfter));
+  const dxAudit = await api.get(titA.token, `audit_log?select=action,metadata&entity_type=eq.patient_diagnoses&entity_id=eq.${dx.json[0].id}&order=created_at.asc`);
+  check('Clínico: auditado con nombres de campo, sin contenido', dxAudit.json?.length === 2 && JSON.stringify(dxAudit.json[1].metadata.changed) === '["retired_at"]' && !JSON.stringify(dxAudit.json).includes('sintético'), err(dxAudit));
+
+  // ---------------------------------------------------------------- Interfaz v3: gastos fijos
+  const madridToday = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+  const monthBack = k => { const [y, m] = madridToday.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 - k, 1)); return d.toISOString().slice(0, 10); };
+  const fx = await api.insert(titA.token, 'recurring_expenses', { org_id: A, name: 'Alquiler sintético', category: 'Alquiler', day_of_month: 1, base_cents: 10000, vat_pct: 21, retention_pct: 0, since_month: monthBack(2) });
+  check('Gastos fijos: la psicóloga configura uno', fx.status === 201, err(fx));
+  const fxGes = await api.insert(ges.token, 'recurring_expenses', { org_id: A, name: 'x', category: 'Otros', day_of_month: 1, base_cents: 1 });
+  const fxGesRead = await api.get(ges.token, `recurring_expenses?select=id&org_id=eq.${A}`);
+  const fxRec = await api.get(rec.token, `recurring_expenses?select=id&org_id=eq.${A}`);
+  check('Gastos fijos: gestoría los ve pero no los cambia; recepción no los ve', fxGes.status === 403 && fxGesRead.json.length === 1 && fxRec.json.length === 0, err(fxGes));
+  const ap1 = await api.rpc(titA.token, 'apply_recurring_expenses', { p_org_id: A });
+  const ap2 = await api.rpc(ges.token, 'apply_recurring_expenses', { p_org_id: A });
+  const gen = await api.get(titA.token, `expenses?select=id,amount_cents,recurring_month&recurring_id=eq.${fx.json[0].id}&order=recurring_month.asc`);
+  check('Gastos fijos: se apuntan los 3 meses debidos (base + IVA) y repetirlo no duplica', ap1.json === 3 && ap2.json === 0 && gen.json.length === 3 && gen.json.every(e => e.amount_cents === 12100), err(gen));
+  const [both1, both2] = await Promise.all([api.rpc(titA.token, 'apply_recurring_expenses', { p_org_id: A }), api.rpc(ges.token, 'apply_recurring_expenses', { p_org_id: A })]);
+  // La clínica no puede borrar gastos (sin GRANT DELETE en el baseline); se borra con la clave de
+  // servicio para comprobar que, si un mes generado desaparece, no se vuelve a crear.
+  const delOwn = await api.del(titA.token, `expenses?id=eq.${gen.json[1].id}`);
+  check('Gastos: la clínica no borra gastos (sin permiso de borrado en la BD)', !delOwn.ok, err(delOwn));
+  const delGen = await api.call(`/rest/v1/expenses?id=eq.${gen.json[1].id}`, { method: 'DELETE', token: api.service, headers: { apikey: api.service, prefer: 'return=representation' } });
+  const ap3 = await api.rpc(titA.token, 'apply_recurring_expenses', { p_org_id: A });
+  const gen2 = await api.get(titA.token, `expenses?select=id&recurring_id=eq.${fx.json[0].id}`);
+  check('Gastos fijos: un mes borrado no vuelve a crearse; llamadas simultáneas no duplican', both1.json === 0 && both2.json === 0 && ap3.json === 0 && gen2.json.length === 2, [err(delGen), err(gen2), err(both1), err(both2)].join(' | '));
+  const apRec = await api.rpc(rec.token, 'apply_recurring_expenses', { p_org_id: A });
+  const apB = await api.rpc(titB.token, 'apply_recurring_expenses', { p_org_id: A });
+  check('Gastos fijos: recepción y otra clínica no pueden apuntarlos', !apRec.ok && !apB.ok, err(apB));
+
+  // ---------------------------------------------------------------- Interfaz v3: rol «solo calendario»
+  const invAg = await api.rpc(titA.token, 'invite_member', { p_org_id: A, p_email: 'agenda-a@kovo.test', p_role: 'agenda' });
+  const ag = await newUser(api, 'agenda-a@kovo.test');
+  const accAg = await api.rpc(ag.token, 'accept_invitation', { p_token: invAg.json?.token });
+  check('Agenda: se invita y se acepta el rol «solo calendario»', invAg.ok && accAg.ok && accAg.json.role === 'agenda', err(accAg));
+  const cal = await api.rpc(ag.token, 'agenda_calendar', { p_org_id: A, p_from: '2027-02-01', p_to: '2027-03-01' });
+  check('Agenda: ve las citas con el código del paciente', cal.ok && cal.json.length >= 4 && cal.json.every(r => /^P-\d{5}$/.test(r.patient_code)), err(cal));
+  check('Agenda: sin nombres, contacto ni notas en la respuesta', cal.ok && !JSON.stringify(cal.json).includes('Sintético') && cal.json.every(r => !('first_name' in r) && !('administrative_note' in r)), JSON.stringify(cal.json?.[0]));
+  const agReads = await Promise.all(['patients', 'appointments', 'clinical_notes', 'patient_tests', 'invoices', 'expenses', 'patient_documents'].map(t => api.get(ag.token, `${t}?select=id&org_id=eq.${A}`)));
+  check('Agenda: no lee pacientes, citas, notas, pruebas, facturas, gastos ni documentos', agReads.every(r => r.ok ? r.json.length === 0 : true), agReads.map(err).join(' | '));
+  const agWrite = await api.insert(ag.token, 'appointments', { org_id: A, patient_id: P1, starts_at: '2027-05-01T10:00:00+02:00', ends_at: '2027-05-01T10:50:00+02:00' });
+  check('Agenda: no crea citas', agWrite.status === 403, err(agWrite));
+  const calGes = await api.rpc(ges.token, 'agenda_calendar', { p_org_id: A, p_from: '2027-02-01', p_to: '2027-03-01' });
+  const calB = await api.rpc(titB.token, 'agenda_calendar', { p_org_id: A, p_from: '2027-02-01', p_to: '2027-03-01' });
+  check('Agenda: gestoría y otra clínica no consultan el calendario', !calGes.ok && !calB.ok, err(calB));
+  await api.rpc(titA.token, 'update_membership', { p_membership_id: accAg.json.membership_id ?? accAg.json.id, p_active: false });
+
   // ---------------------------------------------------------------- Storage (real Supabase Storage)
   const docName = `${randomUUID()}-consentimiento.pdf`;
   const docPath = `${A}/${P1}/${docName}`;

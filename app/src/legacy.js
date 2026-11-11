@@ -318,7 +318,7 @@ function runDaily(force){
 }
 
 /* ===== porcentaje deducible ===== */
-const dedCat=c=>(S.ded||{})[c]??100;
+const dedCat=c=>((W?S.settings.ded:S.ded)||{})[c]??100;
 const dedOf=e=>e.ded!=null?e.ded:dedCat(e.cat);
 const dedAmt=e=>Math.round((e.base+e.iva)*dedOf(e)/100);
 const pctVal=id=>{const v=val(id);return v===''?null:Math.min(100,Math.max(0,Number(v)||0))};
@@ -341,7 +341,7 @@ function runFixed(){
 /* ===== datos nuevos sobre el estado guardado ===== */
 function migrate(){
   // Modo conectado: nada de datos de ejemplo ni automatismos locales. Lo nuevo sin servidor queda vacío.
-  if(W){S.settings=Object.assign({dailyHour:'08:00'},S.settings,{dailyConfirm:false});S.ded={};S.fixedSkip={};S.users=[];S.fixed=[];S.blocks=S.blocks||[];S.outbox=S.outbox||[];return}
+  if(W){S.settings=Object.assign({dailyHour:'08:00'},S.settings,{dailyConfirm:false});S.ded=S.settings.ded||{};S.fixedSkip={};S.users=[];S.fixed=S.fixed||[];S.blocks=S.blocks||[];S.outbox=S.outbox||[];return}
   S.settings=Object.assign({dailyConfirm:true,dailyHour:'08:00'},S.settings);
   S.ded=S.ded||{};S.fixedSkip=S.fixedSkip||{};S.cal.date=nextWorkDay();
   if(!S.users)S.users=[{id:'u1',titular:true,name:'',email:'',role:'psicologa'},{id:'u2',name:'Ana Ruiz Prieto (ficticia)',email:'recepcion@ejemplo.es',role:'recepcion'},{id:'u3',name:'Gestoría Ejemplo',email:'gestor@gestoria-ejemplo.es',role:'gestoria'},{id:'u4',name:'Compañero de consulta (ficticio)',email:'companero@ejemplo.es',role:'agenda'}];
@@ -1764,7 +1764,7 @@ Dictado: «${txt}»`;
     audit(`Diagnóstico de ${p.code} guardado`);closeModal();render();toast('Diagnóstico guardado')},
   dxDel:d=>{const p=P(d.p);p.dx=p.dx.filter(x=>x.id!==d.id);audit(`Diagnóstico de ${p.code} eliminado`);closeModal();render();toast('Diagnóstico eliminado')},
   testForm:d=>{if(S.role!=='psicologa')return;const p=P(d.p);const t=d.id?(p.tests||[]).find(y=>y.id===d.id):null;
-    modal(t?'Editar prueba':'Añadir prueba',`<div class="form"><label class="field full"><span>Nombre de la prueba</span><input type="text" id="tf-n" value="${esc(t?t.name:'')}"></label><label class="field"><span>Fecha</span><input type="date" id="tf-d" value="${t?t.date:TODAY}"></label><label class="field"><span>Archivo (PDF o foto)</span><input type="file" id="tf-f" accept="application/pdf,image/*"></label><label class="field full"><span>Resultados</span><textarea id="tf-r">${esc(t?t.result:'')}</textarea></label>${t&&t.file?`<p class="muted small full" style="margin:0">Archivo actual: ${esc(t.file)}. Si eliges otro, lo sustituye.</p>`:''}</div>`,
+    modal(t?'Editar prueba':'Añadir prueba',`<div class="form"><label class="field full"><span>Nombre de la prueba</span><input type="text" id="tf-n" value="${esc(t?t.name:'')}"></label><label class="field"><span>Fecha</span><input type="date" id="tf-d" value="${t?t.date:TODAY}"></label>${W?'<p class="muted small full" style="margin:0">El archivo de la prueba se sube en la pestaña Documentos de la ficha (almacenamiento privado).</p>':'<label class="field"><span>Archivo (PDF o foto)</span><input type="file" id="tf-f" accept="application/pdf,image/*"></label>'}<label class="field full"><span>Resultados</span><textarea id="tf-r">${esc(t?t.result:'')}</textarea></label>${t&&t.file?`<p class="muted small full" style="margin:0">Archivo actual: ${esc(t.file)}. Si eliges otro, lo sustituye.</p>`:''}</div>`,
     `${t?`<button class="btn danger" data-act="testDel" data-p="${p.id}" data-id="${t.id}">Eliminar</button>`:''}<button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="testSave" data-p="${p.id}" data-id="${t?t.id:''}">Guardar</button>`)},
   testSave:async(d,btn)=>{const p=P(d.p);const name=val('tf-n').trim();if(!name){toast('Indica el nombre de la prueba');return}
     btn.disabled=true;btn.textContent='Guardando…';const f=document.getElementById('tf-f').files[0];let file=null,url=null,isImg=false;
@@ -1801,7 +1801,7 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='pdayIn'){S.sel.pday=t.value||null;document.getElementById('plist').innerHTML=patientList();return}
   if(t.id==='role'||t.id==='role2'||t.id==='role3'){setUser(t.value);return}
-  if(W&&(t.dataset.urole||t.dataset.ded||t.id==='dailyHour')){render();toast('Este ajuste todavía no se guarda en el servidor. No se ha cambiado nada.');return}
+  if(W&&(t.dataset.urole||t.id==='dailyHour')){render();toast('Este ajuste todavía no se guarda en el servidor. No se ha cambiado nada.');return}
   if(t.dataset.urole){const u=S.users.find(x=>x.id===t.dataset.urole);u.role=t.value;audit(`Perfil de «${u.name}» cambiado a ${ROLE_L[u.role]}`);render();toast('Perfil actualizado');return}
   if(t.dataset.ded){S.ded[t.dataset.ded]=Math.min(100,Math.max(0,Number(t.value)||0));audit(`Porcentaje deducible de ${t.dataset.ded} editado`);render();toast('Porcentaje actualizado');return}
   if(t.id==='dailyHour'){if(t.value)S.settings.dailyHour=t.value;audit('Hora del correo de la mañana editada');render();toast('Hora actualizada');return}

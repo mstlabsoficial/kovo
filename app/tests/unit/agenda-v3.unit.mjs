@@ -4,7 +4,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { createEntityWriter } from '../../src/data/writes.js';
 import { createLegacyWrites, madridToUtc } from '../../src/data/legacy-writes.js';
-import { blocksFromRows, annotateSeries } from '../../src/data/legacy-state.js';
+import { blocksFromRows, annotateSeries, clinicalFromRows, fixedFromRows, dedFromDb, settingsFromDb } from '../../src/data/legacy-state.js';
+import { agendaRows } from '../../src/data/repository.js';
 import { ORG, uuid } from '../fixtures/supabase-fake.mjs';
 
 const ctx = { id: ORG, role: 'recepcion' };
@@ -81,5 +82,34 @@ describe('días cerrados', () => {
       { id: 'a', professional_id: 'p', starts_at: madridToUtc('2026-10-24', 0), ends_at: madridToUtc('2026-10-26', 0), reason: null }
     ];
     assert.deepEqual(blocksFromRows(rows).map(b => [b.from, b.to, b.label]), [['2026-10-24', '2026-10-25', 'Cerrado'], ['2026-12-24', '2027-01-06', 'Navidad']]);
+  });
+});
+
+describe('diagnósticos, pruebas, gastos fijos y rol «solo calendario»', () => {
+  test('lo retirado no se muestra y un diagnóstico no cita pruebas retiradas', () => {
+    const c = clinicalFromRows(
+      [{ id: 't1', patient_id: 'p', name: 'A', test_date: '2026-10-01', result: 'r' }, { id: 't2', patient_id: 'p', name: 'B', test_date: '2026-10-02', retired_at: 'x' }],
+      [{ id: 'd1', patient_id: 'p', title: 'D', diagnosis_date: '2026-10-03', rationale: '', test_ids: ['t1', 't2'], author_name: 'X' }, { id: 'd2', patient_id: 'p', title: 'R', diagnosis_date: '2026-10-03', retired_at: 'x' }]);
+    assert.deepEqual(c.get('p').tests.map(t => t.id), ['t1']);
+    assert.deepEqual(c.get('p').dx.map(d => [d.id, d.tests]), [['d1', ['t1']]]);
+  });
+  test('gastos fijos: porcentajes numéricos y mes de inicio AAAA-MM', () => {
+    const [f] = fixedFromRows([{ id: 'f', name: 'Luz', category: 'Suministros', day_of_month: 5, base_cents: 3900, vat_pct: '21.00', retention_pct: '0.00', deductible_pct: null, active: true, since_month: '2026-09-01' }]);
+    assert.deepEqual([f.ivaPct, f.retPct, f.ded, f.since, f.day], [21, 0, null, '2026-09', 5]);
+  });
+  test('% deducible: solo números 0–100; ajustes nunca comparten el objeto por defecto', () => {
+    assert.deepEqual(dedFromDb({ Alquiler: 50, X: 150, Y: 'a', Z: -1 }), { Alquiler: 50 });
+    const a = settingsFromDb(null), b = settingsFromDb(null);
+    a.ded.Alquiler = 10;
+    assert.deepEqual(b.ded, {});
+  });
+  test('calendario del rol agenda: pacientes solo con código, sin nombre ni contacto', () => {
+    const { appointments, patients } = agendaRows([
+      { id: uuid(1), patient_id: uuid(2), patient_code: 'P-00001', starts_at: '2026-11-16T09:00:00Z', ends_at: '2026-11-16T09:50:00Z', status: 'scheduled', first_name: 'NO' },
+      { id: uuid(3), patient_id: uuid(2), patient_code: 'P-00001', starts_at: '2026-11-17T09:00:00Z', ends_at: '2026-11-17T09:50:00Z', status: 'scheduled' },
+      { id: 'mal', patient_id: uuid(2) }], ORG);
+    assert.equal(appointments.length, 2);
+    assert.deepEqual(patients, [{ id: uuid(2), org_id: ORG, patient_code: 'P-00001', first_name: null, last_name: null, email: null, phone: null, status: 'active', profile_data: {} }]);
+    assert.ok(appointments.every(a => a.administrative_note === null && a.location === null));
   });
 });

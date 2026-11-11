@@ -7,7 +7,9 @@ const one = value => Array.isArray(value) ? value[0] : value;
 // Tablas que lee loadSnapshot() y roles que pueden leerlas. Copia de las políticas RLS de SELECT
 // (supabase/recovered-schema/catalog-security.json). La BD es quien protege los datos; esta tabla
 // solo evita pedir lo que el rol no puede ver y distinguir "no cargado" de "vacío".
-const ALL_ROLES = ['psychologa', 'recepcion', 'gestoria'];
+// `agenda` (solo calendario, db/migrations/20261112090300) no lee pacientes ni citas: su calendario
+// llega por la RPC agenda_calendar (códigos de paciente, sin nombres).
+const ALL_ROLES = ['psychologa', 'recepcion', 'gestoria', 'agenda'];
 export const SNAPSHOT_TABLES = Object.freeze([
   { key: 'services', table: 'services', order: 'name.asc,id.asc', roles: ALL_ROLES },
   { key: 'professionals', table: 'professionals', order: 'display_name.asc,id.asc', roles: ALL_ROLES },
@@ -41,6 +43,22 @@ function classify(error, table) {
   return new SnapshotError('network', 'No hay conexión con el servidor. Comprueba tu red e inténtalo de nuevo.', { table });
 }
 
+// Calendario del rol «solo calendario»: 120 días atrás y 280 adelante (hora de Madrid). Las citas y
+// los pacientes se construyen solo con lo que devuelve la RPC: código, horas, estado y servicio.
+const madridDay = (offset = 0) => new Date(Date.now() + offset * 864e5).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+export function agendaRows(rows, orgId) {
+  const appointments = [], patients = new Map();
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!isUuid(r?.id) || !isUuid(r?.patient_id)) continue;
+    appointments.push({ id: r.id, org_id: orgId, patient_id: r.patient_id, professional_id: r.professional_id ?? null, service_id: r.service_id ?? null,
+      starts_at: r.starts_at, ends_at: r.ends_at, status: r.status, modality: r.modality ?? null, location: null, price_cents: null,
+      administrative_note: null, updated_at: r.updated_at ?? null });
+    if (!patients.has(r.patient_id)) patients.set(r.patient_id, { id: r.patient_id, org_id: orgId, patient_code: r.patient_code, first_name: null, last_name: null,
+      email: null, phone: null, status: 'active', profile_data: {} });
+  }
+  return { appointments, patients: [...patients.values()] };
+}
+
 export function createKovoRepository({ request = supabaseRequest, getContext = null } = {}) {
   let context = null;
   const requireContext = async () => {
@@ -56,6 +74,10 @@ export function createKovoRepository({ request = supabaseRequest, getContext = n
   };
   const insert = (name,row) => request(name,{method:'POST',body:row,headers:{Prefer:'return=representation'}});
   const rpc = (name,args) => request(`rpc/${name}`,{method:'POST',body:args});
+  const agendaSnapshot = async ctx => {
+    try { return agendaRows(await rpc('agenda_calendar', { p_org_id: ctx.id, p_from: madridDay(-120), p_to: madridDay(280) }), ctx.id); }
+    catch (e) { throw classify(e, 'agenda_calendar'); }
+  };
 
   // Lee todas las filas de la organización, página a página. Se para con una página vacía (no
   // con una incompleta) para no truncar si el servidor limita filas por respuesta.
@@ -180,6 +202,13 @@ export function createKovoRepository({ request = supabaseRequest, getContext = n
         const av = await optional(`professional_availability?select=weekday,start_minute,end_minute&org_id=eq.${ctx.id}&professional_id=eq.${professionalId}&order=weekday.asc,start_minute.asc`);
         if (Array.isArray(av)) out.availability = av;
       }
+      // Interfaz v3 (db/migrations/20261112090100-0200). Sin esas tablas, null: la interfaz lo explica.
+      if (ctx.role === 'psychologa') {
+        out.tests = await optional(`patient_tests?select=id,patient_id,name,test_date,result,document_id,retired_at&org_id=eq.${ctx.id}&order=test_date.asc`);
+        out.diagnoses = await optional(`patient_diagnoses?select=id,patient_id,title,diagnosis_date,rationale,test_ids,author_name,retired_at&org_id=eq.${ctx.id}&order=diagnosis_date.asc`);
+      }
+      if (['psychologa', 'gestoria'].includes(ctx.role))
+        out.recurring = await optional(`recurring_expenses?select=*&org_id=eq.${ctx.id}&order=created_at.asc`);
       // Vacaciones y días cerrados: los de la profesional de la sesión (o, si no hay, los de la clínica).
       const off = await optional(`professional_time_off?select=id,professional_id,starts_at,ends_at,reason&org_id=eq.${ctx.id}${professionalId ? `&professional_id=eq.${professionalId}` : ''}&order=starts_at.asc`);
       if (Array.isArray(off)) out.timeOff = off;
@@ -194,6 +223,7 @@ export function createKovoRepository({ request = supabaseRequest, getContext = n
       const values=await Promise.all(specs.map(s=>readAll(s,ctx.id)));
       const result={context:ctx};
       specs.forEach((s,i)=>{ result[s.key]=values[i]; });
+      if(ctx.role==='agenda') Object.assign(result, await agendaSnapshot(ctx));
       return result;
     }
   };

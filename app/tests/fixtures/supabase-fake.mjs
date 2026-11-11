@@ -8,7 +8,8 @@ export const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}
 
 // Políticas SELECT reales (catalog-security.json): tabla → roles que la leen.
 export const RLS = {
-  services: ['psychologa', 'recepcion', 'gestoria'], professionals: ['psychologa', 'recepcion', 'gestoria'],
+  // services y professionals: cualquier miembro (my_orgs), también el rol `agenda`.
+  services: ['psychologa', 'recepcion', 'gestoria', 'agenda'], professionals: ['psychologa', 'recepcion', 'gestoria', 'agenda'],
   patients: ['psychologa', 'recepcion'], appointments: ['psychologa', 'recepcion'],
   invoices: ['psychologa', 'gestoria'], invoice_lines: ['psychologa', 'gestoria'], payments: ['psychologa', 'gestoria'], expenses: ['psychologa', 'gestoria'],
   employees: ['psychologa'], clinical_notes: ['psychologa'], clinical_note_rectifications: ['psychologa'], patient_documents: ['psychologa']

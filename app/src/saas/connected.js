@@ -10,8 +10,8 @@ import { DEFAULT_SETTINGS } from '../data/legacy-state.js';
 // Acciones de la demo sin servidor: en modo conectado se explican en vez de simularlas.
 const NO_MAIL = 'KOVO todavía no tiene un proveedor de correo configurado: no se envía nada. Descarga el PDF y envíalo tú.';
 const NO_DICT = 'El dictado y la redacción con IA están desactivados con datos reales: el contenido clínico no se envía a servicios de voz ni de IA.';
-const NO_DX = 'Los diagnósticos y las pruebas todavía no se guardan en el servidor. No se ha guardado nada.';
-const NO_FIXED = 'Los gastos fijos todavía no se guardan en el servidor. Añade cada gasto con «Nuevo gasto».';
+const NO_DX = 'Este servidor todavía no guarda diagnósticos ni pruebas (falta una actualización de la base de datos). No se ha guardado nada.';
+const NO_FIXED = 'Este servidor todavía no guarda gastos fijos (falta una actualización de la base de datos). Añade cada gasto con «Nuevo gasto».';
 const NO_USERS = 'El equipo se gestiona en Ajustes › Equipo.';
 export const BLOCKED = Object.freeze({
   sendInv: NO_MAIL,
@@ -29,8 +29,6 @@ export const BLOCKED = Object.freeze({
   payPayroll: 'Las nóminas aún no están conectadas al servidor.',
   // Interfaz v3: funciones que todavía solo existen en la demo.
   dictMic: NO_DICT, dictAI: NO_DICT, dictUndo: NO_DICT,
-  dxForm: NO_DX, dxSave: NO_DX, dxDel: NO_DX, testForm: NO_DX, testSave: NO_DX, testDel: NO_DX,
-  fxForm: NO_FIXED, fxSave: NO_FIXED, fxDel: NO_FIXED,
   userForm: NO_USERS, userSave: NO_USERS, userDel: NO_USERS, userAs: NO_USERS,
   patientYes: NO_MAIL, patientNo: NO_MAIL, dailyNow: NO_MAIL,
   billNow: 'La facturación desde la cita aún no está conectada. Crea la factura con «Nueva factura».',
@@ -43,7 +41,10 @@ const BLOCKED_UPLOADS = Object.freeze({
   empdoc: 'Los documentos laborales aún no se guardan en el servidor.'
 });
 const PRO_FIELDS = { name: 'name', col: 'col', email: 'email', phone: 'phone' };
-const ROLE_LABEL = { psychologa: 'Psicóloga', recepcion: 'Recepción', gestoria: 'Gestoría' };
+const ROLE_LABEL = { psychologa: 'Psicóloga', recepcion: 'Recepción', gestoria: 'Gestoría', agenda: 'Solo calendario' };
+// Acciones de la interfaz v3 que dependen de tablas nuevas: si el servidor no las tiene, se explican.
+const NEEDS = { dxForm: 'clinicalAvailable', dxSave: 'clinicalAvailable', dxDel: 'clinicalAvailable', testForm: 'clinicalAvailable', testSave: 'clinicalAvailable', testDel: 'clinicalAvailable',
+  fxForm: 'fixedAvailable', fxSave: 'fixedAvailable', fxDel: 'fixedAvailable' };
 const PLAN_LABEL = { starter: 'Starter', professional: 'Professional', clinic: 'Clinic' };
 const SUB_LABEL = { trialing: 'periodo de prueba', active: 'activa', past_due: 'pago pendiente', unpaid: 'impagada', cancelled: 'cancelada', incomplete: 'incompleta' };
 const TZ = ['Europe/Madrid', 'Atlantic/Canary'];
@@ -123,6 +124,10 @@ export function installConnected(h) {
     el.className = `cn-banner ${cls}`; el.innerHTML = html;
   }
   sidebar(); banner();
+  // Gastos fijos: al abrir, el servidor apunta los meses que ya tocan (idempotente). Si falla
+  // (cuenta suspendida, servidor sin la tabla) no se insiste: la lista sigue siendo la del servidor.
+  if (['psychologa', 'gestoria'].includes(role()) && (S().fixed || []).some(f => f.active))
+    clinic.applyRecurring().then(n => { if (n > 0) reload(`${n} ${n === 1 ? 'gasto fijo apuntado' : 'gastos fijos apuntados'} este mes`); }, () => {});
 
   /* ---------------------------------------------------------------- ajustes */
   async function saveSettings(mutate, okMsg) {
@@ -274,6 +279,26 @@ export function installConnected(h) {
     delRange: (d, b) => { const n = copyAvail(); n[d.d].splice(Number(d.i), 1); saveAvail(n, 'Franja quitada', b); },
     setTheme: d => { S().settings.theme = d.k; try { localStorage.setItem(THEME_KEY, d.k); } catch {} h.render(); h.toast('Tema aplicado en este dispositivo'); },
     toggleTheme: () => ACT.setTheme({ k: h.effTheme() === 'dark' ? 'light' : 'dark' }),
+    // diagnósticos y pruebas (se retiran, no se borran: quedan en el historial del servidor)
+    dxSave: (d, b) => {
+      const tests = [...document.querySelectorAll('[data-dxt]')].filter(c => c.checked).map(c => c.dataset.dxt);
+      run(b, () => clinic.saveDiagnosis({ id: d.id || null, patientId: d.p, title: val('dx-t'), date: val('dx-d') || h.today, text: val('dx-x'), tests, author: S().pro?.name || null }),
+        async () => { h.closeModal(); await reload('Diagnóstico guardado'); });
+    },
+    dxDel: (d, b) => run(b, () => clinic.retireClinical('dx', d.id), async () => { h.closeModal(); await reload('Diagnóstico retirado · se conserva en el historial'); }),
+    testSave: (d, b) => run(b, () => clinic.saveTest({ id: d.id || null, patientId: d.p, name: val('tf-n'), date: val('tf-d') || h.today, result: val('tf-r') }),
+      async () => { h.closeModal(); await reload('Prueba guardada'); }),
+    testDel: (d, b) => run(b, () => clinic.retireClinical('test', d.id), async () => { h.closeModal(); await reload('Prueba retirada · se conserva en el historial'); }),
+    // gastos fijos: se guardan y el servidor apunta los meses debidos
+    fxSave: (d, b) => {
+      const f = d.id ? S().fixed.find(x => x.id === d.id) : null;
+      const pct = id => { const v = val(id); return v === '' ? null : Math.min(100, Math.max(0, Number(v) || 0)); };
+      const active = !!document.getElementById('fx-a')?.checked;
+      const data = { id: f?.id || null, name: val('fx-n'), cat: val('fx-c'), day: val('fx-d'), base: Math.round(Number(val('fx-b')) * 100), ivaPct: val('fx-i'), retPct: val('fx-r'), ded: pct('fx-ded'), active,
+        since: !f || (active && !f.active) ? h.today.slice(0, 7) : null };
+      run(b, async () => { await clinic.saveFixed(data); return clinic.applyRecurring(); }, async n => { h.closeModal(); await reload(n > 0 ? `Gasto fijo guardado · ${n} ${n === 1 ? 'mes apuntado' : 'meses apuntados'}` : 'Gasto fijo guardado'); });
+    },
+    fxDel: (d, b) => run(b, () => clinic.deleteFixed(d.id), async () => { h.closeModal(); await reload('Gasto fijo eliminado · lo ya registrado se conserva'); }),
     // vacaciones y días cerrados (professional_time_off de la profesional de la sesión)
     blockAdd: (d, b) => run(b, () => clinic.addTimeOff(S().pro?.id, { from: val('bk-f'), to: val('bk-t'), label: val('bk-l') || 'Cerrado' }), () => reload('Días cerrados añadidos')),
     blockDel: (d, b) => run(b, () => clinic.deleteTimeOff(d.id), () => reload('Días cerrados quitados')),
@@ -349,6 +374,7 @@ export function installConnected(h) {
     const t = e.target.closest?.('[data-act]'); if (!t) return;
     const a = t.dataset.act;
     if (BLOCKED[a]) { e.stopPropagation(); e.preventDefault(); h.toast(BLOCKED[a]); return; }
+    if (NEEDS[a] && !S()[NEEDS[a]]) { e.stopPropagation(); e.preventDefault(); h.toast(NEEDS[a] === 'clinicalAvailable' ? NO_DX : NO_FIXED); return; }
     const f = ACT[a]; if (!f) return;
     e.stopPropagation(); e.preventDefault();
     f(t.dataset, t, e);
@@ -369,6 +395,7 @@ export function installConnected(h) {
       return;
     }
     if (t.dataset.cnRole) { stop(); run(t, () => clinic.updateMember(t.dataset.cnRole, { role: t.value }), () => { h.toast('Rol cambiado'); mountPanel('equipo'); }, err => { h.toast(err.message); mountPanel('equipo'); }); return; }
+    if (t.dataset.ded) { stop(); const k = t.dataset.ded, v = Math.min(100, Math.max(0, Number(t.value) || 0)); saveSettings(s => { s.ded = { ...(s.ded || {}), [k]: v }; }, 'Porcentaje actualizado'); return; }
     if (t.dataset.set) { stop(); const k = t.dataset.set, v = t.checked; saveSettings(s => { s[k] = v; }, v ? 'Activado' : 'Desactivado'); return; }
     if (t.name === 'invmode') { stop(); const v = t.value; saveSettings(s => { s.invoiceMode = v; }, 'Modo de facturación actualizado'); return; }
     if (t.id === 'dueDays') { stop(); const v = Math.max(0, Math.min(90, Number(t.value) || 0)); saveSettings(s => { s.dueDays = v; }, 'Vencimiento actualizado'); return; }

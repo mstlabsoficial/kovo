@@ -12,7 +12,8 @@ import { ROLE, NOTE_FIELD_KEYS, toLocalDate } from './from-supabase.js';
 // Mismos valores por defecto que seed() en legacy.js.
 export const DEFAULT_SETTINGS = Object.freeze({
   confirmEmail: true, reminder: true, reminderH: 24, noteTask: true, invoiceMode: 'auto', sendInvoice: true,
-  overdue: true, dueDays: 15, aiScan: true, accent: 'azul', h0: 9, h1: 21
+  overdue: true, dueDays: 15, aiScan: true, accent: 'azul', h0: 9, h1: 21,
+  ded: {}   // % deducible por categoría de gasto (interfaz v3); preferencia de la clínica, no criterio fiscal
 });
 // Horario de disponibilidad por defecto (DEF_AVAIL en legacy.js). La BD no lo guarda.
 const DEFAULT_AVAIL = { 0: [[600, 840], [960, 1200]], 1: [[600, 840], [960, 1200]], 2: [[600, 840], [960, 1200]], 3: [[600, 840], [960, 1200]], 4: [[600, 840], [960, 1200]] };
@@ -69,6 +70,13 @@ export function uiAppointment(src, sIds, note = () => {}) {
 export function settingsFromDb(raw) {
   const out = { ...DEFAULT_SETTINGS };
   if (raw && typeof raw === 'object') for (const [k, v] of Object.entries(raw)) if (k in DEFAULT_SETTINGS && typeof v === typeof DEFAULT_SETTINGS[k]) out[k] = v;
+  out.ded = dedFromDb(out.ded);
+  return out;
+}
+// Solo porcentajes 0–100 por categoría (texto corto); lo demás se descarta.
+export function dedFromDb(raw) {
+  const out = {};
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) for (const [k, v] of Object.entries(raw)) if (k.length <= 100 && Number.isFinite(v) && v >= 0 && v <= 100) out[k] = v;
   return out;
 }
 // Citas de una misma serie: posición (1…n), total y cada cuántos días (lo que muestra legacy.js).
@@ -89,6 +97,21 @@ export function blocksFromRows(rows) {
     id: r.id, from: toLocalDate(r.starts_at), to: toLocalDate(Date.parse(r.ends_at) - 1),
     label: r.reason || 'Cerrado', professionalId: r.professional_id ?? null
   })).sort((a, b) => a.from.localeCompare(b.from));
+}
+// Pruebas y diagnósticos (no retirados) → p.tests / p.dx de legacy.js.
+export function clinicalFromRows(tests, diagnoses) {
+  const byPatient = new Map();
+  const slot = id => byPatient.get(id) || byPatient.set(id, { tests: [], dx: [] }).get(id);
+  const live = new Set();
+  for (const t of tests || []) if (t && !t.retired_at) { live.add(t.id); slot(t.patient_id).tests.push({ id: t.id, name: t.name, date: t.test_date, result: t.result || '', documentId: t.document_id ?? null, file: null, url: null, isImg: false }); }
+  for (const d of diagnoses || []) if (d && !d.retired_at) slot(d.patient_id).dx.push({ id: d.id, title: d.title, date: d.diagnosis_date, text: d.rationale || '', tests: (d.test_ids || []).filter(i => live.has(i)), author: d.author_name || '' });
+  return byPatient;
+}
+// recurring_expenses → S.fixed de legacy.js (importes en céntimos, mes de inicio 'AAAA-MM').
+export function fixedFromRows(rows) {
+  return (rows || []).map(r => ({ id: r.id, name: r.name, cat: r.category, supplier: r.supplier || '', day: r.day_of_month, base: r.base_cents,
+    ivaPct: Number(r.vat_pct), retPct: Number(r.retention_pct), ded: r.deductible_pct == null ? null : Number(r.deductible_pct),
+    active: !!r.active, since: String(r.since_month || '').slice(0, 7), updatedAt: r.updated_at ?? null }));
 }
 // Filas de professional_availability (weekday ISO 1-7) → formato de legacy.js (0 = lunes).
 export function availFromRows(rows) {
@@ -176,10 +199,14 @@ export function toLegacyState({ collections, loaded = {}, report = [], context, 
   const pro = { id: p0?.id ?? null, name: p0?.name ?? '', col: p0?.col ?? '', email: p0?.email ?? '', phone: p0?.phone ?? '', nif: '', addr: '', loc: null, sanitaria: null, mine: !!mine };
 
   if (usedMissing) ensureMissingService(services);
+  if (extras?.tests || extras?.diagnoses) {
+    const clin = clinicalFromRows(extras.tests, extras.diagnoses);
+    for (const p of patients) { const c = clin.get(p.id); p.tests = c ? c.tests : []; p.dx = c ? c.dx : []; }
+  }
 
   const state = {
     seq: 1, role, view: 'inicio', cal: { mode: 'semana', date: today }, sel: { homeDay: today },
-    pro, settings: extras?.settings ? settingsFromDb(extras.settings) : { ...DEFAULT_SETTINGS }, services, patients, appts, notes, invoices, expenses,
+    pro, settings: settingsFromDb(extras?.settings ?? null), services, patients, appts, notes, invoices, expenses,
     bank: [], employees, payrolls: [], oblPaid: {}, audit: [], outbox: [],
     // Horario guardado de la profesional; si no hay ninguno, el de por defecto marcado como no guardado.
     avail: extras?.availability?.length ? availFromRows(extras.availability) : JSON.parse(JSON.stringify(DEFAULT_AVAIL)),
@@ -187,6 +214,10 @@ export function toLegacyState({ collections, loaded = {}, report = [], context, 
     // Vacaciones y días cerrados (professional_time_off). null = la tabla no existe en este esquema.
     blocks: Array.isArray(extras?.timeOff) ? blocksFromRows(extras.timeOff) : [],
     blocksAvailable: Array.isArray(extras?.timeOff),
+    // Diagnósticos y pruebas (solo psicóloga) y gastos fijos: false si el servidor no tiene esas tablas.
+    clinicalAvailable: Array.isArray(extras?.tests) && Array.isArray(extras?.diagnoses),
+    fixed: Array.isArray(extras?.recurring) ? fixedFromRows(extras.recurring) : [],
+    fixedAvailable: Array.isArray(extras?.recurring),
     professionals: pros.map(p => ({ ...p })),
     // Emisor de las facturas en modo conectado: el perfil fiscal de la clínica (organization_billing_profiles).
     issuer: extras?.billingProfile ? { name: extras.billingProfile.legal_name, nif: extras.billingProfile.tax_id,

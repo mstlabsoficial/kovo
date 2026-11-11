@@ -26,6 +26,9 @@ Migraciones de `db/migrations` (orden de nombre):
 | `20261111090400_documents_payments_audit` | Documentos (validación, ruta, retirada lógica, Storage), cobros con estado de la factura, cola de recordatorios, auditoría de cambios (solo nombres de campo). |
 | `20261111090500_function_grants` | `EXECUTE` solo para `authenticated` (y `apply_billing_event` solo para `service_role`). |
 | `20261111090600_app_rpcs` | Horario semanal atómico, ficha profesional propia, edición de borradores de factura. |
+| `20261112090100_patient_diagnoses_tests` | Diagnósticos y pruebas: solo psicóloga, retirada lógica (sin DELETE), integridad paciente↔prueba↔documento (KC001–KC003), auditoría. |
+| `20261112090200_recurring_expenses` | Gastos fijos + `apply_recurring_expenses` (idempotente; un mes borrado no se recrea). Columnas `expenses.recurring_id/recurring_month`. |
+| `20261112090300_agenda_role` | Rol `agenda` (solo calendario) en membresías e invitaciones; RPC `agenda_calendar` (códigos, sin nombres). |
 | `20261112090000_appointment_series` | Citas repetidas: columna `appointments.series_id` (nullable) + índice. Alta de la serie = una inserción (todo o nada); «esta y las siguientes» = una actualización. Aditiva. |
 
 ### Aplicar a una base que ya tiene datos
@@ -65,11 +68,11 @@ subir la rama (pendiente de autorización).
 |---|---|---|
 | pgTAP consolidado (`tests/saas_test.sql`) | códigos, alta, aislamiento, roles, ajustes, horario, auditoría, invitaciones, límites de plan, plataforma, suspensión, sesiones, facturas y cobros, documentos, recordatorios, pasarela | 123/123 |
 | pgTAP clínico v2 sobre la cadena completa | integridad, roles, firma, versiones, auditoría | 81/81 |
-| HTTP (`tests/http.mjs`) | días cerrados (RLS por profesional), series de citas (todo o nada, reintento, cancelación parcial, aislamiento), tokens reales de Supabase Auth, PostgREST y Storage: alta, aislamiento, escalada de privilegios, REST/RPC directos, Storage (subida, descarga, otra clínica, manipulación de ruta, tipo, tamaño, sobrescritura, borrado), sesiones (cierre, rotación, reutilización), tokens caducados/falsos/manipulados, facturación, plataforma, suspensión, soporte, webhook | 105/105 |
+| HTTP (`tests/http.mjs`) | días cerrados (RLS por profesional), series de citas (todo o nada, reintento, cancelación parcial, aislamiento), tokens reales de Supabase Auth, PostgREST y Storage: alta, aislamiento, escalada de privilegios, REST/RPC directos, Storage (subida, descarga, otra clínica, manipulación de ruta, tipo, tamaño, sobrescritura, borrado), sesiones (cierre, rotación, reutilización), tokens caducados/falsos/manipulados, facturación, plataforma, suspensión, soporte, webhook | 124/124 |
 | Concurrencia (`tests/concurrency.mjs`) | 30 altas simultáneas, reservas solapadas, invitaciones, cobros, emisiones | 10/10 |
 | Migración de datos (`tests/upgrade.mjs`) | ver §1 | 27/27 |
 | Copia y restauración (`tests/backup.mjs`) | copia física en frío de PostgreSQL + ficheros de Storage → restauración en otro servidor → 70 tablas idénticas (recuento + md5), contraseñas, documentos | 5/5 |
-| E2E (`app/tests/stack`) | navegador real contra la pila completa: alta → operación diaria, agenda v3 (días cerrados, serie, mover, cancelar serie), equipo, varias clínicas, suspensión y panel de KOVO, sesión y red, móvil | 7/7 |
+| E2E (`app/tests/stack`) | navegador real contra la pila completa: alta → operación diaria, agenda v3 (días cerrados, serie, mover, cancelar serie), equipo, varias clínicas, suspensión y panel de KOVO, sesión y red, móvil | 8/8 |
 
 ## 4. Matriz de permisos (la aplica PostgreSQL; la interfaz solo la refleja)
 
@@ -84,7 +87,9 @@ membresía activa, sesión no revocada y, para escribir, cuenta de la clínica a
 | Documentos clínicos (filas + Storage) | L, subir, retirar | — | — | | — |
 | Facturas (borrador, emitir, cobrar) | L/E por RPC | — | L/E por RPC | | — |
 | Perfiles fiscales (clínica y pacientes) | L/E | — | L/E | | — |
-| Gastos | L/E/borrar | — | L/E/borrar | | — |
+| Gastos | L/E (borrar: **no**, el baseline no concede DELETE) | — | L/E | | — |
+| Gastos fijos | L/E; apuntar meses | — | L; apuntar meses | | — |
+| Diagnósticos y pruebas | L/E; retirar (no borrar) | — | — | | — |
 | Servicios | L/E | L | L | | — |
 | Profesionales | L; editar la propia | L | L | alta y edición de todas | recuentos |
 | Horario y ausencias | L; editar el propio | L | L | editar cualquiera | — |
@@ -95,6 +100,10 @@ membresía activa, sesión no revocada y, para escribir, cuenta de la clínica a
 | Auditoría de la clínica | — | — | — | L | registro propio de plataforma |
 | Estado de la cuenta | — | — | — | — | suspender / reactivar con motivo |
 | Eventos de pago | — | — | — | — | solo el servidor (service role) |
+
+Rol `agenda` (solo calendario): lo mismo que cualquier miembro (nombre de la clínica, equipo, servicios,
+profesionales, horario y ausencias, suscripción, sus tickets) más `agenda_calendar` (horas, estado, servicio
+y **código** del paciente). Nada de pacientes, citas directas, notas, documentos, facturas ni gastos. No escribe.
 
 Nadie puede: cambiarse el rol o la administración a sí mismo, quitar la última administración, editar el
 estado de la cuenta o la suscripción por REST, leer el token de una invitación, modificar una factura

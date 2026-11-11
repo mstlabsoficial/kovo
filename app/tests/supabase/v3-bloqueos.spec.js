@@ -1,15 +1,14 @@
 // Interfaz v3 en modo conectado: lo que el prototipo añade y el servidor aún no guarda
-// (diagnósticos y pruebas, gastos fijos, usuarios de ejemplo, dictado/IA, recordatorio «próxima
-// sesión», correos) no debe parecer que funciona: avisa y no envía ni guarda nada.
-// Vacaciones, mover arrastrando y series ya están conectados: se prueban contra la pila real
-// (tests/stack/journeys.spec.js, «agenda v3»).
+// (usuarios de ejemplo, dictado/IA, recordatorio «próxima sesión», correos) no debe parecer que
+// funciona: avisa y no envía ni guarda nada. Lo ya conectado (vacaciones, mover, series,
+// diagnósticos y pruebas, gastos fijos, rol «solo calendario») se prueba contra la pila real
+// (tests/stack/journeys.spec.js).
 import { test, expect } from '@playwright/test';
 import { BLOCKED } from '../../src/saas/connected.js';
 import { mockSupabase, open, click, act } from './helpers.js';
 
 const toast = page => page.locator('#toast');
-const NUEVAS = ['dictMic', 'dictAI', 'dictUndo', 'dxForm', 'dxSave', 'dxDel',
-  'testForm', 'testSave', 'testDel', 'fxForm', 'fxSave', 'fxDel', 'userForm', 'userSave', 'userDel', 'userAs',
+const NUEVAS = ['dictMic', 'dictAI', 'dictUndo', 'userForm', 'userSave', 'userDel', 'userAs',
   'patientYes', 'patientNo', 'dailyNow', 'billNow'];
 
 test('las acciones nuevas sin servidor avisan y no escriben nada', async ({ page }) => {

@@ -145,7 +145,7 @@ function onboardingScreen(el, user) {
 
 function chooseScreen(el, orgs) {
   return new Promise(done => {
-    const role = { psychologa: 'Psicóloga', recepcion: 'Recepción', gestoria: 'Gestoría' };
+    const role = { psychologa: 'Psicóloga', recepcion: 'Recepción', gestoria: 'Gestoría', agenda: 'Solo calendario' };
     el.innerHTML = card('Elige la clínica', 'Tu cuenta pertenece a varias clínicas. Los datos de cada una están separados.', `
       <div class="orgs">${orgs.map(o => `<button type="button" data-org="${esc(o.org_id)}"><b>${esc(o.name)}</b><br><span class="small muted">${role[o.role] || esc(o.role)}${o.is_admin ? ' · administración' : ''}${o.account_status === 'suspended' ? ' · cuenta suspendida (solo lectura)' : ''}</span></button>`).join('')}</div>
       <div class="row" style="margin-top:14px"><button type="button" class="linkbtn" data-out>Salir</button></div>`);

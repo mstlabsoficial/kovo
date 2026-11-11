@@ -23,6 +23,8 @@ const PG_MESSAGES = {
   KB001: 'Solo se registran cobros de facturas emitidas pendientes de cobro.', KB002: 'El cobro supera el importe pendiente.',
   KB003: 'Solo se pueden descartar borradores.', KD001: 'Ruta de documento no válida.', KD002: 'Ese dato del documento no se puede cambiar.',
   KD003: 'El documento ya está retirado.',
+  KC001: 'La clínica y el paciente de un registro clínico no se pueden cambiar.', KC002: 'Este registro ya está retirado y no se puede modificar.',
+  KC003: 'Las pruebas o el documento deben ser del mismo paciente.',
   '23P01': 'Ese horario se solapa con otro de la misma profesional.',
   '23505': 'Ya existe un registro con esos datos.', '42501': 'Tu perfil no tiene permiso para esta acción.'
 };
@@ -43,6 +45,8 @@ export const DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 export const DOC_MAX_BYTES = 20 * 1024 * 1024;
 export const BUCKET = 'kovo-patient-documents';
 const METHOD = { Efectivo: 'efectivo', Tarjeta: 'tarjeta', Transferencia: 'transferencia', Bizum: 'bizum', Domiciliación: 'domiciliacion' };
+
+const validDate = d => { if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d || ''))) throw new ClinicError('validation', 'La fecha no es válida.'); return d; };
 
 export function safeFileName(name) {
   const base = String(name || 'documento').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^[-.]+/, '');
@@ -181,6 +185,49 @@ export function createClinicApi({ request = supabaseRequest, refresh = async () 
       if (Array.isArray(rows) && !rows.length) throw new ClinicError('forbidden', 'No existe o tu perfil no puede quitarlo.');
       return one(rows);
     },
+    /* diagnósticos y pruebas (datos clínicos: solo psicóloga; se retiran, no se borran) */
+    async saveTest({ id = null, patientId, name, date, result }) {
+      const c = await ctx();
+      if (!isUuid(patientId)) throw new ClinicError('validation', 'Paciente no válido.');
+      if (!String(name || '').trim()) throw new ClinicError('validation', 'Indica el nombre de la prueba.');
+      const body = { name: String(name).trim().slice(0, 200), test_date: validDate(date), result: String(result || '').slice(0, 4000) };
+      if (id) return one(await call(`patient_tests?id=eq.${id}&org_id=eq.${c.id}&retired_at=is.null`, { method: 'PATCH', body, headers: rep }));
+      return one(await call('patient_tests', { method: 'POST', body: { ...body, id: newId(), org_id: c.id, patient_id: patientId }, headers: rep }));
+    },
+    async saveDiagnosis({ id = null, patientId, title, date, text, tests = [], author = null }) {
+      const c = await ctx();
+      if (!isUuid(patientId)) throw new ClinicError('validation', 'Paciente no válido.');
+      if (!String(title || '').trim()) throw new ClinicError('validation', 'Escribe el diagnóstico.');
+      const body = { title: String(title).trim().slice(0, 300), diagnosis_date: validDate(date), rationale: String(text || '').slice(0, 4000), test_ids: tests.filter(isUuid).slice(0, 50) };
+      if (id) return one(await call(`patient_diagnoses?id=eq.${id}&org_id=eq.${c.id}&retired_at=is.null`, { method: 'PATCH', body, headers: rep }));
+      return one(await call('patient_diagnoses', { method: 'POST', body: { ...body, id: newId(), org_id: c.id, patient_id: patientId, author_name: author ? String(author).slice(0, 200) : null }, headers: rep }));
+    },
+    async retireClinical(kind, id) {
+      const c = await ctx();
+      const table = { test: 'patient_tests', dx: 'patient_diagnoses' }[kind];
+      if (!table || !isUuid(id)) throw new ClinicError('validation', 'Registro no válido.');
+      return one(await call(`${table}?id=eq.${id}&org_id=eq.${c.id}&retired_at=is.null`, { method: 'PATCH', body: { retired_at: new Date().toISOString() }, headers: rep }));
+    },
+    /* gastos fijos */
+    async saveFixed({ id = null, name, cat, supplier, day, base, ivaPct, retPct, ded, active, since }) {
+      const c = await ctx();
+      if (!String(name || '').trim() || !(Number.isInteger(base) && base > 0)) throw new ClinicError('validation', 'Indica el concepto y un importe mayor que cero.');
+      const pct = v => Math.min(100, Math.max(0, Number(v) || 0));
+      const body = { name: String(name).trim().slice(0, 200), category: cat || 'Otros', supplier: supplier ? String(supplier).slice(0, 200) : null,
+        day_of_month: Math.min(31, Math.max(1, Number(day) || 1)), base_cents: base, vat_pct: pct(ivaPct), retention_pct: pct(retPct),
+        deductible_pct: ded == null ? null : pct(ded), active: !!active };
+      if (since) { if (!/^\d{4}-\d{2}$/.test(since)) throw new ClinicError('validation', 'Mes no válido.'); body.since_month = `${since}-01`; }
+      if (id) return one(await call(`recurring_expenses?id=eq.${id}&org_id=eq.${c.id}`, { method: 'PATCH', body, headers: rep }));
+      return one(await call('recurring_expenses', { method: 'POST', body: { ...body, id: newId(), org_id: c.id }, headers: rep }));
+    },
+    async deleteFixed(id) {
+      const c = await ctx();
+      const rows = await call(`recurring_expenses?id=eq.${id}&org_id=eq.${c.id}`, { method: 'DELETE', headers: rep });
+      if (Array.isArray(rows) && !rows.length) throw new ClinicError('forbidden', 'No existe o tu perfil no puede eliminarlo.');
+      return rows;
+    },
+    // Apunta los meses debidos de los gastos fijos activos (idempotente en el servidor). Nº creados.
+    async applyRecurring() { const c = await ctx(); return rpc('apply_recurring_expenses', { p_org_id: c.id }); },
     /* equipo */
     async team() { const c = await ctx(); return rpc('list_team', { p_org_id: c.id }); },
     async invitations() { const c = await ctx(); return call(`org_invitations?select=id,email,role,is_admin,created_at,expires_at,accepted_at,revoked_at&org_id=eq.${c.id}&accepted_at=is.null&revoked_at=is.null&order=created_at.desc`); },

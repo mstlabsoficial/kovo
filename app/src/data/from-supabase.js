@@ -33,7 +33,7 @@ export const NOTE_STATUS = Object.freeze({ draft: 'borrador', signed: 'firmada',
 export const INVOICE_STATUS = Object.freeze({ draft: 'borrador', issued: 'emitida', paid: 'emitida', partially_paid: 'emitida', void: 'rectificada' });
 const APPROX_INVOICE_STATUS = new Set(['void']);
 // Roles de memberships.role → S.role de la interfaz.
-export const ROLE = Object.freeze({ psychologa: 'psicologa', recepcion: 'recepcion', gestoria: 'gestoria' });
+export const ROLE = Object.freeze({ psychologa: 'psicologa', recepcion: 'recepcion', gestoria: 'gestoria', agenda: 'agenda' });
 // Tipos de documento que se interpretan como consentimiento informado (vocabulario sin verificar).
 export const CONSENT_DOCUMENT_TYPES = Object.freeze(['consent', 'consentimiento', 'informed_consent']);
 // Categorías de gasto que entiende la interfaz (copia de CATS en legacy.js; un test vigila que coincidan).
@@ -311,7 +311,8 @@ export function expenseFromRow(row, opts) {
     date: dateOnly(row.expense_date), supplier: str(row.supplier), cat: str(row.category), concept: str(row.description),
     total: Number.isInteger(row.amount_cents) ? row.amount_cents : null,
     base: null, iva: null, ret: null, nif: null, method: null, num: null, status: null, source: null,
-    photo: null, documentPath: str(row.document_path), createdAt: row.created_at ?? null
+    photo: null, documentPath: str(row.document_path), createdAt: row.created_at ?? null,
+    fixedId: row.recurring_id ?? null   // generado por un gasto fijo (db/migrations/20261112090200)
   };
 }
 export function employeeFromRow(row, opts) {
