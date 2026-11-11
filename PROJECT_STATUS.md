@@ -1,6 +1,6 @@
 # KOVO · estado del proyecto
 
-Actualizado: 11/11/2026 (etapa 2) · rama `feat/kovo-ui-v3` (local, **sin subir**), sobre `feat/kovo-consolidacion` (local, sin subir) · base `migracion-vite`.
+Actualizado: 11/11/2026 · rama `feat/kovo-ui-v3` (subida hasta `2d23bba`; los commits posteriores son **locales**), sobre `feat/kovo-consolidacion` (subida) · base `migracion-vite`.
 
 **Resumen:** la app funciona de principio a fin contra un Supabase real **local** (Auth, PostgREST,
 Storage, PostgreSQL 17) con datos sintéticos y varias clínicas a la vez. **No está en producción ni en
@@ -27,9 +27,12 @@ todavía no guarda está oculto o bloqueado con aviso; nunca aparenta guardar (`
 | Usuarios de ejemplo | sí | no aparecen; el equipo real está en Ajustes › Equipo |
 | Dictado por voz y redacción con IA | simulado | desactivado: el contenido clínico no sale del navegador |
 | Apartado «Recordatorio para la próxima sesión» y marca de riesgo en la nota | sí | no se ofrecen (no están en el catálogo de apartados del servidor) |
-| Confirmación diaria por correo, respuesta del paciente, facturar ahora | simulado | bloqueado (sin proveedor de correo) |
+| Confirmación diaria por correo, respuesta del paciente | simulado | bloqueado (sin proveedor de correo) |
+| Facturar sesiones («Facturar ya», «Facturar ahora») | sí | **conectado**: borradores enlazados a la cita; bloqueado con aviso si el servidor no tiene `invoice_lines.appointment_id` |
+| Finalizar/reanudar terapia, exportar datos del paciente | — | **conectado** (exportación auditada en el servidor con `20261112090400`) |
+| Ajustes para administración no psicóloga | — | **conectado** |
 
-Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servidor que no las tenga, esas funciones avisan de que falta la actualización y no guardan nada.
+Las migraciones `20261112090000`–`0500` son **solo locales**: contra un servidor que no las tenga, esas funciones avisan de que falta la actualización y no guardan nada (comprobado con la suite del esquema antiguo y con pruebas unitarias de servidores sin las tablas/columnas).
 
 ## 1. Clasificación de funcionalidades
 
@@ -109,8 +112,8 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 |---|---|---|
 | Pila local sin Docker y pruebas | 1 | |
 | Migración de una base con datos al esquema nuevo sin pérdidas | 1 | sobre datos sintéticos; **no comparado con el esquema real de producción** |
-| Copia y restauración | 1 | física en frío, local. `pg_dump/pg_restore` en CI: 2 (no ejecutado) |
-| CI (`kovo-ci.yml`) | 2 | nunca ejecutado: requiere subir la rama |
+| Copia y restauración | 1 | física en frío, local. Simulacro `pg_dump/pg_restore` del CI: 2 (necesita Docker; no ejecutado en este Mac, sintaxis comprobada) |
+| CI (`kovo-ci.yml`) | 2 | en GitHub falló al subir (`2d23bba`): «Invalid workflow file: Unrecognized named-value: 'runner'». Corregido en local (`e4ce857`), **sin subir**. El modo que usa el CI (`db/run.mjs --external --e2e`) se ha ejecutado en verde contra una pila local nueva; `supabase start` en Docker no se ha podido ejecutar aquí |
 | Staging | 4 | no existe |
 | Producción | 4 | esquema antiguo; nada aplicado |
 | Monitorización de errores del navegador | 4 | |
@@ -124,14 +127,16 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 
 | Suite | Tipo | Resultado |
 |---|---|---|
-| Unitarias | Node, sin red | 222 |
+| Unitarias | Node, sin red | 226 |
 | Navegador con API **simulada** | Playwright | 32 |
 | Smoke demo / visual demo | Playwright | 1 / 22 (44 capturas, escritorio y móvil) |
 | pgTAP consolidado / clínico | PostgreSQL real local | 123 / 81 |
-| HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 129 |
-| Concurrencia / migración de datos / copia | real local | 10 / 27 / 5 |
+| HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 136 |
+| Concurrencia / migración de datos / copia | real local | 10 (reservas simultáneas: 5 rondas) / 27 / 5 |
 | E2E por recorridos y roles | navegador + pila real local | 9 |
-| E2E notas (suite heredada) | navegador + PostgreSQL/PostgREST locales | verde |
+| E2E notas (suite heredada, **esquema antiguo**) | navegador + PostgreSQL/PostgREST locales | verde (pgTAP 43/43/81, HTTP 51, concurrencia 18, navegador 1) |
+| Modo CI «pila externa» (`--external --e2e`) | pila local nueva sin esquema | pgTAP 123/81, HTTP 136, concurrencia 10, E2E 9 |
+| Builds | Vite | demo y conectado (con `admin.html`) |
 
 Las pruebas simuladas comprueban la interfaz y el manejo de errores; **no** prueban seguridad. La
 seguridad la prueban pgTAP, HTTP y E2E contra servicios reales.
@@ -143,6 +148,7 @@ seguridad la prueban pgTAP, HTTP y E2E contra servicios reales.
 - Datos de salud sin EIPD, sin contrato de encargo y sin MFA.
 - Interfaz heredada de la demo en un único archivo grande (`app/src/legacy.js`): cada cambio necesita las pruebas visuales.
 - Pruebas visuales solo en macOS.
+- Reservas simultáneas: sin `20261112090500`, PostgreSQL podía devolver bloqueos mutuos (40P01) en vez de «se solapa». Corregido en la cadena local; **producción no lo tiene**.
 
 ## 4. Decisiones pendientes de aprobación
 
@@ -154,7 +160,7 @@ seguridad la prueban pgTAP, HTTP y E2E contra servicios reales.
 6. MFA obligatorio para personal de KOVO y administradores.
 7. Imponer el horario en la base de datos.
 8. Criterios fiscales (`docs/fiscal`) y legales (`docs/legal`).
-9. Subir la rama y ejecutar CI.
+9. Subir los commits locales para que GitHub ejecute el CI corregido.
 10. Aplicado por defecto, revisable: días cerrados por profesional (no hay cierre de toda la clínica); rol `agenda` de solo lectura con códigos; diagnósticos y pruebas con el régimen de las notas clínicas.
 11. Permitir borrar gastos a la clínica (hoy la BD no lo permite).
 12. Diagnósticos: ¿texto libre o codificados (CIE-10/DSM-5)? Hoy texto libre.
@@ -171,4 +177,4 @@ seguridad la prueban pgTAP, HTTP y E2E contra servicios reales.
 5. Textos legales, contrato de encargo, EIPD, procedimiento de brechas.
 6. MFA (al menos personal de KOVO).
 7. Copias de Storage en el entorno alojado y ensayo de restauración en staging.
-8. CI ejecutado en verde.
+8. CI ejecutado en verde en GitHub.

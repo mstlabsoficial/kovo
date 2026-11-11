@@ -30,6 +30,7 @@ Migraciones de `db/migrations` (orden de nombre):
 | `20261112090200_recurring_expenses` | Gastos fijos + `apply_recurring_expenses` (idempotente; un mes borrado no se recrea). Columnas `expenses.recurring_id/recurring_month`. |
 | `20261112090300_agenda_role` | Rol `agenda` (solo calendario) en membresías e invitaciones; RPC `agenda_calendar` (códigos, sin nombres). |
 | `20261112090400_patient_export_audit` | RPC `log_patient_export`: deja en `audit_log` quién exportó los datos de qué paciente y cuándo (solo psicólogas; metadatos = recuentos por apartado, ningún dato personal). Permitida con la cuenta suspendida. |
+| `20261112090500_appointment_booking_lock` | Las reservas activas de una profesional se comprueban una tras otra (bloqueo de transacción): con reservas simultáneas del mismo hueco, PostgreSQL ya no devuelve bloqueos mutuos (40P01), sino el conflicto 23P01. Sin cambios de datos ni reglas. |
 | `20261112090000_appointment_series` | Citas repetidas: columna `appointments.series_id` (nullable) + índice. Alta de la serie = una inserción (todo o nada); «esta y las siguientes» = una actualización. Aditiva. |
 
 ### Aplicar a una base que ya tiene datos
@@ -58,6 +59,9 @@ node db/run.mjs --only=tap,http # subconjunto
 node db/run.mjs --serve         # deja la pila arrancada e imprime VITE_SUPABASE_URL / clave para usar la app
 ```
 
+Ensayo del modo CI sin Docker: `node db/local/empty-stack.mjs <fichero fuera del repo>` arranca una pila local
+vacía y escribe las variables `KOVO_EXT_*`; después, `node db/run.mjs --external --e2e` con ellas (11/11/2026: verde).
+
 En CI (`.github/workflows/kovo-ci.yml`): `supabase start` en Docker y `node db/run.mjs --external --e2e`
 (adaptador `db/local/external.mjs`, que se niega a usar direcciones no locales) más
 `scripts/ci-backup-drill.sh` (pg_dump / pg_restore). **El workflow no se ha ejecutado todavía**: requiere
@@ -69,8 +73,8 @@ subir la rama (pendiente de autorización).
 |---|---|---|
 | pgTAP consolidado (`tests/saas_test.sql`) | códigos, alta, aislamiento, roles, ajustes, horario, auditoría, invitaciones, límites de plan, plataforma, suspensión, sesiones, facturas y cobros, documentos, recordatorios, pasarela | 123/123 |
 | pgTAP clínico v2 sobre la cadena completa | integridad, roles, firma, versiones, auditoría | 81/81 |
-| HTTP (`tests/http.mjs`) | registro de exportaciones de pacientes (quién, cuándo, solo recuentos; también con la cuenta suspendida), días cerrados (RLS por profesional), series de citas (todo o nada, reintento, cancelación parcial, aislamiento), tokens reales de Supabase Auth, PostgREST y Storage: alta, aislamiento, escalada de privilegios, REST/RPC directos, Storage (subida, descarga, otra clínica, manipulación de ruta, tipo, tamaño, sobrescritura, borrado), sesiones (cierre, rotación, reutilización), tokens caducados/falsos/manipulados, facturación, plataforma, suspensión, soporte, webhook | 124/129 |
-| Concurrencia (`tests/concurrency.mjs`) | 30 altas simultáneas, reservas solapadas, invitaciones, cobros, emisiones | 10/10 |
+| HTTP (`tests/http.mjs`) | facturar sesiones (enlace con la cita, sin duplicar, solo citas realizadas del mismo paciente y clínica, recepción no), registro de exportaciones de pacientes (quién, cuándo, solo recuentos; también con la cuenta suspendida), días cerrados (RLS por profesional), series de citas (todo o nada, reintento, cancelación parcial, aislamiento), tokens reales de Supabase Auth, PostgREST y Storage: alta, aislamiento, escalada de privilegios, REST/RPC directos, Storage (subida, descarga, otra clínica, manipulación de ruta, tipo, tamaño, sobrescritura, borrado), sesiones (cierre, rotación, reutilización), tokens caducados/falsos/manipulados, facturación, plataforma, suspensión, soporte, webhook | 124/136 |
+| Concurrencia (`tests/concurrency.mjs`) | 30 altas simultáneas, 8 reservas simultáneas del mismo hueco en 5 rondas (una entra, el resto 23P01, nunca 40P01), invitaciones, cobros, emisiones | 10/10 |
 | Migración de datos (`tests/upgrade.mjs`) | ver §1 | 27/27 |
 | Copia y restauración (`tests/backup.mjs`) | copia física en frío de PostgreSQL + ficheros de Storage → restauración en otro servidor → 70 tablas idénticas (recuento + md5), contraseñas, documentos | 5/5 |
 | E2E (`app/tests/stack`) | navegador real contra la pila completa: alta → operación diaria, agenda v3 (días cerrados, serie, mover, cancelar serie), equipo, varias clínicas, suspensión y panel de KOVO, sesión y red, móvil | 8/8 |
