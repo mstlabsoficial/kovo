@@ -403,7 +403,9 @@ function taxes(){
 
 /* ===== navegación ===== */
 const NAV=[['inicio','Dashboard',['psicologa','recepcion'],'Inicio','work'],['calendario','Calendario',['psicologa','recepcion','agenda'],'Agenda','work'],['pacientes','Pacientes',['psicologa','recepcion'],'Pacientes','work'],['informes','Informes clínicos',['psicologa'],'Informes','work'],['seguimiento','Seguimiento terapéutico',['psicologa'],'Seguimiento','work'],['contabilidad','Facturación',['psicologa','recepcion','gestoria'],'Facturación','work'],['config','Ajustes',['psicologa'],'Ajustes','menu'],['ayuda','Ayuda y soporte',['psicologa','recepcion','gestoria','agenda'],'Ayuda','menu']];
-const can=v=>NAV.find(n=>n[0]===v)[2].includes(S.role);
+// En modo conectado, Ajustes también lo abre la administración que no es psicóloga (pestañas de la clínica, no las clínicas).
+const seen=n=>n[2].includes(S.role)||(n[0]==='config'&&!!(CN&&CN.isAdmin()));
+const can=v=>seen(NAV.find(n=>n[0]===v));
 function todos(){
   const T=[];const isPsi=S.role==='psicologa';
   const pn=pendingNotes();const noNote=pn.filter(a=>!noteFor(a)),draftN=pn.filter(a=>noteFor(a));
@@ -442,7 +444,7 @@ function navBadges(){
   return{informes:pn,contabilidad:acc};
 }
 function renderNav(){
-  const badge=navBadges();const vis=NAV.filter(n=>n[2].includes(S.role)&&n[4]==='work');
+  const badge=navBadges();const vis=NAV.filter(n=>seen(n)&&n[4]==='work');
   const item=n=>`<button data-act="go" data-v="${n[0]}" ${S.view===n[0]?'aria-current="page"':''}>${SVG(NAVI[n[0]])}<span>${n[1]}</span>${badge[n[0]]?`<span class="badge">${badge[n[0]]}</span>`:''}</button>`;
   document.getElementById('nav').innerHTML=`<div class="navlabel">Espacio de trabajo</div>${vis.map(item).join('')}`;
   const dk=n=>`<button data-act="go" data-v="${n[0]}" aria-label="${n[1]}" ${S.view===n[0]?'aria-current="page"':''}><span class="pill">${SVG(NAVI[n[0]])}</span><span>${n[3]}</span>${badge[n[0]]?`<span class="badge">${badge[n[0]]}</span>`:''}</button>`;
@@ -455,7 +457,7 @@ function renderTop(){
   <div class="tb-r"><div class="pwrap"><button class="avatar-btn" data-act="pmenu" aria-label="Perfil, ajustes y ayuda" aria-haspopup="true">${esc(initials(who))}</button>
     <div class="pmenu" id="pmenu" hidden>
       <div class="pm-h"><span class="av">${esc(initials(who))}</span><div><b>${esc(who)}</b><span>${psi?'Psicóloga · titular':ROLE_L[S.role]}</span></div></div>
-      ${psi?`<button data-act="goProfile">${SVG(IC.user)}Perfil profesional</button><button data-act="goSettings">${SVG(NAVI.config)}Ajustes</button>`:''}
+      ${psi?`<button data-act="goProfile">${SVG(IC.user)}Perfil profesional</button>`:''}${can('config')?`<button data-act="goSettings">${SVG(NAVI.config)}Ajustes</button>`:''}
       <button data-act="goHelp">${SVG(NAVI.ayuda)}Ayuda y soporte</button>
       ${CN?`<div class="cn-sep"></div><div class="pm-h" style="padding-top:2px"><div><b>${esc(S.org.name||'Clínica')}</b><span>${esc(S.org.userEmail||'')}</span></div></div>${S.org.multi?`<button data-act="cnSwitch">${SVG(IC.users)}Cambiar de clínica</button>`:''}<button data-act="cnLogout">${SVG(IC.lock)}Cerrar sesión</button>`:
       `<label class="field pm-role"><span>Ver como (prototipo)</span><select id="role3">${userOptions()}</select></label>`}
@@ -464,7 +466,7 @@ function renderTop(){
 let LASTV=null;
 function render(){
   if(!W){runFixed();runDaily();runReminders()}
-  if(!can(S.view))S.view=NAV.find(n=>n[2].includes(S.role))[0];
+  if(!can(S.view))S.view=NAV.find(seen)[0];
   H0=Math.min(22,Math.max(0,S.settings.h0??9));H1=Math.max(H0+1,Math.min(24,S.settings.h1??21));
   renderNav();renderTop();
   const w=document.getElementById('view');
@@ -1108,7 +1110,7 @@ function occChart(weeks){
 /* configuración */
 VIEWS.config=()=>{
   const s=S.settings;const tg=(k,t,d)=>`<div class="toggle"><div><b>${t}</b><small>${d}</small></div><input type="checkbox" class="sw" id="set-${k}" data-set="${k}" ${s[k]?'checked':''} aria-label="${esc(t)}"></div>`;
-  const tab=S.sel.ctab||'auto';let c='';
+  const tabs=CN?CN.tabsFor(S.role):null;let tab=S.sel.ctab||'auto';if(tabs&&!tabs.some(t=>t[0]===tab))tab=tabs[0][0];let c='';
   if(CN&&CN.isPanel(tab))c=CN.panel(tab);
   else if(tab==='auto')c=`<div class="grid2"><section class="panel"><header><h2>Automatizaciones</h2></header>
     ${CN?`<div class="box" style="margin-bottom:12px">KOVO todavía no tiene proveedor de correo: estas preferencias se guardan para la clínica, pero no se envía ningún email.${CN.isAdmin()?'':' Solo la administración puede cambiarlas.'}</div>`:''}
@@ -1145,7 +1147,7 @@ VIEWS.config=()=>{
   else if(tab==='ayuda')c=ayudaBody();
   else c=`<section class="panel flush"><div class="tbl-wrap"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody>${S.audit.slice(0,150).map(a=>`<tr><td class="num">${new Date(a.at).toLocaleString('es-ES',{dateStyle:'short',timeStyle:'short'})}</td><td>${esc(a.who)}</td><td>${esc(a.what)}</td></tr>`).join('')}</tbody></table></div></section>`;
   return `<div class="head"><div><div class="eyebrow">Ajustes</div><h1>Configuración</h1><p>${CN?`${esc(S.org.name||'')} · cada cambio se guarda en el servidor al confirmarse`:`${esc(S.pro.name)} · todo es editable y se guarda al instante`}</p></div></div>
-  <div class="tabs" role="tablist">${(CN?CN.tabs:[['auto','Automatizaciones'],['servicios','Servicios y tarifas'],['perfil','Datos profesionales'],['usuarios','Usuarios y permisos'],['horario','Horario y agenda'],['comms','Comunicaciones'],['audit','Auditoría'],['ayuda','Ayuda y soporte']]).map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-act="ctab" data-t="${k}">${l}</button>`).join('')}</div>${c}${CN?'':`<div class="reset-zone"><button class="btn danger" data-act="reset">Restablecer datos de ejemplo</button><span class="muted small">Borra los cambios hechos en este navegador y vuelve a los datos de ejemplo.</span></div>`}`;
+  <div class="tabs" role="tablist">${(CN?tabs:[['auto','Automatizaciones'],['servicios','Servicios y tarifas'],['perfil','Datos profesionales'],['usuarios','Usuarios y permisos'],['horario','Horario y agenda'],['comms','Comunicaciones'],['audit','Auditoría'],['ayuda','Ayuda y soporte']]).map(([k,l])=>`<button role="tab" aria-selected="${tab===k}" data-act="ctab" data-t="${k}">${l}</button>`).join('')}</div>${c}${CN?'':`<div class="reset-zone"><button class="btn danger" data-act="reset">Restablecer datos de ejemplo</button><span class="muted small">Borra los cambios hechos en este navegador y vuelve a los datos de ejemplo.</span></div>`}`;
 };
 
 /* ===== modales ===== */
@@ -1736,7 +1738,7 @@ Dictado: «${txt}»`;
   setTheme:d=>{S.settings.theme=d.k;audit('Tema: '+d.k);render();toast('Tema aplicado')},
   goProfile:()=>{S.view='config';S.sel.ctab='perfil';S.sel.patient=null;render();window.scrollTo(0,0)},
   goFiscal:()=>{S.view='config';S.sel.ctab='perfil';S.sel.patient=null;render();window.scrollTo(0,0)},
-  more:()=>{const vis=NAV.filter(n=>n[2].includes(S.role));const shown=['inicio','calendario','pacientes','informes'];const rest=vis.filter(n=>!shown.includes(n[0]));
+  more:()=>{const vis=NAV.filter(seen);const shown=['inicio','calendario','pacientes','informes'];const rest=vis.filter(n=>!shown.includes(n[0]));
     modal('Más',`<div class="stack" style="gap:2px">${rest.map(n=>`<button class="todo" data-act="goClose" data-v="${n[0]}"><span class="ic">${SVG(NAVI[n[0]])}</span><span class="tx"><b>${n[1]}</b></span></button>`).join('')}</div>
     <label class="field"><span>Ver como (prototipo)</span><select id="role2">${userOptions()}</select></label>`)},
   goClose:d=>{closeModal();ACT.go(d)},
@@ -1772,7 +1774,7 @@ Dictado: «${txt}»`;
   fillNote:(d,btn)=>{if(S.role!=='psicologa')return;const a=S.appts.find(x=>x.id===d.id);if(!a)return;if(['confirmada','pendiente'].includes(a.status)){if(a.date>TODAY)return;if(W){remoteStatus(btn,a,'realizada',x=>{logA(x,'Marcada como realizada');noteEditor(ensureNote(x))});return}markDone(a)}noteEditor(ensureNote(a))},
   carMove:d=>{const c=document.getElementById('car');if(c)c.scrollBy({left:Number(d.n)*carStep(c),behavior:'smooth'})},
   pmenu:()=>{const m=document.getElementById('pmenu');if(m)m.hidden=!m.hidden},
-  goSettings:()=>{S.view='config';S.sel.ctab='auto';S.sel.patient=null;render();window.scrollTo(0,0)},
+  goSettings:()=>{S.view='config';S.sel.ctab=S.role==='psicologa'?'auto':'clinica';S.sel.patient=null;render();window.scrollTo(0,0)},
   goHelp:()=>{if(S.role==='psicologa'){S.view='config';S.sel.ctab='ayuda'}else S.view='ayuda';S.sel.patient=null;render();window.scrollTo(0,0)},
   iper:d=>{S.sel.iper=d.p;render()},
   gsub:d=>{S.sel.gsub=d.t;render()},

@@ -55,6 +55,10 @@ const THEME_KEY = 'kovo.theme.v1';
 export const CONNECTED_TABS = [['clinica', 'Clínica'], ['equipo', 'Equipo'], ['servicios', 'Servicios y tarifas'], ['perfil', 'Mi perfil profesional'],
   ['horario', 'Horario y agenda'], ['auto', 'Preferencias'], ['suscripcion', 'Suscripción'], ['soporte', 'Soporte'], ['audit', 'Auditoría'], ['ayuda', 'Ayuda']];
 export const PANEL_TABS = new Set(['clinica', 'equipo', 'suscripcion', 'soporte', 'audit']);
+// Administración que no es psicóloga: lo de la clínica, no lo de una profesional (servicios, perfil y
+// horario los escriben solo las psicólogas, también en la base de datos).
+const PSI_ONLY_TABS = new Set(['servicios', 'perfil', 'horario']);
+export const tabsFor = role => role === 'psicologa' ? CONNECTED_TABS : CONNECTED_TABS.filter(([k]) => !PSI_ONLY_TABS.has(k));
 
 const pickSettings = s => Object.fromEntries(Object.keys(DEFAULT_SETTINGS).filter(k => k in s).map(k => [k, s[k]]));
 const fmtDate = x => x ? new Date(x).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
@@ -434,6 +438,7 @@ export function installConnected(h) {
 
   return {
     tabs: CONNECTED_TABS,
+    tabsFor,
     isPanel: tab => PANEL_TABS.has(tab),
     panel: tab => { queueMicrotask(() => mountPanel(tab)); return `<div id="cn-panel" data-tab="${tab}"></div>`; },
     refresh: () => { sidebar(); banner(); },

@@ -84,7 +84,7 @@ Las migraciones `20261112090000`–`0300` son **solo locales**: contra un servid
 | Datos de la clínica, ajustes, servicios y tarifas | 1 | |
 | Ficha del profesional propio | 1 | |
 | Alta de otros profesionales sin cuenta | 3 | RPC lista; sin interfaz |
-| Configuración accesible para administradores que no son psicólogos | 3 | la vista Configuración es solo para psicólogas (herencia de la demo) |
+| Configuración accesible para administradores que no son psicólogos | 1 | en modo conectado, cualquier persona administradora abre Ajustes con las pestañas de la clínica (datos, equipo, preferencias, suscripción, soporte, auditoría); servicios, perfil y horario siguen siendo de psicólogas (también en la BD). E2E real |
 | Tema claro/oscuro por dispositivo | 3 | se guarda, pero la app heredada siempre pinta en claro |
 
 ### SaaS

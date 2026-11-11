@@ -405,6 +405,21 @@ test('equipo: invitación por enlace, alta de recepción con el correo invitado 
   await expect(b.locator('.sidefoot .cn-org')).toContainText('Gestoría');
   const v2 = await b.$$eval('#nav [data-act="go"]', els => els.map(e => e.dataset.v));
   expect(v2).not.toContain('pacientes');
+  // Gestoría con administración: entra en Ajustes con las pestañas de la clínica, no las de una profesional
+  await act(b, 'goSettings');
+  expect(await b.locator('#view [data-act="ctab"]').count()).toBe(0);   // sin administración, no hay Ajustes
+  const gesId = (await api('/rest/v1/rpc/list_team', { method: 'POST', token: await tokenFor(adminEmail), body: { p_org_id: orgId } })).json.find(m => m.email === recEmail).membership_id;
+  expect((await api('/rest/v1/rpc/update_membership', { method: 'POST', token: await tokenFor(adminEmail), body: { p_membership_id: gesId, p_is_admin: true } })).ok).toBe(true);
+  await b.reload(); await waitApp(b);
+  await act(b, 'goSettings');
+  const tabs = await b.$$eval('#view [data-act="ctab"]', els => els.map(e => e.dataset.t));
+  expect(tabs).toEqual(['clinica', 'equipo', 'auto', 'suscripcion', 'soporte', 'audit', 'ayuda']);
+  await expect(b.locator('#cn-name')).toHaveValue('Clínica Sintética Equipo');
+  await expect(b.locator('#cn-panel [data-act="cnSaveClinic"]')).toHaveCount(1);
+  await tab(b, 'equipo');
+  await expect(b.locator('#cn-panel')).toContainText(adminEmail);
+  await act(b, 'ctab', { t: 'servicios' });   // forzado desde la consola: vuelve a la primera pestaña permitida
+  await expect(b.locator('#view [role="tab"][aria-selected="true"]')).toHaveText('Clínica');
   // La administradora no puede quitarse a sí misma la administración (no aparece el botón; el servidor lo impide)
   const me = (await api('/rest/v1/rpc/list_team', { method: 'POST', token: await tokenFor(adminEmail), body: { p_org_id: orgId } })).json.find(m => m.email === adminEmail);
   const self = await api('/rest/v1/rpc/update_membership', { method: 'POST', token: await tokenFor(adminEmail), body: { p_membership_id: me.membership_id, p_is_admin: false } });
