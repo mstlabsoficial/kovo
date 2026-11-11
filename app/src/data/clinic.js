@@ -4,6 +4,7 @@
 // la base de datos (RLS + RPC) decide los permisos. Nada se da por guardado sin respuesta.
 import { supabaseRequest, readSession, SUPABASE_URL, SUPABASE_KEY } from './supabase-client.js';
 import { isUuid } from './mapping.js';
+import { madridToUtc } from './legacy-writes.js';
 
 export class ClinicError extends Error {
   constructor(code, message, { status = null, pg = null } = {}) { super(message); this.name = 'ClinicError'; this.code = code; this.status = status; this.pg = pg; }
@@ -160,6 +161,25 @@ export function createClinicApi({ request = supabaseRequest, refresh = async () 
       const ranges = [];
       for (const [d, rs] of Object.entries(avail || {})) for (const [a, b] of rs || []) ranges.push({ weekday: Number(d) + 1, start_minute: a, end_minute: b });
       return rpc('set_professional_availability', { p_org_id: c.id, p_professional_id: professionalId, p_ranges: ranges });
+    },
+    /* vacaciones y días cerrados (professional_time_off) */
+    // from / to: 'AAAA-MM-DD' (hora de Madrid, ambos incluidos). Se guarda [from 00:00, to+1 00:00).
+    async addTimeOff(professionalId, { from, to, label }) {
+      const c = await ctx();
+      if (!isUuid(professionalId)) throw new ClinicError('validation', 'Primero crea tu ficha profesional (Ajustes › Mi perfil profesional).');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(to || '')) throw new ClinicError('validation', 'Elige las fechas.');
+      if (to < from) [from, to] = [to, from];
+      const next = new Date(Date.parse(to + 'T12:00:00Z') + 864e5).toISOString().slice(0, 10);
+      const reason = String(label || '').trim().slice(0, 200) || null;
+      return one(await call('professional_time_off', { method: 'POST', headers: rep,
+        body: { org_id: c.id, professional_id: professionalId, starts_at: madridToUtc(from, 0), ends_at: madridToUtc(next, 0), reason } }));
+    },
+    async deleteTimeOff(id) {
+      const c = await ctx();
+      if (!isUuid(id)) throw new ClinicError('validation', 'Registro no válido.');
+      const rows = await call(`professional_time_off?id=eq.${id}&org_id=eq.${c.id}`, { method: 'DELETE', headers: rep });
+      if (Array.isArray(rows) && !rows.length) throw new ClinicError('forbidden', 'No existe o tu perfil no puede quitarlo.');
+      return one(rows);
     },
     /* equipo */
     async team() { const c = await ctx(); return rpc('list_team', { p_org_id: c.id }); },

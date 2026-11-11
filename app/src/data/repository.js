@@ -180,6 +180,9 @@ export function createKovoRepository({ request = supabaseRequest, getContext = n
         const av = await optional(`professional_availability?select=weekday,start_minute,end_minute&org_id=eq.${ctx.id}&professional_id=eq.${professionalId}&order=weekday.asc,start_minute.asc`);
         if (Array.isArray(av)) out.availability = av;
       }
+      // Vacaciones y días cerrados: los de la profesional de la sesión (o, si no hay, los de la clínica).
+      const off = await optional(`professional_time_off?select=id,professional_id,starts_at,ends_at,reason&org_id=eq.${ctx.id}${professionalId ? `&professional_id=eq.${professionalId}` : ''}&order=starts_at.asc`);
+      if (Array.isArray(off)) out.timeOff = off;
       return out;
     },
     async loadSnapshot(){

@@ -9,7 +9,6 @@ import { DEFAULT_SETTINGS } from '../data/legacy-state.js';
 
 // Acciones de la demo sin servidor: en modo conectado se explican en vez de simularlas.
 const NO_MAIL = 'KOVO todavía no tiene un proveedor de correo configurado: no se envía nada. Descarga el PDF y envíalo tú.';
-const NO_BLOCKS = 'Las vacaciones y los días cerrados todavía no se guardan en el servidor. No se ha cambiado nada.';
 const NO_DICT = 'El dictado y la redacción con IA están desactivados con datos reales: el contenido clínico no se envía a servicios de voz ni de IA.';
 const NO_DX = 'Los diagnósticos y las pruebas todavía no se guardan en el servidor. No se ha guardado nada.';
 const NO_FIXED = 'Los gastos fijos todavía no se guardan en el servidor. Añade cada gasto con «Nuevo gasto».';
@@ -29,9 +28,6 @@ export const BLOCKED = Object.freeze({
   genPayroll: 'Las nóminas aún no están conectadas al servidor.',
   payPayroll: 'Las nóminas aún no están conectadas al servidor.',
   // Interfaz v3: funciones que todavía solo existen en la demo.
-  blockAdd: NO_BLOCKS, blockDel: NO_BLOCKS,
-  moveDo: 'Mover citas arrastrando aún no está conectado al servidor. Abre la cita y usa «Reprogramar».',
-  cancelSeries: 'Las citas repetidas aún no están conectadas al servidor. Cancela las citas una a una.',
   dictMic: NO_DICT, dictAI: NO_DICT, dictUndo: NO_DICT,
   dxForm: NO_DX, dxSave: NO_DX, dxDel: NO_DX, testForm: NO_DX, testSave: NO_DX, testDel: NO_DX,
   fxForm: NO_FIXED, fxSave: NO_FIXED, fxDel: NO_FIXED,
@@ -278,6 +274,9 @@ export function installConnected(h) {
     delRange: (d, b) => { const n = copyAvail(); n[d.d].splice(Number(d.i), 1); saveAvail(n, 'Franja quitada', b); },
     setTheme: d => { S().settings.theme = d.k; try { localStorage.setItem(THEME_KEY, d.k); } catch {} h.render(); h.toast('Tema aplicado en este dispositivo'); },
     toggleTheme: () => ACT.setTheme({ k: h.effTheme() === 'dark' ? 'light' : 'dark' }),
+    // vacaciones y días cerrados (professional_time_off de la profesional de la sesión)
+    blockAdd: (d, b) => run(b, () => clinic.addTimeOff(S().pro?.id, { from: val('bk-f'), to: val('bk-t'), label: val('bk-l') || 'Cerrado' }), () => reload('Días cerrados añadidos')),
+    blockDel: (d, b) => run(b, () => clinic.deleteTimeOff(d.id), () => reload('Días cerrados quitados')),
     cnEnsurePro: (d, b) => run(b, () => clinic.ensureMyProfessional(), () => reload('Ficha profesional creada')),
     // facturas
     saveNewInv: (d, b) => {

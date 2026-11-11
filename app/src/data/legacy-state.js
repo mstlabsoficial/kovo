@@ -6,7 +6,7 @@
 // presentación explícitos y documentados, y cada sustitución se anota en el informe como
 // `ui_default` o `excluded_from_ui`. Ninguno de estos valores se escribe en la BD.
 // Lista completa en from-supabase.md.
-import { ROLE, NOTE_FIELD_KEYS } from './from-supabase.js';
+import { ROLE, NOTE_FIELD_KEYS, toLocalDate } from './from-supabase.js';
 
 // Preferencias de la interfaz, no datos de la consulta: la BD no tiene tabla de ajustes.
 // Mismos valores por defecto que seed() en legacy.js.
@@ -71,6 +71,25 @@ export function settingsFromDb(raw) {
   if (raw && typeof raw === 'object') for (const [k, v] of Object.entries(raw)) if (k in DEFAULT_SETTINGS && typeof v === typeof DEFAULT_SETTINGS[k]) out[k] = v;
   return out;
 }
+// Citas de una misma serie: posición (1…n), total y cada cuántos días (lo que muestra legacy.js).
+export function annotateSeries(appts) {
+  const by = new Map();
+  for (const a of appts) if (a.seriesId) (by.get(a.seriesId) || by.set(a.seriesId, []).get(a.seriesId)).push(a);
+  for (const list of by.values()) {
+    list.sort((x, y) => x.date.localeCompare(y.date) || x.start - y.start);
+    const every = list.length > 1 ? Math.round((Date.parse(list[1].date) - Date.parse(list[0].date)) / 864e5) : null;
+    list.forEach((a, i) => { a.seriesIdx = i + 1; a.seriesTotal = list.length; a.seriesEvery = every; });
+  }
+  return appts;
+}
+// Filas de professional_time_off → días cerrados de legacy.js ({ id, from, to, label }, fechas de
+// Madrid; `to` incluido). Un día cerrado se guarda de 00:00 de `from` a 00:00 del día siguiente a `to`.
+export function blocksFromRows(rows) {
+  return (rows || []).filter(r => r && r.id && r.starts_at && r.ends_at).map(r => ({
+    id: r.id, from: toLocalDate(r.starts_at), to: toLocalDate(Date.parse(r.ends_at) - 1),
+    label: r.reason || 'Cerrado', professionalId: r.professional_id ?? null
+  })).sort((a, b) => a.from.localeCompare(b.from));
+}
 // Filas de professional_availability (weekday ISO 1-7) → formato de legacy.js (0 = lunes).
 export function availFromRows(rows) {
   const out = {};
@@ -100,7 +119,7 @@ export function toLegacyState({ collections, loaded = {}, report = [], context, 
   const pById = new Map(patients.map(p => [p.id, p]));
 
   /* citas */
-  const appts = (c.appts || []).map(src => uiAppointment(src, sIds, note)).filter(Boolean);
+  const appts = annotateSeries((c.appts || []).map(src => uiAppointment(src, sIds, note)).filter(Boolean));
   const usedMissing = patients.some(p => p.service === MISSING_SERVICE_ID) || appts.some(a => a.service === MISSING_SERVICE_ID);
 
   /* facturas */
@@ -165,6 +184,9 @@ export function toLegacyState({ collections, loaded = {}, report = [], context, 
     // Horario guardado de la profesional; si no hay ninguno, el de por defecto marcado como no guardado.
     avail: extras?.availability?.length ? availFromRows(extras.availability) : JSON.parse(JSON.stringify(DEFAULT_AVAIL)),
     availSaved: !!extras?.availability?.length,
+    // Vacaciones y días cerrados (professional_time_off). null = la tabla no existe en este esquema.
+    blocks: Array.isArray(extras?.timeOff) ? blocksFromRows(extras.timeOff) : [],
+    blocksAvailable: Array.isArray(extras?.timeOff),
     professionals: pros.map(p => ({ ...p })),
     // Emisor de las facturas en modo conectado: el perfil fiscal de la clínica (organization_billing_profiles).
     issuer: extras?.billingProfile ? { name: extras.billingProfile.legal_name, nif: extras.billingProfile.tax_id,

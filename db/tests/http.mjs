@@ -120,6 +120,40 @@ export async function runHttp(stack) {
   const recAv = await api.rpc(rec.token, 'set_professional_availability', { p_org_id: A, p_professional_id: myPro.json, p_ranges: [] });
   check('Horario: recepción no cambia horarios', !recAv.ok, err(recAv));
 
+  // ---------------------------------------------------------------- Interfaz v3: días cerrados, series
+  const off = { org_id: A, professional_id: myPro.json, starts_at: '2026-12-24T00:00:00+01:00', ends_at: '2027-01-07T00:00:00+01:00', reason: 'Vacaciones sintéticas' };
+  const offOk = await api.insert(ps2.token, 'professional_time_off', off);
+  check('Días cerrados: la profesional añade sus vacaciones', offOk.status === 201 && offOk.json[0].reason === 'Vacaciones sintéticas', err(offOk));
+  const offRec = await api.insert(rec.token, 'professional_time_off', { ...off, reason: 'x' });
+  check('Días cerrados: recepción no los añade (RLS)', offRec.status === 403, err(offRec));
+  const offOther = await api.insert(ps2.token, 'professional_time_off', { ...off, professional_id: titPro });
+  check('Días cerrados: una psicóloga no administradora no cierra días de otra', offOther.status === 403, err(offOther));
+  const offRead = await api.get(rec.token, `professional_time_off?select=id&org_id=eq.${A}`);
+  const offLeak = await api.get(titB.token, `professional_time_off?select=id&org_id=eq.${A}`);
+  check('Días cerrados: el equipo los ve; otra clínica no', offRead.json?.length === 1 && offLeak.ok && offLeak.json.length === 0, err(offLeak));
+  const offDelRec = await api.del(rec.token, `professional_time_off?id=eq.${offOk.json[0].id}`);
+  const offDel = await api.del(ps2.token, `professional_time_off?id=eq.${offOk.json[0].id}`);
+  check('Días cerrados: recepción no los quita; la profesional sí', offDelRec.ok && offDelRec.json.length === 0 && offDel.ok && offDel.json.length === 1, err(offDel));
+
+  const series = randomUUID();
+  const weekly = k => ({ id: randomUUID(), org_id: A, patient_id: P1, professional_id: myPro.json, series_id: series, status: 'scheduled',
+    starts_at: new Date(Date.parse('2027-02-01T10:00:00+01:00') + k * 7 * 864e5).toISOString(), ends_at: new Date(Date.parse('2027-02-01T10:50:00+01:00') + k * 7 * 864e5).toISOString() });
+  const blocker = await api.insert(titA.token, 'appointments', { org_id: A, patient_id: P1, professional_id: myPro.json, status: 'scheduled', starts_at: '2027-02-15T10:30:00+01:00', ends_at: '2027-02-15T11:00:00+01:00' });
+  const clash = await api.insert(rec.token, 'appointments', [0, 1, 2, 3].map(weekly));
+  const none = await api.get(titA.token, `appointments?select=id&series_id=eq.${series}`);
+  check('Series: si una fecha se solapa no se crea ninguna (inserción única, 23P01)', blocker.ok && !clash.ok && clash.json?.code === '23P01' && none.json.length === 0, err(clash));
+  await api.del(titA.token, `appointments?id=eq.${blocker.json[0].id}`).then(r => r.ok || api.patch(titA.token, `appointments?id=eq.${blocker.json[0].id}`, { status: 'cancelled' }));
+  const rows = [0, 1, 2, 3].map(weekly);
+  const made = await api.insert(rec.token, 'appointments', rows);
+  check('Series: recepción crea 4 citas semanales de una vez con su series_id', made.status === 201 && made.json.length === 4 && made.json.every(r => r.series_id === series), err(made));
+  const retry = await api.insert(rec.token, 'appointments', rows);
+  check('Series: repetir el alta (respuesta perdida) no duplica: clave primaria', retry.status === 409 && retry.json?.code === '23505', err(retry));
+  const seriesB = await api.patch(titB.token, `appointments?series_id=eq.${series}`, { status: 'cancelled' });
+  check('Series: otra clínica no cancela una serie ajena', seriesB.ok && seriesB.json.length === 0, err(seriesB));
+  const cut = await api.patch(rec.token, `appointments?org_id=eq.${A}&series_id=eq.${series}&starts_at=gte.${encodeURIComponent(rows[2].starts_at)}&status=in.(scheduled,confirmed)`, { status: 'cancelled' });
+  const left = await api.get(titA.token, `appointments?select=status&series_id=eq.${series}&order=starts_at.asc`);
+  check('Series: «esta y las siguientes» cancela solo desde esa fecha', cut.ok && cut.json.length === 2 && left.json.map(r => r.status).join() === 'scheduled,scheduled,cancelled,cancelled', err(cut));
+
   // ---------------------------------------------------------------- Storage (real Supabase Storage)
   const docName = `${randomUUID()}-consentimiento.pdf`;
   const docPath = `${A}/${P1}/${docName}`;

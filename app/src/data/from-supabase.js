@@ -181,6 +181,7 @@ export function appointmentFromRow(row, opts) {
   return {
     id, ...meta(row),
     patientId: row.patient_id, professionalId: row.professional_id ?? null,
+    seriesId: row.series_id ?? null,   // cita de una serie (db/migrations/20261112090000); null = suelta
     date: toLocalDate(row.starts_at), start, dur,
     service: row.service_id ?? null, modal, loc: str(row.location),
     status, price: Number.isInteger(row.price_cents) ? row.price_cents : null,

@@ -1,6 +1,6 @@
 # KOVO · estado del proyecto
 
-Actualizado: 11/11/2026 · rama `feat/kovo-ui-v3` (local, **sin subir**), sobre `feat/kovo-consolidacion` (local, sin subir) · base `migracion-vite`.
+Actualizado: 11/11/2026 (etapa 2) · rama `feat/kovo-ui-v3` (local, **sin subir**), sobre `feat/kovo-consolidacion` (local, sin subir) · base `migracion-vite`.
 
 **Resumen:** la app funciona de principio a fin contra un Supabase real **local** (Auth, PostgREST,
 Storage, PostgreSQL 17) con datos sintéticos y varias clínicas a la vez. **No está en producción ni en
@@ -18,9 +18,9 @@ todavía no guarda está oculto o bloqueado con aviso; nunca aparenta guardar (`
 
 | Novedad de v3 | Demo | Conectado |
 |---|---|---|
-| Vacaciones y días cerrados | sí | aviso en Ajustes › Horario; sin formulario (la tabla de ausencias existe en BD, falta conectarla) |
-| Mover una cita arrastrando | sí | desactivado; se usa «Reprogramar» |
-| Citas repetidas (series) y cancelar serie | sí | sin opción de repetir; bloqueado |
+| Vacaciones y días cerrados | sí | **conectado** (`professional_time_off`, días completos de Madrid; los de la profesional de la sesión) |
+| Mover una cita arrastrando | sí | **conectado** (misma escritura que «Reprogramar»; el solape lo rechaza la BD) |
+| Citas repetidas (series) y cancelar serie | sí | **conectado** con la migración local `20261112090000_appointment_series` (todo o nada). **No aplicada en producción**: allí avisa de que falta la actualización |
 | Diagnósticos y pruebas en la ficha | sí | bloqueado con aviso |
 | Gastos fijos mensuales y % deducible | sí | bloqueado con aviso |
 | Usuarios de ejemplo y perfil «solo calendario» | sí | no aparecen; el equipo real sigue en Ajustes › Equipo (el rol `agenda` no existe en BD) |
@@ -28,8 +28,7 @@ todavía no guarda está oculto o bloqueado con aviso; nunca aparenta guardar (`
 | Apartado «Recordatorio para la próxima sesión» y marca de riesgo en la nota | sí | no se ofrecen (no están en el catálogo de apartados del servidor) |
 | Confirmación diaria por correo, respuesta del paciente, facturar ahora | simulado | bloqueado (sin proveedor de correo) |
 
-Siguiente etapa, por orden: vacaciones/días cerrados, mover cita, series; después gastos fijos,
-diagnósticos/pruebas y rol `agenda`.
+Siguiente etapa: gastos fijos, diagnósticos/pruebas y rol `agenda` (necesitan tablas nuevas y decisiones: ver §4).
 
 ## 1. Clasificación de funcionalidades
 
@@ -55,7 +54,9 @@ diagnósticos/pruebas y rol `agenda`.
 | Solapamientos | 1 | lo impide la BD (23P01), también con reservas simultáneas |
 | Horario semanal del profesional | 1 | guardado atómico; solapes rechazados |
 | Respetar el horario al citar | 3 | solo aviso en la interfaz; la BD no lo impone |
-| Ausencias / vacaciones | 3 | tabla y permisos en BD; la interfaz v3 existe en la demo, **sin conectar** |
+| Ausencias / vacaciones (días cerrados) | 1 | HTTP (RLS: profesional propia o administración; recepción solo lee) + E2E. Por profesional, no por clínica |
+| Mover cita arrastrando | 1 | E2E |
+| Citas repetidas y cancelar «esta y las siguientes» | 1 | HTTP + E2E; requiere la migración `20261112090000` (solo local) |
 | Recordatorios | 3 | se encolan 24 h antes; **no se envían** (5: falta proveedor de correo/SMS) |
 
 ### Facturación de la clínica
@@ -120,13 +121,13 @@ diagnósticos/pruebas y rol `agenda`.
 
 | Suite | Tipo | Resultado |
 |---|---|---|
-| Unitarias | Node, sin red | 204 |
+| Unitarias | Node, sin red | 211 |
 | Navegador con API **simulada** | Playwright | 32 |
 | Smoke demo / visual demo | Playwright | 1 / 22 (44 capturas, escritorio y móvil) |
 | pgTAP consolidado / clínico | PostgreSQL real local | 123 / 81 |
-| HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 95 |
+| HTTP (Auth, PostgREST, Storage, webhook) | servicios reales locales | 105 |
 | Concurrencia / migración de datos / copia | real local | 10 / 27 / 5 |
-| E2E por recorridos y roles | navegador + pila real local | 6 |
+| E2E por recorridos y roles | navegador + pila real local | 7 |
 | E2E notas (suite heredada) | navegador + PostgreSQL/PostgREST locales | verde |
 
 Las pruebas simuladas comprueban la interfaz y el manejo de errores; **no** prueban seguridad. La
@@ -151,6 +152,9 @@ seguridad la prueban pgTAP, HTTP y E2E contra servicios reales.
 7. Imponer el horario en la base de datos.
 8. Criterios fiscales (`docs/fiscal`) y legales (`docs/legal`).
 9. Subir la rama y ejecutar CI.
+10. Días cerrados: hoy son de cada profesional. ¿Hace falta además un «cierre de la clínica» que afecte a todo el equipo?
+11. Rol `agenda` (solo calendario): ¿qué ve exactamente (códigos de paciente, sin nombres) y si puede crear o mover citas? Requiere ampliar el rol en BD.
+12. Diagnósticos (CIE-10/DSM) y pruebas: son datos clínicos; mismo régimen que las notas (solo psicóloga, auditoría, sin IA).
 
 ## 5. Bloqueantes para vender
 

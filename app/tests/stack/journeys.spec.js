@@ -184,6 +184,64 @@ test('alta: cuenta nueva → clínica → paciente, cita, ajustes, horario, docu
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
+test('agenda v3: días cerrados, serie semanal, mover una cita y cancelar «esta y las siguientes»', async ({ page }) => {
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  const email = mail('agenda');
+  const org = await clinicFor(email, 'Clínica Sintética Agenda');
+  const pt = (await svc('patients', { method: 'POST', body: { org_id: org.id, patient_code: 'AUTO', first_name: 'Paciente', last_name: 'Sintética Agenda', email: 'agenda@correo-ejemplo.test' }, headers: { prefer: 'return=representation' } })).json[0];
+  await login(page, email);
+
+  // Días cerrados: se guardan en professional_time_off como días completos de Madrid
+  const from = nextWeekday(3), to = nextWeekday(5);
+  await tab(page, 'horario');
+  await fill(page, { 'bk-f': from, 'bk-t': to, 'bk-l': 'Formación sintética' });
+  await click(page, '[data-act="blockAdd"]');
+  await expect(toast(page)).toContainText('Días cerrados añadidos');
+  const offRows = (await svc(`professional_time_off?select=id,starts_at,ends_at,reason&org_id=eq.${org.id}`)).json;
+  expect(offRows).toHaveLength(1);
+  expect(offRows[0].reason).toBe('Formación sintética');
+  const madrid = ts => new Date(ts).toLocaleString('sv-SE', { timeZone: 'Europe/Madrid' });
+  expect(madrid(offRows[0].starts_at)).toBe(`${from} 00:00:00`);
+  expect(madrid(Date.parse(offRows[0].ends_at) - 1)).toContain(to);
+  await expect(page.locator('#sec-blocks .blk')).toContainText('Formación sintética');
+  // Tras recargar sigue ahí (viene del servidor, no de la memoria)
+  await page.reload(); await waitApp(page); await tab(page, 'horario');
+  await expect(page.locator('#sec-blocks .blk')).toContainText('Formación sintética');
+
+  // Serie: 4 citas semanales; la que cae en el día cerrado se salta antes de enviar
+  const day = nextWeekday(3);   // miércoles: coincide con el primer día cerrado
+  await act(page, 'newAppt');
+  await fill(page, { 'f-p': pt.id, 'f-d': day, 'f-t': '09:00', 'f-dur': '50', 'f-l': 'Despacho', 'f-rep': '7', 'f-repn': '4' });
+  await click(page, '.mod [data-act="saveAppt"]');
+  await expect(toast(page)).toContainText('3 citas creadas');
+  await expect(toast(page)).toContainText('1 fecha saltada');
+  let rows = (await svc(`appointments?select=id,series_id,starts_at,status&org_id=eq.${org.id}&order=starts_at.asc`)).json;
+  expect(rows).toHaveLength(3);
+  expect(new Set(rows.map(r => r.series_id)).size).toBe(1);
+  expect(rows[0].series_id).toMatch(/^[0-9a-f-]{36}$/);
+
+  // Quitar el día cerrado
+  await click(page, `[data-act="blockDel"][data-id="${offRows[0].id}"]`);
+  await expect(toast(page)).toContainText('Días cerrados quitados');
+  expect((await svc(`professional_time_off?select=id&org_id=eq.${org.id}`)).json).toHaveLength(0);
+
+  // Mover (lo que hace soltar una cita en otro hueco del calendario): misma cita, nueva hora
+  await act(page, 'moveDo', { id: rows[0].id, d: rows[0].starts_at ? madrid(rows[0].starts_at).slice(0, 10) : day, t: String(11 * 60) });
+  await expect(toast(page)).toContainText('Cita movida');
+  const moved = (await svc(`appointments?select=starts_at,series_id&id=eq.${rows[0].id}`)).json[0];
+  expect(madrid(moved.starts_at).slice(11, 16)).toBe('11:00');
+  expect(moved.series_id).toBe(rows[0].series_id);
+
+  // Cancelar desde la segunda: se cancelan la segunda y la tercera; la primera sigue
+  await act(page, 'openAppt', { id: rows[1].id });
+  await expect(page.locator('.mod [data-act="cancelSeries"]')).toBeVisible();
+  await click(page, '.mod [data-act="cancelSeries"]');
+  await expect(toast(page)).toContainText('2 citas canceladas');
+  rows = (await svc(`appointments?select=status&org_id=eq.${org.id}&order=starts_at.asc`)).json;
+  expect(rows.map(r => r.status)).toEqual(['scheduled', 'cancelled', 'cancelled']);
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
 test('equipo: invitación por enlace, alta de recepción con el correo invitado y permisos por rol', async ({ browser }) => {
   const adminEmail = mail('admin-eq');
   const { id: orgId } = await clinicFor(adminEmail, 'Clínica Sintética Equipo');

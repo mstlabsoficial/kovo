@@ -341,7 +341,7 @@ function runFixed(){
 /* ===== datos nuevos sobre el estado guardado ===== */
 function migrate(){
   // Modo conectado: nada de datos de ejemplo ni automatismos locales. Lo nuevo sin servidor queda vacío.
-  if(W){S.settings=Object.assign({dailyHour:'08:00'},S.settings,{dailyConfirm:false});S.ded={};S.fixedSkip={};S.users=[];S.fixed=[];S.blocks=[];S.outbox=S.outbox||[];return}
+  if(W){S.settings=Object.assign({dailyHour:'08:00'},S.settings,{dailyConfirm:false});S.ded={};S.fixedSkip={};S.users=[];S.fixed=[];S.blocks=S.blocks||[];S.outbox=S.outbox||[];return}
   S.settings=Object.assign({dailyConfirm:true,dailyHour:'08:00'},S.settings);
   S.ded=S.ded||{};S.fixedSkip=S.fixedSkip||{};S.cal.date=nextWorkDay();
   if(!S.users)S.users=[{id:'u1',titular:true,name:'',email:'',role:'psicologa'},{id:'u2',name:'Ana Ruiz Prieto (ficticia)',email:'recepcion@ejemplo.es',role:'recepcion'},{id:'u3',name:'Gestoría Ejemplo',email:'gestor@gestoria-ejemplo.es',role:'gestoria'},{id:'u4',name:'Compañero de consulta (ficticio)',email:'companero@ejemplo.es',role:'agenda'}];
@@ -591,7 +591,7 @@ function weekMap(days,o){o=o||{};
       const t=h*60;const ap=apptsOn(d).filter(x=>Math.floor(x.start/60)===h&&x.status!=='cancelada');
       const inAv=(AVAIL[dow(d)]||[]).some(([a,b])=>t>=a&&t<b);const cls=`${d===TODAY?'tcol':''} ${d<TODAY?'pday':''}`;
       const bl=blockOn(d);
-      if(ap.length){const a=ap[0];const dr=!W&&!o.compact&&!noEdit()&&['pendiente','confirmada'].includes(a.status)&&d>=TODAY;return `<button class="wm-c busy ${a.status} ${cls} ${bl&&['pendiente','confirmada'].includes(a.status)?'inblock':''}" data-act="openAppt" data-id="${a.id}" ${dr?'data-drag="1"':''} title="${hm(a.start)} · ${esc(SV(a.service).name)} · ${a.status}${dr?' · arrastra para moverla':''}">${a.seriesId&&!o.compact?`<span class="wm-rep" aria-label="Se repite">${REPSVG}</span>`:''}<span class="wm-p">${P(a.patientId).code}${ap.length>1?` +${ap.length-1}`:''}</span>${a.start%60?`<span class="wm-s">${hm(a.start)}</span>`:''}${o.compact?'':`<span class="wm-s">${LBL[a.status]||esc(SV(a.service).name)}</span>`}</button>`}
+      if(ap.length){const a=ap[0];const dr=!o.compact&&!noEdit()&&['pendiente','confirmada'].includes(a.status)&&d>=TODAY;return `<button class="wm-c busy ${a.status} ${cls} ${bl&&['pendiente','confirmada'].includes(a.status)?'inblock':''}" data-act="openAppt" data-id="${a.id}" ${dr?'data-drag="1"':''} title="${hm(a.start)} · ${esc(SV(a.service).name)} · ${a.status}${dr?' · arrastra para moverla':''}">${a.seriesId&&!o.compact?`<span class="wm-rep" aria-label="Se repite">${REPSVG}</span>`:''}<span class="wm-p">${P(a.patientId).code}${ap.length>1?` +${ap.length-1}`:''}</span>${a.start%60?`<span class="wm-s">${hm(a.start)}</span>`:''}${o.compact?'':`<span class="wm-s">${LBL[a.status]||esc(SV(a.service).name)}</span>`}</button>`}
       if(bl)return `<div class="wm-c closed ${cls}">${h===firstRow&&!o.compact?`<span class="wm-s">Cerrado</span>`:''}</div>`;
       const past=d<TODAY||(d===TODAY&&t+60<=nm);
       if(inAv&&!past&&!noEdit())return `<button class="wm-c free ${cls}" data-act="slotNew" data-d="${d}" data-t="${t}" aria-label="Crear cita el ${fDs(d)} a las ${pad(h)}:00"><span class="wm-l">Libre</span></button>`;
@@ -1176,7 +1176,7 @@ function apptForm(a,pre){
     <label class="field"><span>Duración (min)</span><input type="number" id="f-dur" min="15" step="5" value="${a.dur}"></label>
     <label class="field"><span>Modalidad</span><select id="f-m"><option ${a.modal==='presencial'?'selected':''}>presencial</option><option ${a.modal==='online'?'selected':''}>online</option></select></label>
     <label class="field"><span>Ubicación o enlace</span><input type="text" id="f-l" value="${esc(a.loc)}"></label>
-    ${isNew&&!W?`<label class="field"><span>Repetir</span><select id="f-rep"><option value="0">No se repite</option><option value="7">Cada semana</option><option value="14">Cada dos semanas</option></select></label><label class="field" id="f-repn-w" hidden><span>Número de citas</span><input type="number" id="f-repn" min="2" max="52" value="8"></label><div id="f-rep-prev" class="full rep-prev" hidden></div>`:''}
+    ${isNew?`<label class="field"><span>Repetir</span><select id="f-rep"><option value="0">No se repite</option><option value="7">Cada semana</option><option value="14">Cada dos semanas</option></select></label><label class="field" id="f-repn-w" hidden><span>Número de citas</span><input type="number" id="f-repn" min="2" max="52" value="8"></label><div id="f-rep-prev" class="full rep-prev" hidden></div>`:''}
     <label class="field full"><span>Notas administrativas (opcional)</span><textarea id="f-n" style="min-height:64px" placeholder="Por ejemplo: pago pendiente, cambio de sala…">${esc(a.notes||'')}</textarea></label>
     <div id="f-warn" class="full" hidden></div></div>`,
     `<button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="saveAppt" data-id="${isNew?'':a.id}">${isNew?'Crear cita':'Guardar cambios'}</button>`);
@@ -1307,7 +1307,8 @@ function repPreview(){
   pv.innerHTML=`<div class="rep-h">${!ok?'<b>Ninguna fecha está libre a esa hora.</b> Prueba otro día u otra hora':`<b>${ok} ${ok===1?'cita':'citas'}</b> ${r===7?'cada semana':'cada dos semanas'} a las ${t}`}${ok&&ok<L.length?` · <span class="rep-skip">${L.length-ok} ${L.length-ok===1?'fecha se salta':'fechas se saltan'}</span>`:''}</div><div class="rep-dates">${L.map(x=>x.skip?`<span class="rep-d skip" title="${esc(x.skip)}"><s>${sdm(x.d)}</s><small>${esc(x.skip)}</small></span>`:`<span class="rep-d">${sdm(x.d)}</span>`).join('')}</div>`;
 }
 function blocksPanel(){
-  if(W)return `<section class="panel" id="sec-blocks"><header><h2>Vacaciones y festivos</h2></header><div class="box">Los días cerrados todavía no se guardan en el servidor. De momento no se pueden añadir con la cuenta conectada.</div></section>`;
+  if(W&&!S.blocksAvailable)return `<section class="panel" id="sec-blocks"><header><h2>Vacaciones y festivos</h2></header><div class="box">Este servidor todavía no guarda días cerrados. No se pueden añadir con la cuenta conectada.</div></section>`;
+  if(W&&!(S.pro&&S.pro.id))return `<section class="panel" id="sec-blocks"><header><h2>Vacaciones y festivos</h2></header><div class="box">Para cerrar días, primero crea tu ficha profesional en Ajustes › Mi perfil profesional.</div></section>`;
   const B=(S.blocks||[]).slice().sort((a,b)=>a.from.localeCompare(b.from));const fut=B.filter(b=>b.to>=TODAY),pst=B.filter(b=>b.to<TODAY);
   const nd=b=>Math.round((parse(b.to)-parse(b.from))/864e5)+1;
   const row=b=>`<div class="blk ${b.to<TODAY?'past':''}"><span class="blk-ic">${SVG(IC.cal)}</span><div class="blk-t"><b>${esc(b.label)}</b><span>${b.from===b.to?fDs(b.from):`${fD(b.from)} – ${fD(b.to)}`} · ${nd(b)} ${nd(b)===1?'día':'días'}</span></div><button class="x" data-act="blockDel" data-id="${b.id}" aria-label="Quitar ${esc(b.label)}">×</button></div>`;
@@ -1319,7 +1320,6 @@ function blocksPanel(){
 }
 let DRAG=null;
 function moveAsk(id,d,t){
-  if(W){toast('Mover arrastrando aún no está conectado al servidor. Abre la cita y usa «Reprogramar».');return}
   const a=S.appts.find(x=>x.id===id);if(!a)return;const ns=t+(a.start%60);if(a.date===d&&a.start===ns)return;const p=P(a.patientId);const cf=conflicts(a.id,d,ns,a.dur);
   modal('Mover cita',`<div class="mv"><div class="mv-b"><span>Ahora</span><b>${fDs(a.date)}</b><em>${hm(a.start)}</em></div><span class="mv-ar">→</span><div class="mv-b now"><span>Nueva fecha</span><b>${fDs(d)}</b><em>${hm(ns)}</em></div></div>
     <p style="margin:0">${pc(p)} ${esc(SV(a.service).name)} · ${a.dur} min</p>${cf.length?`<div class="box warn">Se solapa con ${cf.map(c=>P(c.patientId).code).join(', ')}.</div>`:''}${S.settings.confirmEmail?'<p class="muted small" style="margin:0">El paciente recibirá un correo con la nueva fecha.</p>':''}`,
@@ -1506,11 +1506,17 @@ const ACT={
   saveAppt:(d,btn)=>{
     const pid=val('f-p'),date=val('f-d'),t=val('f-t'),dur=Number(val('f-dur'));const w=document.getElementById('f-warn');
     if(!pid||!date||!t||!dur){w.hidden=false;w.className='full box warn';w.textContent='Elige un paciente de la lista y completa fecha, hora y duración.';return}
-    const start=toMin(t);const rp=W?0:Number(val('f-rep'))||0;
+    const start=toMin(t);const rp=Number(val('f-rep'))||0;
     if(!d.id&&rp){
       const n=Math.min(52,Math.max(2,Number(val('f-repn'))||8));const L=seriesDates(date,start,dur,rp,n);const ok=L.filter(x=>!x.skip);
       if(!ok.length){w.hidden=false;w.className='full box warn';w.textContent='Ninguna de esas fechas está libre. Cambia el día o la hora.';return}
       const sv=SV(val('f-s'));const p=P(pid);const sid=nid('s');
+      if(W){if(ok.length<2){w.hidden=false;w.className='full box warn';w.textContent='Solo queda una fecha libre: quita la repetición y crea una cita normal.';return}
+        const input={patientId:pid,start,dur,service:sv.id,price:sv.price,modal:val('f-m'),loc:val('f-l'),notes:val('f-n'),status:S.settings.confirmEmail?'pendiente':'confirmada'};
+        remote(btn,()=>W.saveAppointmentSeries({input,dates:ok.map(x=>x.d),patient:p,professionalId:S.pro.id,userId:W.userId(),services:S.services}),({appts})=>{
+          W.applyAppointments(S,appts);appts.forEach(a=>logA(a,'Cita creada (se repite)'));audit(`${appts.length} citas creadas para ${p.code} (${rp===7?'cada semana':'cada dos semanas'})`);
+          const sk=L.length-ok.length;closeModal();render();toast(`${appts.length} citas creadas para ${p.code}${sk?` · ${sk} ${sk===1?'fecha saltada':'fechas saltadas'}`:''}`)},e=>{w.hidden=false;w.className='full box warn';w.textContent=e.message});
+        return}
       ok.forEach((x,i)=>{const a={id:nid('a'),patientId:pid,date:x.d,start,dur,service:sv.id,price:sv.price,modal:val('f-m'),loc:val('f-l'),notes:val('f-n'),status:S.settings.confirmEmail?'pendiente':'confirmada',log:[],cancelReason:'',seriesId:sid,seriesEvery:rp,seriesIdx:i+1,seriesTotal:ok.length};logA(a,'Cita creada (se repite)');S.appts.push(a)});
       audit(`${ok.length} citas creadas para ${p.code} (${rp===7?'cada semana':'cada dos semanas'})`);
       if(S.settings.confirmEmail)mail(p.email,'Tus próximas citas',`Tienes ${ok.length} citas ${rp===7?'cada semana':'cada dos semanas'} a las ${t} en ${val('f-l')}: ${ok.map(x=>fDs(x.d)).join(' · ')}.${S.settings.dailyConfirm?' Cada día de cita recibirás por la mañana un correo para confirmar tu asistencia.':''}`,'Cita');
@@ -1574,10 +1580,15 @@ Dictado: «${txt}»`;
     finally{btn.disabled=false;btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>Ordenar con IA'}},
   dictUndo:()=>{if(W||!DICT_UNDO)return;Object.entries(DICT_UNDO).forEach(([k,v])=>{const el=document.getElementById('nf-'+k);if(el){el.value=v;autosize(el)}});DICT_UNDO=null;const nn=S.notes.find(x=>x.id===S.sel.editing);if(nn){readNote(nn);save()}const u=document.getElementById('dict-undo');if(u)u.hidden=true;document.getElementById('dict-st').textContent='Se ha vuelto al texto anterior.'},
   todosMore:(d,t)=>{const pn=t.closest('.todo-panel');pn.classList.toggle('all');t.textContent=pn.classList.contains('all')?'Ver menos':d.more},
-  cancelSeries:d=>{const a=S.appts.find(x=>x.id===d.id);const r=val('f-cr');const L=S.appts.filter(x=>x.seriesId===a.seriesId&&x.date>=a.date&&['pendiente','confirmada'].includes(x.status)).sort((x,y)=>x.date.localeCompare(y.date));
+  cancelSeries:(d,btn)=>{const a=S.appts.find(x=>x.id===d.id);const r=val('f-cr');
+    if(W){remote(btn,()=>W.cancelSeries({appt:a,services:S.services}),({appts})=>{W.applyAppointments(S,appts);appts.forEach(x=>{x.cancelReason=r;logA(x,'Cancelada con las siguientes · '+r)});audit(`${appts.length} citas de ${P(a.patientId).code} canceladas (esta y las siguientes)`);closeModal();render();toast(`${appts.length} ${appts.length===1?'cita cancelada':'citas canceladas'}`)});return}
+   const L=S.appts.filter(x=>x.seriesId===a.seriesId&&x.date>=a.date&&['pendiente','confirmada'].includes(x.status)).sort((x,y)=>x.date.localeCompare(y.date));
     L.forEach(x=>{x.status='cancelada';x.cancelReason=r;logA(x,'Cancelada con las siguientes · '+r)});const p=P(a.patientId);audit(`${L.length} citas de ${p.code} canceladas (esta y las siguientes)`);
     mail(p.email,'Citas canceladas',`Se han cancelado ${L.length} citas: ${L.map(x=>fDs(x.date)).join(' · ')}.`,'Cita');closeModal();render();toast(`${L.length} citas canceladas · aviso enviado`)},
-  moveDo:d=>{const a=S.appts.find(x=>x.id===d.id);const p=P(a.patientId);const old=`${a.date} ${hm(a.start)}`;a.date=d.d;a.start=Number(d.t);a.remSent=null;a.dayMail=null;
+  moveDo:(d,btn)=>{const a=S.appts.find(x=>x.id===d.id);const p=P(a.patientId);const old=`${a.date} ${hm(a.start)}`;
+    if(W){const input={patientId:a.patientId,date:d.d,start:Number(d.t),dur:a.dur,service:a.service,price:a.price,modal:a.modal,loc:a.loc,notes:a.notes,status:a.status};
+      remote(btn,()=>W.saveAppointment({existing:a,input,patient:p,professionalId:S.pro.id,userId:W.userId(),services:S.services}),({appt,replacedId})=>{W.applyAppointment(S,appt,replacedId);logA(appt,`Movida de ${old} a ${appt.date} ${hm(appt.start)}`);audit(`Cita ${p.code} movida`);closeModal();render();toast('Cita movida')},e=>{closeModal();render();toast(e.message)});return}
+   a.date=d.d;a.start=Number(d.t);a.remSent=null;a.dayMail=null;
     logA(a,`Movida de ${old} a ${a.date} ${hm(a.start)}`);audit(`Cita ${p.code} movida`);if(S.settings.confirmEmail)mail(p.email,'Cambio en tu cita',`Tu cita se ha movido al ${fDs(a.date)} a las ${hm(a.start)} (${a.loc}).`,'Cita');closeModal();render();toast('Cita movida'+(S.settings.confirmEmail?' · aviso enviado':''))},
   goBlocks:()=>{S.view='config';S.sel.ctab='horario';S.sel.patient=null;S.sel.scrollTo='sec-blocks';render()},
   blockAdd:()=>{let f=val('bk-f'),t=val('bk-t');const l=val('bk-l').trim()||'Cerrado';if(!f||!t){toast('Elige las fechas');return}if(t<f)[f,t]=[t,f];

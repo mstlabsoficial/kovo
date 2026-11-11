@@ -7,7 +7,7 @@
 // - Si algo falla, lanza el error y no devuelve nada: el estado local no cambia.
 import { isUuid, splitName } from './mapping.js';
 import { patientFromRow, appointmentFromRow, APPOINTMENT_STATUS, toLocalDate, toLocalMinutes } from './from-supabase.js';
-import { uiPatient, uiAppointment, ensureMissingService, MISSING_SERVICE_ID } from './legacy-state.js';
+import { uiPatient, uiAppointment, ensureMissingService, annotateSeries, MISSING_SERVICE_ID } from './legacy-state.js';
 import { WriteError } from './writes.js';
 
 const DB_APPOINTMENT_STATUS = Object.fromEntries(Object.entries(APPOINTMENT_STATUS).map(([db, ui]) => [ui, db]));
@@ -122,6 +122,50 @@ export function createLegacyWrites({ writer, newId = () => crypto.randomUUID() }
       return this._appointmentFrom(result, existing, services);
     },
 
+    // Serie de citas: mismas condiciones que saveAppointment en cada fecha de `dates` ('AAAA-MM-DD').
+    // Todo o nada (una sola inserción). Mismos ids en cada reintento del mismo formulario.
+    async saveAppointmentSeries({ input, dates, patient, professionalId = null, userId = null, services = [] }) {
+      if (!patient || !isUuid(patient.id) || input.patientId !== patient.id) throw bad('patient_id', 'Elige un paciente guardado en la consulta.');
+      if (!Array.isArray(dates) || dates.length < 2 || dates.length > 52) throw bad('series_id', 'Una serie tiene entre 2 y 52 citas.');
+      const dur = Number(input.dur);
+      if (!Number.isInteger(dur) || dur < 5 || dur > 720) throw bad('dur', 'La duración debe estar entre 5 y 720 minutos.');
+      const price = Number(input.price ?? 0);
+      if (!Number.isInteger(price) || price < 0) throw bad('price', 'Precio no válido.');
+      const status = DB_APPOINTMENT_STATUS[input.status];
+      if (!status) throw bad('status', 'Estado de cita no válido.');
+      const key = JSON.stringify([patient.id, input.start, dur, dates]);
+      if (pending.seriesKey !== key) { pending.seriesKey = key; pending.series = { id: newId(), rows: dates.map(() => newId()) }; }
+      const { id: seriesId, rows: ids } = pending.series;
+      const rows = dates.map((date, i) => {
+        const starts = madridToUtc(date, input.start);
+        return {
+          id: ids[i], series_id: seriesId, patient_id: patient.id, service_id: realService(input.service, services),
+          starts_at: starts, ends_at: new Date(Date.parse(starts) + dur * 60000).toISOString(),
+          location: trimOrNull(input.loc), modality: input.modal || null, price_cents: price, administrative_note: trimOrNull(input.notes),
+          status, professional_id: isUuid(professionalId) ? professionalId : null, created_by: isUuid(userId) ? userId : null
+        };
+      });
+      const result = await writer.createAppointmentSeries(rows);
+      delete pending.series; delete pending.seriesKey;
+      return { appts: this._appointmentsFrom(result.rows, services), seriesId, outcome: result.outcome };
+    },
+
+    // Cancela la cita `appt` y las siguientes abiertas de su serie.
+    async cancelSeries({ appt, services = [] }) {
+      if (!appt || !isUuid(appt.seriesId) || !appt.startsAt) throw bad('series_id', 'Esta cita no pertenece a una serie guardada.');
+      const result = await writer.cancelAppointmentSeries(appt.seriesId, appt.startsAt);
+      return { appts: this._appointmentsFrom(result.rows, services) };
+    },
+
+    _appointmentsFrom(rows, services) {
+      const sIds = new Set(services.map(s => s.id));
+      return rows.map(r => {
+        const a = uiAppointment(appointmentFromRow(r), sIds);
+        if (!a) throw new WriteError('unexpected_response', 'El servidor ha devuelto una cita incompleta. Recarga para comprobarlo.', { table: 'appointments' });
+        return a;
+      });
+    },
+
     // Cambio de estado (confirmar, realizada, ausencia, cancelar). status: estado legacy.
     async setAppointmentStatus({ appt, status, services = [] }) {
       if (!appt || !isUuid(appt.id)) throw bad('id', 'Cita no válida.');
@@ -156,6 +200,16 @@ export function applyPatient(S, patient, replacedId = null) {
   if (patient.service === MISSING_SERVICE_ID) ensureMissingService(S.services);
   return patient;
 }
+// Aplica varias citas confirmadas (serie) y recalcula la numeración de las series.
+export function applyAppointments(S, appts) {
+  for (const a of appts) {
+    const old = S.appts.find(x => x.id === a.id);
+    if (old) { a.log = old.log || []; a.cancelReason = a.cancelReason || old.cancelReason || ''; if (old.invoiceId) a.invoiceId = old.invoiceId; }
+    applyAppointment(S, a);
+  }
+  annotateSeries(S.appts);
+  return appts;
+}
 // Aplica una cita confirmada al estado S.
 export function applyAppointment(S, appt, replacedId = null) {
   const oldId = replacedId || appt.id;
@@ -163,5 +217,6 @@ export function applyAppointment(S, appt, replacedId = null) {
   if (i >= 0) S.appts[i] = appt; else S.appts.push(appt);
   if (replacedId) for (const n of S.notes || []) if (n.apptId === replacedId) n.apptId = appt.id;
   if (appt.service === MISSING_SERVICE_ID) ensureMissingService(S.services);
+  if (appt.seriesId) annotateSeries(S.appts);
   return appt;
 }

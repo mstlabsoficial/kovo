@@ -54,7 +54,7 @@ const onlyKeys = (row, allowed) => {
   for (const k of Object.keys(row)) if (!allowed.includes(k)) throw bad(k, 'Campo no permitido.');
 };
 const PATIENT_COLUMNS = ['id', 'first_name', 'last_name', 'email', 'phone', 'status', 'profile_data', 'legacy_id'];
-const APPOINTMENT_COLUMNS = ['id', 'patient_id', 'professional_id', 'service_id', 'starts_at', 'ends_at', 'status', 'location', 'modality', 'price_cents', 'administrative_note', 'created_by', 'legacy_id'];
+const APPOINTMENT_COLUMNS = ['id', 'patient_id', 'professional_id', 'service_id', 'starts_at', 'ends_at', 'status', 'location', 'modality', 'price_cents', 'administrative_note', 'created_by', 'legacy_id', 'series_id'];
 
 export function validatePatientRow(row, { partial = false } = {}) {
   if (!isPlainObject(row)) throw bad(null, 'Datos no válidos.');
@@ -73,13 +73,14 @@ export function validatePatientRow(row, { partial = false } = {}) {
 
 export function validateAppointmentRow(row, { partial = false } = {}) {
   if (!isPlainObject(row)) throw bad(null, 'Datos no válidos.');
-  onlyKeys(row, partial ? APPOINTMENT_COLUMNS.filter(k => !['id', 'created_by', 'legacy_id'].includes(k)) : APPOINTMENT_COLUMNS);
+  onlyKeys(row, partial ? APPOINTMENT_COLUMNS.filter(k => !['id', 'created_by', 'legacy_id', 'series_id'].includes(k)) : APPOINTMENT_COLUMNS);
   const need = k => !partial || k in row;
   if (!partial) uuidOrNull(row, 'id', true);
   if (need('patient_id')) uuidOrNull(row, 'patient_id', true);
   if ('professional_id' in row) uuidOrNull(row, 'professional_id');
   if ('service_id' in row) uuidOrNull(row, 'service_id');
   if ('created_by' in row) uuidOrNull(row, 'created_by');
+  if ('series_id' in row) uuidOrNull(row, 'series_id');
   if (need('starts_at') || need('ends_at') || 'starts_at' in row || 'ends_at' in row) {
     if (!('starts_at' in row) || !('ends_at' in row)) throw bad('starts_at', 'Indica el inicio y el final de la cita.');
     const a = Date.parse(row.starts_at), b = Date.parse(row.ends_at);
@@ -106,6 +107,10 @@ export function classify(error, table) {
   if (pg === 'KS001') return new WriteError('suspended', 'La cuenta de la clínica está suspendida: puedes consultar, pero no guardar cambios. No se ha guardado nada.', { table, status });
   if (pg === 'KP001') return new WriteError('plan_limit', error?.details?.message || 'Se ha alcanzado el límite del plan.', { table, status });
   if (status === 403 || pg === '42501') return new WriteError('forbidden', 'Tu perfil no tiene permiso para guardar estos datos.', { table, status });
+  // Columna desconocida para PostgREST: el servidor no tiene aún la migración (p. ej. series_id).
+  if (pg === 'PGRST204') return new WriteError('unsupported', 'Este servidor todavía no admite esta función (falta aplicar una actualización de la base de datos). No se ha guardado nada.', { table, status });
+  // Restricción de exclusión appointments_no_professional_overlap (o franjas de horario).
+  if (pg === '23P01') return new WriteError('overlap', 'Esa hora se solapa con otra cita de la misma profesional. No se ha guardado nada.', { table, status });
   if (pg === '23505') return new WriteError('duplicate', 'Ya existe un registro con esos datos.', { table, status });
   // Citas con documentación clínica (trigger appointments_clinical_link de la propuesta clínica v2).
   if (pg === 'KN010') return new WriteError('clinical_link', 'Esta cita tiene una nota clínica: no se puede cambiar de paciente. No se ha guardado nada.', { table, status });
@@ -234,6 +239,48 @@ export function createEntityWriter({
     createPatient: row => insert('patients', row, validatePatientRow),
     updatePatient: (id, changes, version) => update('patients', id, changes, version, validatePatientRow),
     createAppointment: row => insert('appointments', row, validateAppointmentRow),
-    updateAppointment: (id, changes, version) => update('appointments', id, changes, version, validateAppointmentRow)
+    updateAppointment: (id, changes, version) => update('appointments', id, changes, version, validateAppointmentRow),
+    createAppointmentSeries,
+    cancelAppointmentSeries
   };
+
+  // Serie de citas (db/migrations/20261112090000_appointment_series.sql): UNA inserción con todas las
+  // filas → todo o nada (si una fecha se solapa, no se crea ninguna). Los ids y el series_id los pone
+  // el cliente: si la respuesta se pierde y se reintenta, se reconoce la serie ya creada.
+  async function createAppointmentSeries(rows) {
+    const table = 'appointments';
+    if (!Array.isArray(rows) || rows.length < 2 || rows.length > 52) throw bad('series_id', 'Una serie tiene entre 2 y 52 citas.');
+    rows.forEach(r => validateAppointmentRow(r));
+    const sid = rows[0].series_id;
+    if (!isUuid(sid) || rows.some(r => r.series_id !== sid)) throw bad('series_id', 'Serie no válida.');
+    const ctx = await contextFor(table);
+    const body = rows.map(r => ({ ...r, org_id: ctx.id }));
+    const ids = new Set(rows.map(r => r.id));
+    const check = data => {
+      if (!Array.isArray(data) || data.length !== rows.length || data.some(r => r?.org_id !== ctx.id || !ids.has(r.id) || r.series_id !== sid))
+        throw new WriteError('unexpected_response', 'El servidor no ha confirmado la serie completa. Recarga para comprobarlo.', { table });
+      return data;
+    };
+    try {
+      const data = await call(table, table, { method: 'POST', body, headers: { Prefer: 'return=representation' } });
+      return { rows: check(data), outcome: 'created' };
+    } catch (e) {
+      if (!(e instanceof WriteError) || e.code !== 'duplicate') throw e;
+      const existing = await call(table, `${table}?select=*&org_id=eq.${ctx.id}&series_id=eq.${sid}&order=starts_at.asc`);
+      if (Array.isArray(existing) && existing.length === rows.length && existing.every(r => ids.has(r.id))) return { rows: check(existing), outcome: 'already_created' };
+      throw e;
+    }
+  }
+  // «Esta y las siguientes»: UNA actualización filtrada por serie, fecha y estado abierto.
+  async function cancelAppointmentSeries(seriesId, fromIso) {
+    const table = 'appointments';
+    if (!isUuid(seriesId)) throw bad('series_id', 'Serie no válida.');
+    if (!Number.isFinite(Date.parse(fromIso))) throw bad('starts_at', 'Fecha no válida.');
+    const ctx = await contextFor(table);
+    const path = `${table}?org_id=eq.${ctx.id}&series_id=eq.${seriesId}&starts_at=gte.${encodeURIComponent(new Date(fromIso).toISOString())}&status=in.(scheduled,confirmed)`;
+    const data = await call(table, path, { method: 'PATCH', body: { status: 'cancelled', updated_at: now() }, headers: { Prefer: 'return=representation' } });
+    if (!Array.isArray(data) || data.some(r => r?.org_id !== ctx.id || r.series_id !== seriesId || r.status !== 'cancelled'))
+      throw new WriteError('unexpected_response', 'El servidor no ha confirmado la cancelación. Recarga para comprobarlo.', { table });
+    return { rows: data };
+  }
 }

@@ -26,6 +26,7 @@ Migraciones de `db/migrations` (orden de nombre):
 | `20261111090400_documents_payments_audit` | Documentos (validación, ruta, retirada lógica, Storage), cobros con estado de la factura, cola de recordatorios, auditoría de cambios (solo nombres de campo). |
 | `20261111090500_function_grants` | `EXECUTE` solo para `authenticated` (y `apply_billing_event` solo para `service_role`). |
 | `20261111090600_app_rpcs` | Horario semanal atómico, ficha profesional propia, edición de borradores de factura. |
+| `20261112090000_appointment_series` | Citas repetidas: columna `appointments.series_id` (nullable) + índice. Alta de la serie = una inserción (todo o nada); «esta y las siguientes» = una actualización. Aditiva. |
 
 ### Aplicar a una base que ya tiene datos
 
@@ -64,11 +65,11 @@ subir la rama (pendiente de autorización).
 |---|---|---|
 | pgTAP consolidado (`tests/saas_test.sql`) | códigos, alta, aislamiento, roles, ajustes, horario, auditoría, invitaciones, límites de plan, plataforma, suspensión, sesiones, facturas y cobros, documentos, recordatorios, pasarela | 123/123 |
 | pgTAP clínico v2 sobre la cadena completa | integridad, roles, firma, versiones, auditoría | 81/81 |
-| HTTP (`tests/http.mjs`) | tokens reales de Supabase Auth, PostgREST y Storage: alta, aislamiento, escalada de privilegios, REST/RPC directos, Storage (subida, descarga, otra clínica, manipulación de ruta, tipo, tamaño, sobrescritura, borrado), sesiones (cierre, rotación, reutilización), tokens caducados/falsos/manipulados, facturación, plataforma, suspensión, soporte, webhook | 95/95 |
+| HTTP (`tests/http.mjs`) | días cerrados (RLS por profesional), series de citas (todo o nada, reintento, cancelación parcial, aislamiento), tokens reales de Supabase Auth, PostgREST y Storage: alta, aislamiento, escalada de privilegios, REST/RPC directos, Storage (subida, descarga, otra clínica, manipulación de ruta, tipo, tamaño, sobrescritura, borrado), sesiones (cierre, rotación, reutilización), tokens caducados/falsos/manipulados, facturación, plataforma, suspensión, soporte, webhook | 105/105 |
 | Concurrencia (`tests/concurrency.mjs`) | 30 altas simultáneas, reservas solapadas, invitaciones, cobros, emisiones | 10/10 |
 | Migración de datos (`tests/upgrade.mjs`) | ver §1 | 27/27 |
 | Copia y restauración (`tests/backup.mjs`) | copia física en frío de PostgreSQL + ficheros de Storage → restauración en otro servidor → 70 tablas idénticas (recuento + md5), contraseñas, documentos | 5/5 |
-| E2E (`app/tests/stack`) | navegador real contra la pila completa: alta → operación diaria, equipo, varias clínicas, suspensión y panel de KOVO, sesión y red, móvil | 6/6 |
+| E2E (`app/tests/stack`) | navegador real contra la pila completa: alta → operación diaria, agenda v3 (días cerrados, serie, mover, cancelar serie), equipo, varias clínicas, suspensión y panel de KOVO, sesión y red, móvil | 7/7 |
 
 ## 4. Matriz de permisos (la aplica PostgreSQL; la interfaz solo la refleja)
 

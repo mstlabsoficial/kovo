@@ -11,7 +11,7 @@ import { getOrganizationContext, restoreSession, refreshAccessToken, signOut, se
 import { createClinicApi } from './clinic.js';
 import { isSupabaseConfigured, supabaseRequest } from './supabase-client.js';
 import { createEntityWriter } from './writes.js';
-import { createLegacyWrites, applyPatient, applyAppointment } from './legacy-writes.js';
+import { createLegacyWrites, applyPatient, applyAppointment, applyAppointments } from './legacy-writes.js';
 import { createNoteWriter, createLegacyNoteWrites, applyNote } from './note-writes.js';
 import { createKovoRepository } from './repository.js';
 import { buildLegacyCollections } from './from-supabase.js';
@@ -54,7 +54,7 @@ export function createSupabaseSource({
     },
     writes: {
       ...createLegacyWrites({ writer, newId }),
-      applyPatient, applyAppointment,
+      applyPatient, applyAppointment, applyAppointments,
       notes: Object.assign(createLegacyNoteWrites({ writer: noteWriter }), { applyNote }),
       userId: () => context?.userId ?? null
     },
