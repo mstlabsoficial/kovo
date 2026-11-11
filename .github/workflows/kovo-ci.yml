@@ -5,7 +5,7 @@ name: KOVO · pruebas
 # en cada ejecución (`supabase start` en un directorio temporal, sin `link`, sin `db push`).
 on:
   push:
-    branches: [feat/kovo-consolidacion]
+    branches: [feat/kovo-consolidacion, feat/kovo-ui-v3]
   pull_request:
     branches: [migracion-vite]
   workflow_dispatch:
@@ -62,8 +62,10 @@ jobs:
     timeout-minutes: 45
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/app/.playwright-browsers
-      KOVO_TOOLS_DIR: ${{ runner.temp }}/kovo-tools
     steps:
+      # El contexto `runner` no se puede usar en el `env` del trabajo (GitHub rechaza el archivo entero).
+      - name: Carpeta de herramientas fuera del repositorio
+        run: echo "KOVO_TOOLS_DIR=$RUNNER_TEMP/kovo-tools" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
